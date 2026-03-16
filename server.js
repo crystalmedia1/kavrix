@@ -10,39 +10,33 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 app.post("/generate", async (req, res) => {
-  const { prompt } = req.body;
+  const { prompt, existingCode } = req.body;
+  
+  // Bepaal of het een nieuwe build is of een aanpassing
+  const systemMessage = existingCode 
+    ? `Je bent KAVRIX AI. De gebruiker heeft al een app gebouwd (zie hieronder). 
+       Pas de bestaande code aan op basis van de nieuwe instructie: "${prompt}".
+       Behoud de goede functies, maar verander wat gevraagd wordt.
+       Antwoord ALLEEN met de volledige, nieuwe HTML code.`
+    : `Je bent KAVRIX AI, een Senior Full-Stack Architect. Bouw een complete, professionele web-app in één HTML bestand.
+       Gebruik Tailwind CSS, FontAwesome en moderne JS libraries (HLS.js, Chart.js, etc.) waar nodig.
+       Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' voor externe data fetch.
+       Antwoord ALLEEN met pure HTML code zonder markdown blocks.`;
+
+  const userMessage = existingCode 
+    ? `HUIDIGE CODE:\n${existingCode}\n\nINSTRUCTIE VOOR WIJZIGING: ${prompt}`
+    : `Bouw een professionele applicatie voor: ${prompt}`;
+
   try {
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       {
         model: "llama-3.3-70b-versatile", 
         messages: [
-          { 
-            role: "system", 
-            content: `Je bent KAVRIX AI, een Senior Full-Stack Architect. Je bouwt complete, productie-waardige web-applicaties in één HTML bestand.
-
-            ALGEMENE PRINCIPES:
-            - DESIGN: Gebruik Tailwind CSS. Focus op UX/UI (donker thema, glas-effecten, vloeiende animaties).
-            - ROBUUSTHEID: Schrijf JavaScript met try-catch blokken en duidelijke foutmeldingen voor de gebruiker.
-            - EXTERNE DATA: Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) voor ELK extern verzoek (M3U, JSON, API's).
-            
-            TECHNOLOGIE SELECTIE:
-            - VIDEO/STREAMING: Gebruik HLS.js of Video.js.
-            - GRAFIEKEN/DATA: Gebruik Chart.js of D3.js.
-            - ICONEN: Gebruik FontAwesome 6.
-            - FONTS: Gebruik Google Fonts (Inter of Poppins).
-
-            SPECIFIEKE LOGICA VOOR DATA-PARSING:
-            - Als de gebruiker vraagt om een lijst (zoals M3U of CSV), schrijf dan een robuuste parser die rekening houdt met verschillende regel-eindes (\\n of \\r\\n) en spaties.
-            
-            OUTPUT REGELS:
-            - Antwoord ALLEEN met de pure HTML code.
-            - GEEN markdown code blocks (\`\`\`html).
-            - Begin direct met <!DOCTYPE html>.` 
-          },
-          { role: "user", content: `Ontwikkel een professionele, volledig werkende applicatie voor: ${prompt}` }
+          { role: "system", content: systemMessage },
+          { role: "user", content: userMessage }
         ],
-        temperature: 0.4
+        temperature: 0.3
       },
       {
         headers: {
@@ -53,13 +47,11 @@ app.post("/generate", async (req, res) => {
     );
     
     let generatedCode = response.data.choices[0].message.content.trim();
-    // Verwijder eventuele markdown als de AI de instructie negeert
     generatedCode = generatedCode.replace(/^```html/i, "").replace(/```$/i, "");
-    
     res.json({ code: generatedCode });
   } catch (error) {
-    console.error("Kavrix Engine Error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Kavrix Engine kon de aanvraag niet verwerken." });
+    console.error("Fout:", error.response?.data || error.message);
+    res.status(500).json({ error: "Kavrix Engine Error" });
   }
 });
 
@@ -68,4 +60,4 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Universal Architect v3.0 Live`));
+app.listen(PORT, () => console.log(`Kavrix Architect v4.0 Live`));
