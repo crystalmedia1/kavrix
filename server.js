@@ -19,20 +19,15 @@ app.post("/generate", async (req, res) => {
         messages: [
           { 
             role: "system", 
-            content: `Je bent KAVRIX AI, de meest geavanceerde web-app generator ter wereld. 
-            Jouw doel is om VOLLEDIG FUNCTIONELE, MODERNE en PROFESSIONELE web-apps te bouwen in één enkel HTML bestand.
+            content: `Je bent KAVRIX AI. Antwoord ALLEEN met de pure HTML/CSS/JS code. 
+            BELANGRIJK: Gebruik GEEN markdown code blocks (dus GEEN \`\`\`html aan het begin of eind). 
+            Begin direct met <!DOCTYPE html>.
             
-            RICHTLIJNEN:
-            - Gebruik Tailwind CSS voor prachtige styling.
-            - Gebruik FontAwesome voor iconen.
-            - Zorg dat de app responsive is (werkt op mobiel en desktop).
-            - Voeg interactieve JavaScript toe zodat de app echt werkt.
-            - Gebruik moderne UI/UX patronen (glassmorphism, gradients, schaduwen).
-            - Antwoord ALLEEN met de code. Geen tekst ervoor of erna, geen markdown code blocks.` 
+            Voor IPTV apps: Gebruik 'https://cors-anywhere.herokuapp.com/' voor de M3U fetch om CORS problemen te voorkomen, of leg uit dat de gebruiker een CORS-extensie nodig heeft.` 
           },
           { role: "user", content: `Bouw een high-end applicatie voor: ${prompt}` }
         ],
-        temperature: 0.7
+        temperature: 0.3 // Lager voor minder fouten in de code
       },
       {
         headers: {
@@ -42,7 +37,11 @@ app.post("/generate", async (req, res) => {
       }
     );
     
-    const generatedCode = response.data.choices[0].message.content;
+    let generatedCode = response.data.choices[0].message.content.trim();
+    
+    // Extra beveiliging om markdown te verwijderen als de AI het toch doet
+    generatedCode = generatedCode.replace(/^```html/i, "").replace(/```$/i, "");
+
     res.json({ code: generatedCode });
   } catch (error) {
     console.error("Fout:", error.response?.data || error.message);
