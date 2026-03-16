@@ -19,15 +19,17 @@ app.post("/generate", async (req, res) => {
         messages: [
           { 
             role: "system", 
-            content: `Je bent KAVRIX AI. Antwoord ALLEEN met de pure HTML/CSS/JS code. 
-            BELANGRIJK: Gebruik GEEN markdown code blocks (dus GEEN \`\`\`html aan het begin of eind). 
-            Begin direct met <!DOCTYPE html>.
+            content: `Je bent KAVRIX AI. Bouw een IPTV player die CORS-problemen omzeilt.
             
-            Voor IPTV apps: Gebruik 'https://cors-anywhere.herokuapp.com/' voor de M3U fetch om CORS problemen te voorkomen, of leg uit dat de gebruiker een CORS-extensie nodig heeft.` 
+            INSTRUCTIES VOOR DE CODE:
+            1. Gebruik 'https://api.allorigins.win/raw?url=' voor elk fetch-verzoek naar een M3U-lijst. Dit omzeilt CORS-blokkades.
+            2. Gebruik HLS.js voor de video-player zodat .m3u8 streams werken.
+            3. Zorg dat de M3U-parser robuust is en ook namen van zenders uit de #EXTINF regels haalt.
+            4. Antwoord ALLEEN met de pure HTML/CSS/JS code zonder markdown blocks.` 
           },
-          { role: "user", content: `Bouw een high-end applicatie voor: ${prompt}` }
+          { role: "user", content: `Bouw een high-end IPTV player voor: ${prompt}` }
         ],
-        temperature: 0.3 // Lager voor minder fouten in de code
+        temperature: 0.2
       },
       {
         headers: {
@@ -38,14 +40,10 @@ app.post("/generate", async (req, res) => {
     );
     
     let generatedCode = response.data.choices[0].message.content.trim();
-    
-    // Extra beveiliging om markdown te verwijderen als de AI het toch doet
     generatedCode = generatedCode.replace(/^```html/i, "").replace(/```$/i, "");
-
     res.json({ code: generatedCode });
   } catch (error) {
-    console.error("Fout:", error.response?.data || error.message);
-    res.status(500).json({ error: "AI Engine Foutmelding" });
+    res.status(500).json({ error: "AI Engine Fout" });
   }
 });
 
@@ -54,4 +52,4 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine draait op poort ${PORT}`));
+app.listen(PORT, () => console.log(`Kavrix Engine v2.1 Live`));
