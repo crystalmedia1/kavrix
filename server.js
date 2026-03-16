@@ -12,19 +12,19 @@ app.use(express.static(__dirname));
 app.post("/generate", async (req, res) => {
   const { prompt, existingCode } = req.body;
   
-  // Bepaal of het een nieuwe build is of een aanpassing
   const systemMessage = existingCode 
-    ? `Je bent KAVRIX AI. De gebruiker heeft al een app gebouwd (zie hieronder). 
-       Pas de bestaande code aan op basis van de nieuwe instructie: "${prompt}".
-       Behoud de goede functies, maar verander wat gevraagd wordt.
-       Antwoord ALLEEN met de volledige, nieuwe HTML code.`
+    ? `Je bent KAVRIX AI. Je MOET de bestaande code strikt aanpassen op basis van de instructie: "${prompt}".
+       - Verander ALLEEN wat gevraagd wordt, maar behoud de rest van de functionaliteit.
+       - Als de gebruiker zegt dat iets niet werkt, zoek dan een alternatieve oplossing (bijv. andere proxy of library).
+       - Antwoord ALLEEN met de volledige, verbeterde HTML code.`
     : `Je bent KAVRIX AI, een Senior Full-Stack Architect. Bouw een complete, professionele web-app in één HTML bestand.
-       Gebruik Tailwind CSS, FontAwesome en moderne JS libraries (HLS.js, Chart.js, etc.) waar nodig.
-       Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' voor externe data fetch.
-       Antwoord ALLEEN met pure HTML code zonder markdown blocks.`;
+       - Gebruik Tailwind CSS en FontAwesome.
+       - Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' voor externe data.
+       - Zorg dat de UI modern en responsive is.
+       - Antwoord ALLEEN met pure HTML code zonder markdown blocks.`;
 
   const userMessage = existingCode 
-    ? `HUIDIGE CODE:\n${existingCode}\n\nINSTRUCTIE VOOR WIJZIGING: ${prompt}`
+    ? `HUIDIGE CODE:\n${existingCode}\n\nGEWENSTE AANPASSING: ${prompt}`
     : `Bouw een professionele applicatie voor: ${prompt}`;
 
   try {
@@ -36,7 +36,7 @@ app.post("/generate", async (req, res) => {
           { role: "system", content: systemMessage },
           { role: "user", content: userMessage }
         ],
-        temperature: 0.3
+        temperature: 0.2 // Lager voor meer precisie bij aanpassingen
       },
       {
         headers: {
@@ -60,4 +60,4 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Architect v4.0 Live`));
+app.listen(PORT, () => console.log(`Kavrix Architect v4.2 Live`));
