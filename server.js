@@ -19,19 +19,18 @@ app.post("/generate", async (req, res) => {
         messages: [
           { 
             role: "system", 
-            content: `Je bent KAVRIX AI. Bouw een IPTV player die GEGARANDEERD werkt.
+            content: `Je bent KAVRIX AI. Bouw een IPTV player die zowel HTTP als HTTPS links ondersteunt.
             
-            GEBRUIK DEZE EXACTE LOGICA IN DE CODE:
-            1. Gebruik 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) om de M3U lijst op te halen.
-            2. Gebruik deze parser-logica: Splits de tekst op '\\n'. Zoek naar regels die beginnen met '#EXTINF'. De regel DAARNA is de stream-URL.
-            3. Toon de zenders in een lijst aan de linkerkant.
-            4. Gebruik HLS.js (https://cdn.jsdelivr.net/npm/hls.js@latest) voor de video player.
-            5. Voeg console.log() toe aan de code zodat we fouten kunnen zien in de browser-inspectie.
-            6. Antwoord ALLEEN met de pure HTML/CSS/JS code zonder markdown blocks.` 
+            TECHNISCHE EISEN VOOR DE CODE:
+            1. M3U LADEN: Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) om de lijst op te halen. Dit lost CORS en Mixed Content (HTTP op HTTPS) op voor de tekstlijst.
+            2. PARSING: Split de M3U tekst op regels. Zoek naar '#EXTINF'. De regel direct daarna is de stream-URL. Haal de zendernaam uit de #EXTINF regel.
+            3. VIDEO PLAYER: Gebruik HLS.js. BELANGRIJK: Als een stream-URL begint met 'http://', waarschuw de gebruiker dan dat browsers HTTP-video op een HTTPS-site vaak blokkeren tenzij ze een 'Insecure Content' instelling aanpassen.
+            4. UI: Maak een moderne sidebar voor de zenders en een grote player.
+            5. Antwoord ALLEEN met de pure HTML/CSS/JS code zonder markdown blocks.` 
           },
-          { role: "user", content: `Bouw een werkende IPTV player voor: ${prompt}` }
+          { role: "user", content: `Bouw een robuuste IPTV player voor: ${prompt}` }
         ],
-        temperature: 0.1 // Zeer laag voor maximale precisie
+        temperature: 0.1
       },
       {
         headers: {
@@ -54,4 +53,4 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v2.2 Live`));
+app.listen(PORT, () => console.log(`Kavrix Engine v2.3 Live`));
