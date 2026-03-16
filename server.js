@@ -15,14 +15,15 @@ app.post("/generate", async (req, res) => {
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       {
-        model: "llama3-70b-8192", 
+        model: "llama-3.3-70b-versatile", 
         messages: [
           { 
             role: "system", 
             content: "Je bent een expert web developer. Antwoord ALLEEN met de volledige HTML/CSS/JS code in één bestand. Geen uitleg, geen markdown code blocks, alleen de code zelf." 
           },
-          { role: "user", content: `Bouw een web app voor: ${prompt}` }
-        ]
+          { role: "user", content: `Bouw een complete web app voor: ${prompt}` }
+        ],
+        temperature: 0.7
       },
       {
         headers: {
