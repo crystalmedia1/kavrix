@@ -1,50 +1,49 @@
 const express = require("express");
 const axios = require("axios");
+const path = require("path");
 const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
 app.use(cors());
-app.use(express.static("public"));
 app.use(express.json());
+app.use(express.static(__dirname));
 
-// Route voor AI-codegeneratie
 app.post("/generate", async (req, res) => {
   const { prompt } = req.body;
-
   try {
     const response = await axios.post(
-      "https://routellm.abacus.ai/v1/chat/completions",
+      "https://api.groq.com/openai/v1/chat/completions",
       {
-        model: "route-llm",
+        model: "llama3-70b-8192", 
         messages: [
-          {
-            role: "system",
-            content: "Je bent een expert web developer. Antwoord ALLEEN met de volledige HTML/CSS/JS code in één bestand."
+          { 
+            role: "system", 
+            content: "Je bent een expert web developer. Antwoord ALLEEN met de volledige HTML/CSS/JS code in één bestand. Geen uitleg, geen markdown code blocks, alleen de code zelf." 
           },
-          {
-            role: "user",
-            content: `Bouw een web app voor: ${prompt}`
-          }
-        ],
-        temperature: 0.5
+          { role: "user", content: `Bouw een web app voor: ${prompt}` }
+        ]
       },
       {
         headers: {
-          Authorization: `Bearer JOUW_ABACUS_API_KEY`,
+          Authorization: `Bearer ${process.env.API_KEY}`,
           "Content-Type": "application/json"
         }
       }
     );
-
-    const code = response.data.choices[0].message.content.trim();
-    res.json({ code });
+    
+    // We halen de code uit het antwoord van Groq
+    const generatedCode = response.data.choices[0].message.content;
+    res.json({ code: generatedCode });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Kon geen code genereren." });
+    console.error("Fout:", error.response?.data || error.message);
+    res.status(500).json({ error: "AI foutmelding" });
   }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Server draait op http://localhost:${PORT}`);
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server draait op poort ${PORT}`));
