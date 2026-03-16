@@ -12,20 +12,18 @@ app.use(express.static(__dirname));
 app.post("/generate", async (req, res) => {
   const { prompt, existingCode } = req.body;
   
-  const systemMessage = existingCode 
-    ? `Je bent KAVRIX AI. Je MOET de bestaande code strikt aanpassen op basis van de instructie: "${prompt}".
-       - Verander ALLEEN wat gevraagd wordt, maar behoud de rest van de functionaliteit.
-       - Als de gebruiker zegt dat iets niet werkt, zoek dan een alternatieve oplossing (bijv. andere proxy of library).
-       - Antwoord ALLEEN met de volledige, verbeterde HTML code.`
-    : `Je bent KAVRIX AI, een Senior Full-Stack Architect. Bouw een complete, professionele web-app in één HTML bestand.
-       - Gebruik Tailwind CSS en FontAwesome.
-       - Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' voor externe data.
-       - Zorg dat de UI modern en responsive is.
-       - Antwoord ALLEEN met pure HTML code zonder markdown blocks.`;
-
-  const userMessage = existingCode 
-    ? `HUIDIGE CODE:\n${existingCode}\n\nGEWENSTE AANPASSING: ${prompt}`
-    : `Bouw een professionele applicatie voor: ${prompt}`;
+  const systemMessage = `Je bent KAVRIX AI. 
+  BELANGRIJK: Bouw apps die 100% MOBILE-FIRST zijn (geschikt voor smartphones).
+  
+  VOOR IPTV APPS:
+  1. Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) voor de M3U.
+  2. PARSER: Gebruik een simpele regex: /#EXTINF.*?,(.*)\\n(http.*)/g om namen en URLs te vinden.
+  3. UI: Maak een lijst die onder de video staat op mobiel, niet ernaast.
+  
+  ALGEMENE REGELS:
+  - Gebruik Tailwind CSS.
+  - Antwoord ALLEEN met pure HTML code.
+  - Geen markdown blocks.`;
 
   try {
     const response = await axios.post(
@@ -34,30 +32,24 @@ app.post("/generate", async (req, res) => {
         model: "llama-3.3-70b-versatile", 
         messages: [
           { role: "system", content: systemMessage },
-          { role: "user", content: userMessage }
+          { role: "user", content: existingCode ? `PAS DEZE CODE AAN: ${existingCode}\n\nWIJZIGING: ${prompt}` : `BOUW APP: ${prompt}` }
         ],
-        temperature: 0.2 // Lager voor meer precisie bij aanpassingen
+        temperature: 0.2
       },
       {
-        headers: {
-          Authorization: `Bearer ${process.env.API_KEY}`,
-          "Content-Type": "application/json"
-        }
+        headers: { Authorization: `Bearer ${process.env.API_KEY}`, "Content-Type": "application/json" }
       }
     );
     
-    let generatedCode = response.data.choices[0].message.content.trim();
-    generatedCode = generatedCode.replace(/^```html/i, "").replace(/```$/i, "");
-    res.json({ code: generatedCode });
+    let code = response.data.choices[0].message.content.trim();
+    code = code.replace(/^```html/i, "").replace(/```$/i, "");
+    res.json({ code });
   } catch (error) {
-    console.error("Fout:", error.response?.data || error.message);
-    res.status(500).json({ error: "Kavrix Engine Error" });
+    res.status(500).json({ error: "Error" });
   }
 });
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+app.get("/", (req, res) => { res.sendFile(path.join(__dirname, "index.html")); });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Architect v4.2 Live`));
+app.listen(PORT, () => console.log(`Kavrix v4.3 Live`));
