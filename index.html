@@ -39,7 +39,7 @@
       const prompt = document.getElementById("promptInput").value;
       if (!prompt) return;
 
-      const res = await fetch("/generate", {
+      const res = await fetch("https://kavrix.onrender.com/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt })
