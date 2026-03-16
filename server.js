@@ -19,17 +19,19 @@ app.post("/generate", async (req, res) => {
         messages: [
           { 
             role: "system", 
-            content: `Je bent KAVRIX AI. Bouw een IPTV player die CORS-problemen omzeilt.
+            content: `Je bent KAVRIX AI. Bouw een IPTV player die GEGARANDEERD werkt.
             
-            INSTRUCTIES VOOR DE CODE:
-            1. Gebruik 'https://api.allorigins.win/raw?url=' voor elk fetch-verzoek naar een M3U-lijst. Dit omzeilt CORS-blokkades.
-            2. Gebruik HLS.js voor de video-player zodat .m3u8 streams werken.
-            3. Zorg dat de M3U-parser robuust is en ook namen van zenders uit de #EXTINF regels haalt.
-            4. Antwoord ALLEEN met de pure HTML/CSS/JS code zonder markdown blocks.` 
+            GEBRUIK DEZE EXACTE LOGICA IN DE CODE:
+            1. Gebruik 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) om de M3U lijst op te halen.
+            2. Gebruik deze parser-logica: Splits de tekst op '\\n'. Zoek naar regels die beginnen met '#EXTINF'. De regel DAARNA is de stream-URL.
+            3. Toon de zenders in een lijst aan de linkerkant.
+            4. Gebruik HLS.js (https://cdn.jsdelivr.net/npm/hls.js@latest) voor de video player.
+            5. Voeg console.log() toe aan de code zodat we fouten kunnen zien in de browser-inspectie.
+            6. Antwoord ALLEEN met de pure HTML/CSS/JS code zonder markdown blocks.` 
           },
-          { role: "user", content: `Bouw een high-end IPTV player voor: ${prompt}` }
+          { role: "user", content: `Bouw een werkende IPTV player voor: ${prompt}` }
         ],
-        temperature: 0.2
+        temperature: 0.1 // Zeer laag voor maximale precisie
       },
       {
         headers: {
@@ -52,4 +54,4 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v2.1 Live`));
+app.listen(PORT, () => console.log(`Kavrix Engine v2.2 Live`));
