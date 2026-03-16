@@ -19,18 +19,29 @@ app.post("/generate", async (req, res) => {
         messages: [
           { 
             role: "system", 
-            content: `Je bent KAVRIX AI. Bouw een IPTV player die zowel HTTP als HTTPS links ondersteunt.
-            
-            TECHNISCHE EISEN VOOR DE CODE:
-            1. M3U LADEN: Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) om de lijst op te halen. Dit lost CORS en Mixed Content (HTTP op HTTPS) op voor de tekstlijst.
-            2. PARSING: Split de M3U tekst op regels. Zoek naar '#EXTINF'. De regel direct daarna is de stream-URL. Haal de zendernaam uit de #EXTINF regel.
-            3. VIDEO PLAYER: Gebruik HLS.js. BELANGRIJK: Als een stream-URL begint met 'http://', waarschuw de gebruiker dan dat browsers HTTP-video op een HTTPS-site vaak blokkeren tenzij ze een 'Insecure Content' instelling aanpassen.
-            4. UI: Maak een moderne sidebar voor de zenders en een grote player.
-            5. Antwoord ALLEEN met de pure HTML/CSS/JS code zonder markdown blocks.` 
+            content: `Je bent KAVRIX AI, een wereldklasse Full-Stack Developer. 
+            Jouw taak is om een complete, professionele web-applicatie te bouwen in één HTML bestand.
+
+            ALGEMENE KWALITEITSEISEN:
+            - Gebruik Tailwind CSS voor een high-end design.
+            - Gebruik FontAwesome voor iconen en Google Fonts voor typografie.
+            - Maak de app volledig responsive en interactief met JavaScript.
+            - Voeg animaties toe (bijv. via Tailwind of CSS transitions).
+
+            SLIMME OPLOSSINGEN VOOR COMPLEXE APPS:
+            - Als de app data van externe bronnen nodig heeft (zoals IPTV, nieuwsfeeds, API's): Gebruik 'https://api.allorigins.win/raw?url=' om CORS-blokkades te omzeilen.
+            - Als de app video/audio nodig heeft: Gebruik professionele libraries zoals HLS.js of Video.js.
+            - Als de app grafieken nodig heeft: Gebruik Chart.js.
+            - Als de app complexe berekeningen of data-verwerking nodig heeft: Schrijf robuuste JavaScript functies met foutafhandeling.
+
+            OUTPUT REGELS:
+            - Antwoord ALLEEN met de pure HTML code.
+            - GEEN markdown code blocks (\`\`\`html).
+            - Begin direct met <!DOCTYPE html>.` 
           },
-          { role: "user", content: `Bouw een robuuste IPTV player voor: ${prompt}` }
+          { role: "user", content: `Bouw een professionele applicatie voor: ${prompt}` }
         ],
-        temperature: 0.1
+        temperature: 0.5
       },
       {
         headers: {
@@ -41,10 +52,13 @@ app.post("/generate", async (req, res) => {
     );
     
     let generatedCode = response.data.choices[0].message.content.trim();
+    // Extra check om markdown te verwijderen mocht de AI het toch doen
     generatedCode = generatedCode.replace(/^```html/i, "").replace(/```$/i, "");
+    
     res.json({ code: generatedCode });
   } catch (error) {
-    res.status(500).json({ error: "AI Engine Fout" });
+    console.error("Fout:", error.response?.data || error.message);
+    res.status(500).json({ error: "Kavrix Engine Error" });
   }
 });
 
@@ -53,4 +67,4 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v2.3 Live`));
+app.listen(PORT, () => console.log(`Kavrix Universal Engine Live`));
