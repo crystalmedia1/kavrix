@@ -19,26 +19,30 @@ app.post("/generate", async (req, res) => {
         messages: [
           { 
             role: "system", 
-            content: `Je bent KAVRIX AI, een Senior Full-Stack Developer. Je bouwt universele web-apps.
+            content: `Je bent KAVRIX AI, een Senior Full-Stack Architect. Je bouwt complete, productie-waardige web-applicaties in één HTML bestand.
 
-            CRUCIALE INSTRUCTIES VOOR DATA & MEDIA:
-            1. EXTERNE DATA: Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) voor fetch-verzoeken naar externe bronnen (M3U, API's, JSON).
-            2. M3U PARSING LOGICA: 
-               - Split de tekst op '\\n'.
-               - Loop door de regels. Als een regel begint met '#EXTINF', haal de naam van de zender eruit (alles na de laatste komma).
-               - De regel direct NA de '#EXTINF' regel is de stream-URL.
-               - Sla deze op in een array van objecten: { name, url }.
-            3. VIDEO: Gebruik HLS.js voor .m3u8 streams. Voeg een foutafhandeling toe (hls.on(Hls.Events.ERROR)).
-            4. UI: Gebruik Tailwind CSS. Maak een sidebar voor navigatie en een hoofdvenster voor content.
+            ALGEMENE PRINCIPES:
+            - DESIGN: Gebruik Tailwind CSS. Focus op UX/UI (donker thema, glas-effecten, vloeiende animaties).
+            - ROBUUSTHEID: Schrijf JavaScript met try-catch blokken en duidelijke foutmeldingen voor de gebruiker.
+            - EXTERNE DATA: Gebruik ALTIJD 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) voor ELK extern verzoek (M3U, JSON, API's).
             
-            OUTPUT:
-            - Antwoord ALLEEN met pure HTML/CSS/JS code.
-            - GEEN markdown code blocks.
+            TECHNOLOGIE SELECTIE:
+            - VIDEO/STREAMING: Gebruik HLS.js of Video.js.
+            - GRAFIEKEN/DATA: Gebruik Chart.js of D3.js.
+            - ICONEN: Gebruik FontAwesome 6.
+            - FONTS: Gebruik Google Fonts (Inter of Poppins).
+
+            SPECIFIEKE LOGICA VOOR DATA-PARSING:
+            - Als de gebruiker vraagt om een lijst (zoals M3U of CSV), schrijf dan een robuuste parser die rekening houdt met verschillende regel-eindes (\\n of \\r\\n) en spaties.
+            
+            OUTPUT REGELS:
+            - Antwoord ALLEEN met de pure HTML code.
+            - GEEN markdown code blocks (\`\`\`html).
             - Begin direct met <!DOCTYPE html>.` 
           },
-          { role: "user", content: `Bouw een professionele applicatie voor: ${prompt}` }
+          { role: "user", content: `Ontwikkel een professionele, volledig werkende applicatie voor: ${prompt}` }
         ],
-        temperature: 0.2
+        temperature: 0.4
       },
       {
         headers: {
@@ -49,11 +53,13 @@ app.post("/generate", async (req, res) => {
     );
     
     let generatedCode = response.data.choices[0].message.content.trim();
+    // Verwijder eventuele markdown als de AI de instructie negeert
     generatedCode = generatedCode.replace(/^```html/i, "").replace(/```$/i, "");
+    
     res.json({ code: generatedCode });
   } catch (error) {
-    console.error("Fout:", error.response?.data || error.message);
-    res.status(500).json({ error: "Kavrix Engine Error" });
+    console.error("Kavrix Engine Error:", error.response?.data || error.message);
+    res.status(500).json({ error: "Kavrix Engine kon de aanvraag niet verwerken." });
   }
 });
 
@@ -62,4 +68,4 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Master Engine Live`));
+app.listen(PORT, () => console.log(`Kavrix Universal Architect v3.0 Live`));
