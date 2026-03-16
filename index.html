@@ -11,8 +11,6 @@
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); }
-        @keyframes pulse-cyan { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .animate-pulse-cyan { animation: pulse-cyan 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
 <body class="bg-[#020617] text-slate-200 font-sans overflow-hidden">
@@ -26,7 +24,7 @@
                     </div>
                     <div>
                         <h1 class="text-2xl font-black tracking-tighter text-white">KAVRIX <span class="text-cyan-400">AI</span></h1>
-                        <p class="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-bold">Architect v4.0</p>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-bold">Architect v4.1</p>
                     </div>
                 </div>
             </div>
@@ -45,21 +43,21 @@
                     </button>
                 </div>
 
-                <!-- Aanpas Sectie (Alleen zichtbaar na eerste build) -->
+                <!-- Aanpas Sectie -->
                 <div id="editSection" class="space-y-4 opacity-40 pointer-events-none transition-all duration-500">
                     <label class="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
                         <i class="fas fa-magic text-purple-500"></i> Verfijn of Repareer
                     </label>
                     <textarea id="editInput" 
                         class="w-full h-32 bg-[#020617] border border-slate-700 rounded-2xl p-4 text-white focus:ring-2 focus:ring-purple-500 outline-none transition-all resize-none placeholder-slate-600 text-sm"
-                        placeholder="Bijv: 'De zenderlijst laadt niet, gebruik een andere proxy' of 'Maak de achtergrond rood'"></textarea>
+                        placeholder="Bijv: 'Maak de knoppen rood'"></textarea>
                     <button id="editBtn" class="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-2xl font-bold text-white shadow-xl transition-all flex items-center justify-center gap-3">
                         <i class="fas fa-wand-magic-sparkles"></i> VOER WIJZIGING UIT
                     </button>
                 </div>
 
                 <div id="statusArea" class="hidden p-4 bg-slate-900/50 rounded-2xl border border-slate-800 border-dashed">
-                    <div class="flex items-center gap-3 text-sm text-cyan-400 animate-pulse-cyan">
+                    <div class="flex items-center gap-3 text-sm text-cyan-400">
                         <i class="fas fa-sync-alt fa-spin"></i>
                         <span id="statusText">Architect is aan het ontwerpen...</span>
                     </div>
@@ -90,7 +88,7 @@
             </div>
             
             <div class="flex-1 relative p-6">
-                <div class="w-full h-full rounded-3xl overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] border border-slate-800 bg-white">
+                <div class="w-full h-full rounded-3xl overflow-hidden shadow-2xl border border-slate-800 bg-white">
                     <iframe id="previewFrame" class="w-full h-full border-none"></iframe>
                 </div>
                 <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-600 bg-[#020617]">
@@ -126,6 +124,8 @@
                     })
                 });
 
+                if (!response.ok) throw new Error("Server reageert niet goed");
+
                 const data = await response.json();
                 if (data.code) {
                     currentCode = data.code;
@@ -136,7 +136,8 @@
                     setTimeout(() => statusArea.classList.add("hidden"), 2000);
                 }
             } catch (error) {
-                statusText.innerText = "Fout bij genereren...";
+                console.error("Fout:", error);
+                statusText.innerText = "Fout bij verbinden met server...";
             } finally {
                 btn.disabled = false;
             }
@@ -144,12 +145,20 @@
 
         document.getElementById("buildBtn").addEventListener("click", () => {
             const prompt = document.getElementById("promptInput").value.trim();
-            if (prompt) callAI(prompt, false);
+            if (prompt) {
+                callAI(prompt, false);
+            } else {
+                alert("Vul eerst een beschrijving in!");
+            }
         });
 
         document.getElementById("editBtn").addEventListener("click", () => {
             const editPrompt = document.getElementById("editInput").value.trim();
-            if (editPrompt) callAI(editPrompt, true);
+            if (editPrompt) {
+                callAI(editPrompt, true);
+            } else {
+                alert("Vul eerst een wijziging in!");
+            }
         });
 
         document.getElementById("downloadBtn").addEventListener("click", () => {
