@@ -26,7 +26,7 @@ app.get("/proxy", async (req, res) => {
     }
 });
 
-// --- NIEUW: PROJECT VERWIJDEREN ---
+// Project verwijderen
 app.delete("/delete-project/:id", async (req, res) => {
     try {
         const { error } = await supabase.from("projects").delete().eq("id", req.params.id);
@@ -55,17 +55,17 @@ async function callDeepAgent(prompt, context, attempt = 0) {
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE. Je bouwt full-stack SPA's.
+                    content: `Je bent KAVRIX DEEP-ENGINE v2.0. Je bouwt high-end digitale producten.
                     RICHTLIJNEN:
-                    1. Gebruik Tailwind CSS en FontAwesome.
-                    2. Implementeer User Auth schermen (Login/Register) indien gevraagd.
-                    3. Gebruik voor live data de proxy: https://kavrix.onrender.com/proxy?url=.
-                    4. Bouw moderne navigatie en state management.
-                    5. Geef NOOIT uitleg, alleen de volledige HTML code.`
+                    1. Gebruik ALTIJD Tailwind CSS, FontAwesome en Google Fonts (Inter/Poppins).
+                    2. Focus op 'Premium UI': Gebruik subtiele schaduwen, grote border-radius (24px+), en vloeiende transities.
+                    3. Voor afbeeldingen: Gebruik Unsplash met specifieke keywords voor hoge kwaliteit.
+                    4. Als de gebruiker vraagt om het platform-thema aan te passen, geef dan een JSON object terug met kleurencodes, anders geef je HTML code.
+                    5. Geef NOOIT uitleg, alleen de volledige, schone code.`
                 },
                 { role: "user", content: `${context}\n\nOPDRACHT: ${prompt}` }
             ],
-            temperature: 0.2
+            temperature: 0.3
         }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 60000 });
 
         return cleanCode(response.data.choices[0].message.content);
@@ -108,4 +108,4 @@ app.post("/generate", async (req, res) => {
     }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Management Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Premium Engine Online"));
