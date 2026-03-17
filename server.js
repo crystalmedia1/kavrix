@@ -11,10 +11,6 @@ app.use(express.json({ limit: "50mb" }));
 const supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABASE_KEY || "");
 const API_KEY = process.env.API_KEY;
 
-// We gebruiken Groq direct voor maximale snelheid en stabiliteit
-const AI_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const AI_MODEL = "llama-3.3-70b-versatile"; 
-
 // Proxy voor live data
 app.get("/api/proxy", async (req, res) => {
     const targetUrl = req.query.url;
@@ -28,25 +24,24 @@ app.get("/api/proxy", async (req, res) => {
 });
 
 async function callDeepEngine(prompt, previousCode = "") {
+    // Automatische detectie van de provider op basis van de key
+    let apiUrl = "https://api.groq.com/openai/v1/chat/completions";
+    let model = "llama-3.3-70b-versatile";
+
+    if (API_KEY && !API_KEY.startsWith("gsk_")) {
+        // Als de key niet met gsk_ begint, gaan we ervan uit dat het Abacus/RouteLLM is
+        apiUrl = "https://routellm.abacus.ai/v1/chat/completions";
+        model = "route-llm";
+    }
+
     try {
-        const response = await axios.post(AI_API_URL, {
-            model: AI_MODEL,
+        const response = await axios.post(apiUrl, {
+            model: model,
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v10.0, een elite AI App Builder.
-                    
-                    JOUW STIJL-GIDS (STRIKT VOLGEN):
-                    1. UI: Ultra-modern, donker thema (bg-[#020617]), Glassmorphism (bg-white/5 backdrop-blur-2xl border border-white/10).
-                    2. UX: Gebruik afgeronde hoeken (rounded-[32px]), grote paddings, en vloeiende transities.
-                    3. FONTS: Gebruik 'Plus Jakarta Sans' via Google Fonts.
-                    4. COMPONENTEN: Gebruik Lucide Icons en Chart.js voor data.
-                    
-                    TECHNISCH:
-                    - Gebruik Tailwind CSS via CDN.
-                    - Schrijf volledige, werkende JavaScript.
-                    - Gebruik de proxy voor API calls: https://kavrix.onrender.com/api/proxy?url=...
-                    
+                    content: `Je bent KAVRIX DEEP-ENGINE v11.0. Bouw luxe, moderne web-apps.
+                    STIJL: Donker thema, Glassmorphism, Tailwind CSS, Lucide Icons.
                     Geef ALLEEN de volledige HTML code terug.` 
                 },
                 { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
@@ -54,14 +49,14 @@ async function callDeepEngine(prompt, previousCode = "") {
             temperature: 0.2
         }, { 
             headers: { "Authorization": `Bearer ${API_KEY}` },
-            timeout: 120000 // Verhoogd naar 2 minuten voor grote apps
+            timeout: 120000 
         });
         
         let code = response.data.choices[0].message.content;
         return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
     } catch (error) {
-        console.error("AI Error:", error.response ? error.response.data : error.message);
-        throw new Error("De AI-verbinding is mislukt. Controleer je API-key of probeer het opnieuw.");
+        console.error("AI Error Details:", error.response ? error.response.data : error.message);
+        throw new Error("AI Verbinding mislukt. Controleer of je API_KEY in Render correct is.");
     }
 }
 
@@ -86,16 +81,8 @@ app.post("/generate", async (req, res) => {
 
         res.json({ projectId: id });
 
-        // Achtergrond proces
         callDeepEngine(prompt, previousCode).then(async (finalCode) => {
-            // Naam verzinnen
-            const nameResponse = await axios.post(AI_API_URL, {
-                model: "llama-3.1-8b-instant",
-                messages: [{ role: "user", content: `Korte naam (2 woorden) voor: ${prompt}. Alleen de naam.` }]
-            }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
-            
-            const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
-            await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", id);
+            await supabase.from("projects").update({ code: finalCode }).eq("id", id);
         }).catch(async (err) => {
             await supabase.from("projects").update({ code: "FOUT: " + err.message }).eq("id", id);
         });
@@ -105,7 +92,6 @@ app.post("/generate", async (req, res) => {
     }
 });
 
-// Overige routes...
 app.get("/projects", async (req, res) => {
     try {
         const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
@@ -128,6 +114,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v10.0 Online`));
-
-process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
+app.listen(PORT, () => console.log(`Kavrix Engine v11.0 Online`));
