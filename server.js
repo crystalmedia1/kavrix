@@ -12,12 +12,22 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const API_KEY = process.env.API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-async function callAI(prompt) {
+async function callDeepEngine(prompt, previousCode = "") {
     const response = await axios.post(GROQ_API_URL, {
         model: "llama-3.3-70b-versatile",
         messages: [
-            { role: "system", content: "Je bent KAVRIX DEEP-ENGINE. Bouw een complete, werkende single-page HTML app met Tailwind CSS. Geef ALLEEN de code, geen tekst." },
-            { role: "user", content: prompt }
+            { 
+                role: "system", 
+                content: `Je bent KAVRIX DEEP-ENGINE v4.0. Je bouwt high-end, werkende web-applicaties.
+                RICHTLIJNEN:
+                1. Gebruik Tailwind CSS voor styling.
+                2. Gebruik Chart.js voor data-visualisatie als dat relevant is.
+                3. Gebruik Lucide-Icons of FontAwesome voor iconen.
+                4. Schrijf SCHONE, modulaire JavaScript die ECHT werkt (geen placeholders).
+                5. Als er vorige code is, bouw daarop voort en behoud de bestaande functies.
+                6. Geef ALLEEN de volledige HTML code terug, beginnend met <!DOCTYPE html>.` 
+            },
+            { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nNIEUWE OPDRACHT: ${prompt}` }
         ],
         temperature: 0.2
     }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
@@ -28,9 +38,15 @@ async function callAI(prompt) {
 
 app.post("/generate", async (req, res) => {
     const { prompt, projectId } = req.body;
-    
     try {
         let id = projectId;
+        let previousCode = "";
+
+        if (id) {
+            const { data } = await supabase.from("projects").select("code").eq("id", id).single();
+            previousCode = data ? data.code : "";
+        }
+
         if (!id) {
             const { data } = await supabase.from("projects").insert([{ 
                 name: prompt.substring(0, 30), 
@@ -42,13 +58,11 @@ app.post("/generate", async (req, res) => {
             await supabase.from("projects").update({ code: "GENERATING", prompt: prompt }).eq("id", id);
         }
 
-        // STUUR DIRECT ANTWOORD: "Ik ben bezig!"
         res.json({ projectId: id, status: "started" });
 
-        // GA NU OP DE ACHTERGROND VERDER
-        callAI(prompt).then(async (finalCode) => {
+        // Achtergrond proces
+        callDeepEngine(prompt, previousCode).then(async (finalCode) => {
             await supabase.from("projects").update({ code: finalCode }).eq("id", id);
-            console.log("Project " + id + " is klaar!");
         }).catch(async (err) => {
             await supabase.from("projects").update({ code: "ERROR: " + err.message }).eq("id", id);
         });
@@ -58,6 +72,7 @@ app.post("/generate", async (req, res) => {
     }
 });
 
+// Standaard routes blijven gelijk
 app.get("/projects", async (req, res) => {
     const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
     res.json(data || []);
@@ -73,4 +88,4 @@ app.delete("/delete-project/:id", async (req, res) => {
     res.json({ success: true });
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Async Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Engine v4.0 Online"));
