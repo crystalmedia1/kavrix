@@ -13,11 +13,16 @@ app.post("/generate", async (req, res) => {
   const { prompt, existingCode } = req.body;
   
   const systemMessage = `Je bent KAVRIX AI. Bouw een professionele web-app.
-  STRIKTE REGELS:
-  - Antwoord ALLEEN met de HTML code.
-  - GEEN uitleg, GEEN backticks, GEEN \`\`\`html blokken.
-  - Begin direct met <!DOCTYPE html>.
-  - Gebruik voor IPTV: HLS.js en de AllOrigins proxy.`;
+  
+  VOOR IPTV APPS (STRIKT VOLGEN):
+  1. Gebruik HLS.js voor video.
+  2. Gebruik ALTIJD deze proxy voor de M3U fetch: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url).
+  3. PARSER LOGICA: Gebruik een loop die zoekt naar '#EXTINF'. Pak de naam na de komma. De regel daarna is de URL.
+  4. UI: Maak een invoerveld, een 'Laden' knop, en een scrollbare lijst met zenders onder de video.
+  
+  OUTPUT REGELS:
+  - Antwoord ALLEEN met de HTML code beginnend met <!DOCTYPE html>.
+  - Geen tekst of uitleg.`;
 
   try {
     const response = await axios.post(
@@ -36,22 +41,9 @@ app.post("/generate", async (req, res) => {
     );
     
     let code = response.data.choices[0].message.content.trim();
-    
-    // --- DE ULTIEME SCHOONMAAK LOGICA ---
-    // Zoek het begin van de HTML
-    const htmlStart = code.indexOf("<​!DOCTYPE html>");
-    if (htmlStart !== -1) {
-        code = code.substring(htmlStart);
-    }
-    
-    // Zoek het einde van de HTML en snij alles daarna weg
-    const htmlEnd = code.lastIndexOf("<​/html>");
-    if (htmlEnd !== -1) {
-        code = code.substring(0, htmlEnd + 7);
-    }
-
-    // Verwijder eventuele overgebleven backticks
-    code = code.replace(/```html/g, "").replace(/```/g, "").trim();
+    const start = code.indexOf("<​!DOCTYPE html>");
+    const end = code.lastIndexOf("<​/html>");
+    if (start !== -1 && end !== -1) code = code.substring(start, end + 7);
 
     res.json({ code });
   } catch (error) {
@@ -62,4 +54,4 @@ app.post("/generate", async (req, res) => {
 app.get("/", (req, res) => { res.sendFile(path.join(__dirname, "index.html")); });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix v4.6 Clean Engine Live`));
+app.listen(PORT, () => console.log(`Kavrix v4.7 Live`));
