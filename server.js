@@ -10,39 +10,42 @@ app.use(express.json({ limit: '50mb' }));
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Hulpfunctie voor een korte pauze (om 429 te voorkomen)
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+async function callAI(prompt, existingCode, provider = "groq") {
+    const apiKey = provider === "groq" ? process.env.API_KEY : process.env.BACKUP_API_KEY;
+    const url = provider === "groq" 
+        ? "https://api.groq.com/openai/v1/chat/completions" 
+        : "https://api.openai.com/v1/chat/completions";
+    const model = provider === "groq" ? "llama-3.3-70b-versatile" : "gpt-4o-mini";
+
+    return await axios.post(url, {
+        model: model,
+        messages: [
+            { role: "system", content: "Je bent KAVRIX DEEP-ENGINE. Bouw volledige HTML/Tailwind code." },
+            { role: "user", content: existingCode ? `UPDATE:\n${existingCode}\n\nWIJZIGING: ${prompt}` : prompt }
+        ],
+        temperature: 0.2
+    }, { headers: { "Authorization": `Bearer ${apiKey}` }, timeout: 60000 });
+}
 
 app.post("/generate", async (req, res) => {
     const { prompt, existingCode, projectId } = req.body;
-    const API_KEY = process.env.API_KEY;
 
     try {
-        // STAP 1: DE AGENT DENKT NA (Licht model = minder snel 429)
-        const agentPlan = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
-            model: "llama-3.1-8b-instant", // Lichter model voor planning
-            messages: [
-                { role: "system", content: "Je bent KAVRIX ARCHITECT. Maak een plan van 3 regels voor deze app." },
-                { role: "user", content: prompt }
-            ]
-        }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
+        let response;
+        try {
+            // Probeer eerst Groq (Gratis/Goedkoop)
+            response = await callAI(prompt, existingCode, "groq");
+        } catch (e) {
+            if (e.response && (e.response.status === 429 || e.response.status === 400)) {
+                console.log("Groq limiet bereikt, overschakelen naar Backup...");
+                // Schakel over naar Backup (OpenAI)
+                response = await callAI(prompt, existingCode, "backup");
+            } else {
+                throw e;
+            }
+        }
 
-        const plan = agentPlan.data.choices[0].message.content;
-        
-        // EVEN PAUZEREN (1.5 seconde) om de API rust te geven
-        await sleep(1500);
-
-        // STAP 2: DE AGENT VOERT UIT (Zwaar model voor de code)
-        const response = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
-            model: "llama-3.3-70b-versatile", 
-            messages: [
-                { role: "system", content: "Je bent KAVRIX DEEP-ENGINE. Plan: " + plan + ". Bouw volledige HTML/Tailwind code." },
-                { role: "user", content: existingCode ? `UPDATE:\n${existingCode}\n\nWIJZIGING: ${prompt}` : prompt }
-            ],
-            temperature: 0.2
-        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 60000 });
-
-        let newCode = response.data.choices[0].message.content;
+        const newCode = response.data.choices[0].message.content;
         
         // Opslaan in Supabase
         let dbResult;
@@ -52,11 +55,10 @@ app.post("/generate", async (req, res) => {
             dbResult = await supabase.from("projects").insert([{ name: prompt.substring(0, 30), code: newCode, prompt: prompt }]).select();
         }
 
-        res.json({ code: newCode, projectId: dbResult.data[0].id, plan: plan });
+        res.json({ code: newCode, projectId: dbResult.data[0].id });
 
     } catch (error) {
-        const errorMsg = error.response?.data?.error?.message || error.message;
-        res.status(500).json({ error: "AGENT FOUT: " + errorMsg });
+        res.status(500).json({ error: "SYSTEM FAILURE: " + error.message });
     }
 });
 
@@ -66,4 +68,4 @@ app.get("/project/:id", async (req, res) => {
     res.json(data);
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix v9.1 Anti-Limit Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Multi-Engine Router Online"));
