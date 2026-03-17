@@ -14,7 +14,7 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const API_KEY = process.env.API_KEY;
 const MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
 
-// --- NIEUW: API PROXY VOOR LIVE DATA ---
+// Proxy voor live data
 app.get("/proxy", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).json({ error: "URL is verplicht" });
@@ -23,6 +23,17 @@ app.get("/proxy", async (req, res) => {
         res.json(response.data);
     } catch (error) {
         res.status(500).json({ error: "Proxy Error: " + error.message });
+    }
+});
+
+// --- NIEUW: PROJECT VERWIJDEREN ---
+app.delete("/delete-project/:id", async (req, res) => {
+    try {
+        const { error } = await supabase.from("projects").delete().eq("id", req.params.id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -44,14 +55,13 @@ async function callDeepAgent(prompt, context, attempt = 0) {
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE. Je bouwt data-driven applicaties.
+                    content: `Je bent KAVRIX DEEP-ENGINE. Je bouwt full-stack SPA's.
                     RICHTLIJNEN:
-                    1. Gebruik Tailwind CSS, FontAwesome en Chart.js voor data-visualisatie.
-                    2. Voor live data: Gebruik fetch() naar 'https://kavrix.onrender.com/proxy?url=[TARGET_URL]'.
-                    3. Bouw robuuste error-handling voor API calls.
-                    4. Gebruik moderne SPA navigatie en state management.
-                    5. Maak de UI extreem professioneel (Dark Mode, Glassmorphism).
-                    6. Geef NOOIT uitleg, alleen de volledige HTML code.`
+                    1. Gebruik Tailwind CSS en FontAwesome.
+                    2. Implementeer User Auth schermen (Login/Register) indien gevraagd.
+                    3. Gebruik voor live data de proxy: https://kavrix.onrender.com/proxy?url=.
+                    4. Bouw moderne navigatie en state management.
+                    5. Geef NOOIT uitleg, alleen de volledige HTML code.`
                 },
                 { role: "user", content: `${context}\n\nOPDRACHT: ${prompt}` }
             ],
@@ -98,4 +108,4 @@ app.post("/generate", async (req, res) => {
     }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Data-Proxy Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Management Engine Online"));
