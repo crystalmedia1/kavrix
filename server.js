@@ -32,13 +32,14 @@ async function callDeepAgent(prompt, context, attempt = 0) {
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE. Bouw apps van wereldklasse.
+                    content: `Je bent KAVRIX DEEP-ENGINE. Je bouwt complexe Multi-Page SPA's.
                     RICHTLIJNEN:
-                    1. Gebruik ALTIJD Tailwind CSS (CDN).
-                    2. Gebruik voor afbeeldingen: https://images.unsplash.com/photo-[ID]?auto=format&fit=crop&q=80 of https://source.unsplash.com/featured/?[keyword].
-                    3. Gebruik FontAwesome (CDN) voor alle iconen.
-                    4. Maak de UI modern, donker (slate-900) met glassmorphism.
-                    5. Geef NOOIT uitleg, alleen de volledige HTML code beginnend met <!DOCTYPE html>.`
+                    1. Gebruik Tailwind CSS en FontAwesome.
+                    2. Bouw een Single Page Application (SPA) met een 'view' systeem (show/hide secties).
+                    3. Implementeer een navigatiebalk die schakelt tussen views (bijv. Home, Dashboard, Settings).
+                    4. Gebruik voor afbeeldingen Unsplash (https://images.unsplash.com/photo-...).
+                    5. Gebruik moderne JavaScript (ES6+) voor state management.
+                    6. Geef NOOIT uitleg, alleen de volledige HTML code beginnend met <!DOCTYPE html>.`
                 },
                 { role: "user", content: `${context}\n\nOPDRACHT: ${prompt}` }
             ],
@@ -55,12 +56,12 @@ async function callDeepAgent(prompt, context, attempt = 0) {
 }
 
 app.get("/projects", async (req, res) => {
-    const { data, error } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
+    const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
     res.json(data || []);
 });
 
 app.get("/project/:id", async (req, res) => {
-    const { data, error } = await supabase.from("projects").select("*").eq("id", req.params.id).single();
+    const { data } = await supabase.from("projects").select("*").eq("id", req.params.id).single();
     res.json(data);
 });
 
@@ -70,7 +71,7 @@ app.post("/generate", async (req, res) => {
         let context = "";
         if (projectId) {
             const { data } = await supabase.from("projects").select("code, prompt").eq("id", projectId).single();
-            if (data) context = `CONTEXT: Vorige code:\n${data.code.slice(-2000)}\nVorige vraag: ${data.prompt}`;
+            if (data) context = `CONTEXT: Vorige code:\n${data.code.slice(-3000)}\nVorige vraag: ${data.prompt}`;
         }
 
         const finalCode = await callDeepAgent(prompt, context);
@@ -88,4 +89,4 @@ app.post("/generate", async (req, res) => {
     }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Multi-Page Engine Online"));
