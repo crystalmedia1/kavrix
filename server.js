@@ -1,128 +1,91 @@
-require('dotenv').config();
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
+const express = require("express");
+const axios = require("axios");
+const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
+require("dotenv").config();
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Supabase client
-const supabaseUrl = process.env.SUPABASE_URL || 'https://qixbvlixyanoswsbucav.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'sb_publishable_wkhKyrhGyEN-ma8-DV61hw_Q47c98lB';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// --- SUPABASE CONNECTIE ---
+const supabase = createClient(
+    process.env.SUPABASE_URL || "https://qixbvlixyanoswsbucav.supabase.co",
+    process.env.SUPABASE_KEY || "sb_publishable_wkhKyrhGyEN-ma8-DV61hw_Q47c98lB"
+);
 
-// Helper functies
-function sanitizePrompt(text) {
-  if (!text) return '';
-  return text
-    .replace(/(username|user|password|pass)=[^&\s]+/gi, '$1=***')
-    .replace(/https?:\/\/[^\s'"]+/gi, '[URL]')
-    .replace(/IPTV/gi, 'HLS Media Player')
-    .replace(/m3u/gi, 'stream playlist');
-}
-
+// --- HULPFUNCTIES ---
 function cleanCode(text) {
-  if (!text) return '';
-  let code = text.trim();
-  code = code.replace(/```html/g, '').replace(/```/g, '').trim();
-  const start = code.indexOf('<!DOCTYPE html>');
-  const end = code.lastIndexOf('</html>');
-  if (start !== -1 && end !== -1) {
-    code = code.substring(start, end + 7);
-  }
-  return code;
+    if (!text) return "";
+    let code = text.trim();
+    code = code.replace(/```html/g, "").replace(/```/g, "").trim();
+    const start = code.indexOf("<​!DOCTYPE html>");
+    const end = code.lastIndexOf("<​/html>");
+    if (start !== -1 && end !== -1) return code.substring(start, end + 7);
+    return code;
 }
 
-// AI Generate endpoint
-app.post('/generate', async (req, res) => {
-  try {
-    const { prompt = '', existingCode = '' } = req.body;
-    const safePrompt = sanitizePrompt(prompt);
-    const shortExisting = existingCode ? existingCode.slice(0, 15000) : '';
+// --- AI GENERATE & OPSLAAN ---
+app.post("/generate", async (req, res) => {
+    const { prompt, existingCode, projectId } = req.body;
+    const API_KEY = process.env.ROUTELLM_KEY || process.env.API_KEY;
 
-    const API_KEY = process.env.ROUTELLM_KEY;
-    if (!API_KEY) return res.status(500).json({ error: 'API key ontbreekt op server' });
+    if (!API_KEY) return res.status(500).json({ error: "Geen API_KEY gevonden." });
 
-    const body = {
-      model: 'route-llm',
-      input: [
-        { role: 'system', content: 'Je bent een professionele webdeveloper. Geef alleen volledige HTML.' },
-        {
-          role: 'user',
-          content: shortExisting
-            ? `UPDATE DE CODE:\n${shortExisting}\n\nWIJZIG: ${safePrompt}`
-            : `BOUW APP: ${safePrompt}`,
-        },
-      ],
-      temperature: 0.2,
-      max_tokens: 8000,
-    };
+    try {
+        // 1. AI aanroepen (RouteLLM voor topkwaliteit)
+        const response = await axios.post(
+            "https://routellm.abacus.ai/v1/chat/completions", 
+            {
+                model: "route-llm",
+                messages: [
+                    { role: "system", content: "Je bent KAVRIX PRO AI. Bouw ALTIJD volledige HTML/Tailwind code. Geen tekst, alleen code." },
+                    { role: "user", content: existingCode ? `UPDATE DEZE CODE:\n${existingCode}\n\nWIJZIGING: ${prompt}` : `BOUW NIEUWE APP: ${prompt}` }
+                ],
+                temperature: 0.2
+            },
+            {
+                headers: { "Authorization": `Bearer ${API_KEY}` },
+                timeout: 60000
+            }
+        );
 
-    const aiResp = await axios.post('https://routellm.abacus.ai/v1/chat/completions', body, {
-      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-      timeout: 45000,
-    });
+        const newCode = cleanCode(response.data.choices[0].message.content);
 
-    const aiText = aiResp.data?.choices?.[0]?.message?.content || '';
-    const html = cleanCode(aiText);
+        // 2. Opslaan in Supabase Database
+        let dbResult;
+        if (projectId) {
+            // Update bestaand project
+            dbResult = await supabase.from("projects").update({ 
+                code: newCode, 
+                prompt: prompt,
+                updated_at: new Date() 
+            }).eq("id", projectId).select();
+        } else {
+            // Nieuw project aanmaken
+            dbResult = await supabase.from("projects").insert([{ 
+                name: prompt.substring(0, 20), 
+                code: newCode, 
+                prompt: prompt 
+            }]).select();
+        }
 
-    if (!html) return res.status(500).json({ error: 'AI gaf geen HTML terug', debug: aiResp.data });
+        res.json({ 
+            code: newCode, 
+            projectId: dbResult.data[0].id 
+        });
 
-    res.json({ code: html });
-  } catch (err) {
-    console.error('generate error', err.response?.data || err.message);
-    const status = err.response?.status || 500;
-    const userMsg = status === 401 ? 'API key ongeldig' : status === 429 ? 'Rate limit, probeer opnieuw' : 'AI weigert of fout';
-    res.status(500).json({ error: userMsg, details: err.response?.data });
-  }
-});
-
-// Projecten opslaan
-app.post('/projects', async (req, res) => {
-  try {
-    const { id, name, code, prompt } = req.body;
-    if (id) {
-      // Update bestaand project
-      const { data, error } = await supabase
-        .from('projects')
-        .update({ name, code, prompt, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .single();
-      if (error) throw error;
-      res.json(data);
-    } else {
-      // Nieuw project aanmaken
-      const { data, error } = await supabase
-        .from('projects')
-        .insert([{ name, code, prompt, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
-        .single();
-      if (error) throw error;
-      res.json(data);
+    } catch (error) {
+        console.error("Fout:", error.message);
+        res.status(500).json({ error: "AI of Database fout. Probeer het opnieuw." });
     }
-  } catch (error) {
-    console.error('project save error', error);
-    res.status(500).json({ error: 'Kon project niet opslaan' });
-  }
 });
 
-// Project ophalen
-app.get('/projects/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { data, error } = await supabase.from('projects').select('*').eq('id', id).single();
-    if (error) throw error;
+// --- PROJECT OPHALEN ---
+app.get("/project/:id", async (req, res) => {
+    const { data, error } = await supabase.from("projects").select("*").eq("id", req.params.id).single();
+    if (error) return res.status(404).json({ error: "Niet gevonden" });
     res.json(data);
-  } catch (error) {
-    console.error('project load error', error);
-    res.status(404).json({ error: 'Project niet gevonden' });
-  }
 });
 
-// Serve frontend
-app.use(express.static('public'));
-app.get('/', (req, res) => res.sendFile('index.html', { root: 'public' }));
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server draait op poort ${PORT}`));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Database Engine Online"));
