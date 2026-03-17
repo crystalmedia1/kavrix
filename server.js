@@ -12,63 +12,35 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const API_KEY = process.env.API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// Krachtige modellen voor verschillende taken
-const PLANNER_MODEL = "llama-3.3-70b-versatile"; 
-const CODER_MODEL = "llama-3.3-70b-versatile";
+const MODEL = "llama-3.3-70b-versatile";
 
-async function callAI(messages, model = CODER_MODEL, temperature = 0.2) {
+async function callAI(messages, temperature = 0.2) {
     const response = await axios.post(GROQ_API_URL, {
-        model: model,
+        model: MODEL,
         messages: messages,
         temperature: temperature,
         max_tokens: 8000
-    }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
+    }, { 
+        headers: { "Authorization": `Bearer ${API_KEY}` },
+        timeout: 120000 // 2 minuten timeout voor zware taken
+    });
     return response.data.choices[0].message.content;
 }
 
 function cleanCode(text) {
+    if (!text) return "";
     let code = text.replace(/```(?:html|javascript|js)?/gi, "").replace(/```/g, "").trim();
     const start = code.search(/<!DOCTYPE/i);
     if (start !== -1) code = code.substring(start);
+    const end = code.lastIndexOf("<​/html>");
+    if (end !== -1) code = code.substring(0, end + 7);
     return code;
-}
-
-// --- DEEP AGENT WORKFLOW ---
-async function deepAgentWorkflow(userPrompt, previousCode = "") {
-    console.log("Stap 1: Planning...");
-    const plan = await callAI([
-        { role: "system", content: "Je bent een Senior Software Architect. Maak een technisch plan voor de gevraagde app. Focus op data-structuur, UI componenten en logica. Wees extreem specifiek." },
-        { role: "user", content: `Opdracht: ${userPrompt}\nContext: ${previousCode ? "Dit is een update van een bestaande app." : "Dit is een nieuwe app."}` }
-    ], PLANNER_MODEL);
-
-    console.log("Stap 2: Coderen...");
-    const codeResponse = await callAI([
-        { 
-            role: "system", 
-            content: `Je bent KAVRIX DEEP-ENGINE. Bouw de app EXACT volgens dit plan: ${plan}. 
-            EISEN: 
-            - Gebruik Tailwind CSS, FontAwesome, Chart.js.
-            - Schrijf ALLES in één HTML bestand.
-            - Zorg dat alle functies (knoppen, filters, data) ECHT werken met JavaScript.
-            - Gebruik Unsplash voor realistische media.
-            - Geef GEEN tekst, alleen de code.` 
-        },
-        { role: "user", content: userPrompt }
-    ], CODER_MODEL, 0.1);
-
-    let finalCode = cleanCode(codeResponse);
-
-    console.log("Stap 3: Self-Correction...");
-    const correction = await callAI([
-        { role: "system", content: "Je bent een QA Tester. Controleer de code op syntax fouten, ontbrekende sluit-tags of kapotte links. Geef alleen de verbeterde code terug als er fouten zijn, anders de originele code." },
-        { role: "user", content: finalCode }
-    ], CODER_MODEL, 0.1);
-
-    return cleanCode(correction);
 }
 
 app.post("/generate", async (req, res) => {
     const { prompt, projectId } = req.body;
+    console.log("DeepAgent start opdracht: " + prompt);
+    
     try {
         let previousCode = "";
         if (projectId) {
@@ -76,22 +48,49 @@ app.post("/generate", async (req, res) => {
             previousCode = data ? data.code : "";
         }
 
-        const finalCode = await deepAgentWorkflow(prompt, previousCode);
-        
+        // STAP 1: PLANNING & ARCHITECTUUR
+        const plan = await callAI([
+            { role: "system", content: "Je bent een Senior Architect. Maak een technisch plan voor deze app. Focus op logica en werkende functies." },
+            { role: "user", content: `Opdracht: ${prompt}\nContext: ${previousCode ? "Update bestaande code." : "Nieuwe app."}` }
+        ]);
+
+        // STAP 2: PRODUCTIE (DE CODE)
+        const codeResponse = await callAI([
+            { 
+                role: "system", 
+                content: `Je bent KAVRIX DEEP-ENGINE. Bouw de app EXACT volgens dit plan: ${plan}. 
+                EISEN: Gebruik Tailwind, FontAwesome. Schrijf ALLES in één HTML bestand. 
+                Zorg dat alle JS functies ECHT werken. Geef GEEN tekst, alleen code.` 
+            },
+            { role: "user", content: prompt }
+        ], 0.1);
+
+        let finalCode = cleanCode(codeResponse);
+
+        // STAP 3: OPSLAAN IN DATABASE
         let dbResult;
         if (projectId) {
-            dbResult = await supabase.from("projects").update({ code: finalCode, prompt: prompt, updated_at: new Date() }).eq("id", projectId).select();
+            dbResult = await supabase.from("projects").update({ 
+                code: finalCode, 
+                prompt: prompt, 
+                updated_at: new Date() 
+            }).eq("id", projectId).select();
         } else {
-            dbResult = await supabase.from("projects").insert([{ name: prompt.substring(0, 30), code: finalCode, prompt: prompt }]).select();
+            dbResult = await supabase.from("projects").insert([{ 
+                name: prompt.substring(0, 30), 
+                code: finalCode, 
+                prompt: prompt 
+            }]).select();
         }
+
         res.json({ code: finalCode, projectId: dbResult.data[0].id });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "DeepAgent Error: " + error.message });
+        console.error("Fout:", error.message);
+        res.status(500).json({ error: "DeepAgent Timeout of Error. Probeer een kortere opdracht." });
     }
 });
 
-// Andere endpoints (projects, delete, proxy, share) blijven hetzelfde...
+// Overige standaard routes
 app.get("/projects", async (req, res) => {
     const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
     res.json(data || []);
@@ -112,4 +111,4 @@ app.get("/share/:id", async (req, res) => {
     res.send(data ? data.code : "Niet gevonden");
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Deep-Reasoning Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Engine v3.1 Online"));
