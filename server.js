@@ -8,13 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-// Supabase configuratie met foutcontrole
 const supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABASE_KEY || "");
-
 const API_KEY = process.env.API_KEY;
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const ROUTE_LLM_URL = "https://routellm.abacus.ai/v1/chat/completions";
 
-// Proxy route voor live data
+// Proxy voor live data
 app.get("/api/proxy", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).json({ error: "URL is verplicht" });
@@ -28,29 +26,45 @@ app.get("/api/proxy", async (req, res) => {
 
 async function callDeepEngine(prompt, previousCode = "") {
     try {
-        const response = await axios.post(GROQ_API_URL, {
-            model: "llama-3.3-70b-versatile",
+        const response = await axios.post(ROUTE_LLM_URL, {
+            // We gebruiken 'route-llm' voor de beste balans tussen snelheid en intelligentie (Abacus-stijl)
+            model: "route-llm", 
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v8.0. Bouw uitsluitend LUXE web-apps.
-                    EISEN: Gebruik Tailwind CSS, Lucide Icons, Chart.js. 
-                    STIJL: Donker thema (bg-slate-950), Glassmorphism, afgeronde hoeken (32px).
-                    Geef ALLEEN de volledige HTML code terug.` 
+                    content: `Je bent KAVRIX DEEP-ENGINE v9.0, een elite AI App Builder vergelijkbaar met Abacus.ai.
+                    
+                    JOUW MISSIE:
+                    Bouw pixel-perfecte, functionele en moderne web-applicaties op basis van gebruikerswensen.
+                    
+                    DESIGN PRINCIPES:
+                    1. Gebruik Tailwind CSS voor een high-end look.
+                    2. Gebruik Lucide Icons voor strakke, consistente iconen.
+                    3. Gebruik Google Fonts (Inter of Plus Jakarta Sans).
+                    4. UI: Gebruik diepe schaduwen, subtiele gradients, glassmorphism (bg-white/5 backdrop-blur-xl) en afgeronde hoeken (rounded-3xl).
+                    5. UX: Voeg hover-effecten, transities en animaties toe (gebruik Framer Motion of CSS transitions).
+                    
+                    FUNCTIONALITEIT:
+                    1. Schrijf SCHONE en MODULAIRE JavaScript.
+                    2. Gebruik voor live data ALTIJD de proxy: https://kavrix.onrender.com/api/proxy?url=URL
+                    3. Als de gebruiker vraagt om een dashboard, voeg dan interactieve grafieken toe met Chart.js.
+                    
+                    OUTPUT:
+                    Geef ALLEEN de volledige, werkende HTML code terug. Geen uitleg, geen markdown blokken.` 
                 },
-                { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
+                { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nNIEUWE OPDRACHT: ${prompt}\n\nBouw een complete, luxe oplossing.` }
             ],
-            temperature: 0.1
+            temperature: 0.3
         }, { 
             headers: { "Authorization": `Bearer ${API_KEY}` },
-            timeout: 60000 // 1 minuut wachten op AI
+            timeout: 90000 
         });
         
         let code = response.data.choices[0].message.content;
         return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
     } catch (error) {
         console.error("AI Error:", error.message);
-        throw new Error("AI Engine is tijdelijk overbelast. Probeer het over 10 seconden opnieuw.");
+        throw new Error("De DeepEngine is momenteel druk. Probeer het over enkele seconden opnieuw.");
     }
 }
 
@@ -66,7 +80,7 @@ app.post("/generate", async (req, res) => {
         }
 
         if (!id) {
-            const { data, error } = await supabase.from("projects").insert([{ name: "Nieuw Project...", code: "GENERATING", prompt: prompt }]).select();
+            const { data, error } = await supabase.from("projects").insert([{ name: "Genereren...", code: "GENERATING", prompt: prompt }]).select();
             if (error) throw error;
             id = data[0].id;
         } else {
@@ -75,20 +89,26 @@ app.post("/generate", async (req, res) => {
 
         res.json({ projectId: id });
 
-        // Achtergrond proces met extra veiligheid
+        // Achtergrond proces
         callDeepEngine(prompt, previousCode).then(async (finalCode) => {
-            await supabase.from("projects").update({ code: finalCode }).eq("id", id);
+            // Naam verzinnen op basis van de opdracht
+            const nameResponse = await axios.post(ROUTE_LLM_URL, {
+                model: "route-llm",
+                messages: [{ role: "user", content: `Geef een korte, luxe naam (max 2 woorden) voor deze app: ${prompt}. Geef alleen de naam.` }]
+            }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
+            
+            const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
+            await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", id);
         }).catch(async (err) => {
-            console.error("Background Error:", err.message);
             await supabase.from("projects").update({ code: "FOUT: " + err.message }).eq("id", id);
         });
 
     } catch (error) {
-        console.error("Server Error:", error.message);
-        res.status(500).json({ error: "Server Fout: " + error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
+// Overige routes blijven gelijk...
 app.get("/projects", async (req, res) => {
     try {
         const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
@@ -110,13 +130,7 @@ app.delete("/delete-project/:id", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Kavrix Engine v8.0 draait op poort ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Kavrix Engine v9.0 Online`));
 
-// Voorkom dat de server crasht bij onverwachte fouten
-process.on('uncaughtException', (err) => {
-    console.error('Uncaught Exception:', err);
-});
+process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
