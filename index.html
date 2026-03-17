@@ -3,49 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAVRIX | DeepAgent</title>
+    <title>KAVRIX | Pro Workspace</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background: #020617; color: white; font-family: sans-serif; overflow: hidden; height: 100vh; }
-        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 24px; }
-        .loader { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #4f46e5; padding: 10px 20px; border-radius: 50px; font-weight: bold; font-size: 12px; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        body { background: #020617; color: white; font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; height: 100vh; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
+        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 20px; transition: 0.3s; }
+        .loader-bar { height: 2px; width: 0%; background: #6366f1; transition: 0.5s; position: fixed; top: 0; left: 0; z-index: 1000; }
+        .sidebar-item { transition: 0.2s; border-radius: 12px; }
+        .sidebar-item:hover { background: rgba(255,255,255,0.05); }
     </style>
 </head>
-<body class="flex flex-col p-4">
+<body class="flex h-screen">
 
-    <div id="loader" class="loader">DeepAgent is aan het bouwen... <i class="fas fa-spinner animate-spin ml-2"></i></div>
-
-    <div class="flex justify-between items-center mb-4">
-        <h1 class="text-xl font-black tracking-tighter">KAVRIX</h1>
-        <div class="flex gap-2">
-            <button onclick="toggleSidebar()" class="p-3 bg-slate-900 rounded-xl"><i class="fas fa-history"></i></button>
-            <button onclick="location.reload()" class="p-3 bg-slate-900 rounded-xl"><i class="fas fa-plus"></i></button>
-        </div>
-    </div>
-
-    <div class="flex-1 relative">
-        <div id="empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
-            <i class="fas fa-magic text-4xl mb-4"></i>
-            <p>Voer een opdracht in om te beginnen.</p>
-        </div>
-        <iframe id="preview" class="hidden"></iframe>
-    </div>
-
-    <div class="mt-4 flex gap-2 bg-slate-900 p-2 rounded-2xl">
-        <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none p-3 text-sm" placeholder="Wat wil je bouwen?">
-        <button id="go" class="bg-indigo-600 px-6 py-3 rounded-xl font-bold text-sm">Bouw</button>
-    </div>
+    <div id="loaderBar" class="loader-bar"></div>
 
     <!-- Sidebar -->
-    <div id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-950 border-right border-white/10 p-6 transform -translate-x-full transition-transform z-50">
-        <button onclick="toggleSidebar()" class="mb-8 text-slate-500">Sluiten</button>
-        <div id="projectList" class="space-y-2"></div>
-    </div>
+    <aside class="w-72 glass border-r border-white/5 flex flex-col p-6">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <i class="fas fa-bolt text-xs"></i>
+            </div>
+            <h1 class="text-xl font-extrabold tracking-tighter">KAVRIX</h1>
+        </div>
+
+        <button onclick="newProject()" class="w-full bg-white text-black py-3 rounded-xl font-bold text-sm mb-8 hover:bg-indigo-500 hover:text-white transition-all">
+            + Nieuw Project
+        </button>
+
+        <div class="flex-1 overflow-y-auto space-y-2" id="projectList">
+            <!-- Projecten komen hier -->
+        </div>
+
+        <div class="mt-auto pt-6 border-t border-white/5 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+            v4.0 DeepEngine Active
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col p-6 relative">
+        <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#020617]">
+            <div class="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 border border-white/5">
+                <i class="fas fa-wand-sparkles text-3xl text-indigo-500"></i>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">Start je volgende creatie</h2>
+            <p class="text-slate-500 text-sm">Beschrijf wat je wilt bouwen en de AI doet de rest.</p>
+        </div>
+
+        <div class="flex-1 relative z-0">
+            <iframe id="preview" class="hidden shadow-2xl"></iframe>
+        </div>
+
+        <!-- Command Center -->
+        <div class="mt-6 max-w-4xl mx-auto w-full">
+            <div class="glass rounded-2xl p-2 flex items-center shadow-2xl">
+                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-4 text-sm font-medium" placeholder="Bijv: Bouw een crypto dashboard met live grafieken...">
+                <button id="go" class="bg-indigo-600 px-8 py-4 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-500 transition-all">
+                    <span>Genereer</span>
+                    <i class="fas fa-paper-plane text-[10px]"></i>
+                </button>
+            </div>
+        </div>
+    </main>
 
     <script>
         const RENDER_URL = "https://kavrix.onrender.com";
-        let currentId = null;
+        let currentId = localStorage.getItem('kavrix_id');
         let pollInterval = null;
 
         async function loadProjects() {
@@ -54,49 +79,61 @@
             const list = document.getElementById("projectList");
             list.innerHTML = "";
             data.forEach(p => {
-                const btn = document.createElement("button");
-                btn.className = "w-full text-left p-3 text-xs hover:bg-white/5 rounded-lg";
-                btn.innerText = p.name;
-                btn.onclick = () => { selectProject(p.id); toggleSidebar(); };
-                list.appendChild(btn);
+                const div = document.createElement("div");
+                div.className = `sidebar-item p-3 flex justify-between items-center group ${currentId === p.id ? 'bg-white/10' : ''}`;
+                div.innerHTML = `
+                    <button class="flex-1 text-left text-xs font-semibold truncate pr-2">${p.name}</button>
+                    <button onclick="deleteProject('${p.id}', event)" class="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-500 transition-all">
+                        <i class="fas fa-trash text-[10px]"></i>
+                    </button>
+                `;
+                div.querySelector('button').onclick = () => selectProject(p.id);
+                list.appendChild(div);
             });
         }
 
         async function selectProject(id) {
             currentId = id;
+            localStorage.setItem('kavrix_id', id);
             const r = await fetch(`${RENDER_URL}/project/${id}`);
             const d = await r.json();
             
             if (d.code === "GENERATING") {
                 startPolling(id);
             } else {
+                stopPolling();
                 const iframe = document.getElementById("preview");
                 iframe.srcdoc = d.code;
                 iframe.classList.remove("hidden");
-                document.getElementById("empty").classList.add("hidden");
-                document.getElementById("loader").style.display = "none";
+                document.getElementById("emptyState").classList.add("hidden");
+                document.getElementById("loaderBar").style.width = "0%";
+                loadProjects();
             }
         }
 
         function startPolling(id) {
-            document.getElementById("loader").style.display = "block";
+            document.getElementById("loaderBar").style.width = "50%";
             if (pollInterval) clearInterval(pollInterval);
-            
             pollInterval = setInterval(async () => {
                 const r = await fetch(`${RENDER_URL}/project/${id}`);
                 const d = await r.json();
                 if (d.code !== "GENERATING") {
-                    clearInterval(pollInterval);
                     selectProject(id);
                 }
-            }, 3000); // Check elke 3 seconden
+            }, 3000);
+        }
+
+        function stopPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            document.getElementById("loaderBar").style.width = "100%";
+            setTimeout(() => document.getElementById("loaderBar").style.width = "0%", 500);
         }
 
         async function run() {
             const p = document.getElementById("prompt").value;
             if (!p) return;
             
-            document.getElementById("loader").style.display = "block";
+            document.getElementById("loaderBar").style.width = "20%";
             const r = await fetch(`${RENDER_URL}/generate`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -107,14 +144,25 @@
             document.getElementById("prompt").value = "";
         }
 
-        function toggleSidebar() {
-            const s = document.getElementById("sidebar");
-            s.classList.toggle("-translate-x-full");
-            if (!s.classList.contains("-translate-x-full")) loadProjects();
+        async function deleteProject(id, e) {
+            e.stopPropagation();
+            if(!confirm("Verwijderen?")) return;
+            await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
+            if(currentId === id) newProject();
+            else loadProjects();
+        }
+
+        function newProject() {
+            currentId = null;
+            localStorage.removeItem('kavrix_id');
+            location.reload();
         }
 
         document.getElementById("go").onclick = run;
         document.getElementById("prompt").onkeydown = (e) => { if(e.key === 'Enter') run(); };
+        
+        if(currentId) selectProject(currentId);
+        loadProjects();
     </script>
 </body>
 </html>
