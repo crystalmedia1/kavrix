@@ -3,61 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAVRIX | DeepAgent Dashboard</title>
+    <title>KAVRIX | Live Workspace</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body { background: #020617; color: white; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; }
         #sidebar { transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 200; background: #0f172a; border-right: 1px solid #1e293b; }
         .sidebar-closed { transform: translateX(-100%); }
-        .project-card { background: #1e293b; border: 1px solid #334155; transition: 0.3s; cursor: pointer; }
-        .project-card:hover { border-color: #6366f1; background: #1e1b4b; }
-        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 12px; }
+        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .glass-input { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        .agent-loader { display: none; position: fixed; top: 20px; right: 20px; z-index: 1000; }
     </style>
 </head>
 <body>
-    <!-- Floating Menu Button -->
-    <button id="menuBtn" class="fixed top-6 left-6 w-14 h-14 bg-indigo-600 text-white rounded-2xl z-[250] shadow-xl flex items-center justify-center hover:bg-indigo-500 transition-all">
-        <i class="fas fa-bars text-xl"></i>
-    </button>
+    <!-- Agent Loader -->
+    <div id="loader" class="agent-loader bg-indigo-600 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+        <div class="w-2 h-2 bg-white rounded-full animate-ping"></div>
+        <span class="text-xs font-black uppercase tracking-widest">Agent is aan het bouwen...</span>
+    </div>
 
-    <!-- Sidebar -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 w-full md:w-[400px] h-full p-8 flex flex-col sidebar-closed">
+    <!-- Sidebar (Projecten & Nieuw) -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-full md:w-[350px] h-full p-8 flex flex-col sidebar-closed shadow-2xl">
         <div class="flex justify-between items-center mb-10">
-            <h1 class="text-2xl font-black italic">KAVRIX <span class="text-indigo-500 text-sm">DASHBOARD</span></h1>
-            <button id="closeBtn" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+            <h1 class="text-xl font-black italic tracking-tighter">KAVRIX <span class="text-indigo-500">PRO</span></h1>
+            <button id="closeBtn" class="text-slate-500 hover:text-white text-2xl">&times;</button>
         </div>
-
-        <div class="flex-1 overflow-y-auto space-y-6 pr-2">
-            <!-- New Project Section -->
-            <div class="space-y-2">
-                <label class="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Nieuwe Opdracht</label>
-                <textarea id="prompt" class="w-full h-32 bg-slate-900 border border-slate-800 rounded-2xl p-4 outline-none focus:border-indigo-500 text-sm resize-none" placeholder="Wat gaan we bouwen?"></textarea>
-                <button id="go" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black text-sm transition-all">START AGENT</button>
-            </div>
-
-            <!-- Projects List -->
+        
+        <div class="flex-1 overflow-y-auto space-y-6">
+            <button id="newProject" class="w-full bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 py-4 rounded-2xl font-bold text-sm hover:bg-indigo-600 hover:text-white transition-all">
+                + NIEUW PROJECT
+            </button>
+            
             <div class="pt-6 border-t border-slate-800">
-                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4 block">Mijn Projecten</label>
-                <div id="projectList" class="space-y-3">
-                    <!-- Projecten komen hier -->
-                </div>
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4 block">Mijn Apps</label>
+                <div id="projectList" class="space-y-2"></div>
             </div>
         </div>
     </aside>
 
-    <!-- Main View -->
-    <main class="h-full w-full p-4 md:p-8">
-        <iframe id="view" class="hidden"></iframe>
-        <div id="empty" class="h-full w-full flex flex-col items-center justify-center text-center">
-            <h2 class="text-xl font-bold mb-2">Welkom bij Kavrix DeepAgent</h2>
-            <p class="text-slate-500 text-sm">Selecteer een project of start een nieuwe opdracht.</p>
+    <!-- Main Workspace -->
+    <main class="h-full w-full flex flex-col p-4 md:p-6 transition-all" id="mainContent">
+        <!-- Top Bar -->
+        <div class="flex justify-between items-center mb-4 px-2">
+            <button id="menuBtn" class="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 hover:border-indigo-500 transition-all">
+                <i class="fas fa-th-large text-slate-400"></i>
+            </button>
+            <div class="flex items-center gap-4">
+                <span id="activeTitle" class="text-xs font-bold text-slate-500 uppercase tracking-widest">Geen project actief</span>
+                <button id="dlBtn" class="hidden w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 hover:text-indigo-400"><i class="fas fa-download text-xs"></i></button>
+            </div>
+        </div>
+
+        <!-- Preview Area -->
+        <div class="flex-1 relative">
+            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <div class="w-20 h-20 bg-indigo-600/10 rounded-3xl flex items-center justify-center mb-6 border border-indigo-500/20">
+                    <i class="fas fa-rocket text-3xl text-indigo-500"></i>
+                </div>
+                <h2 class="text-2xl font-black mb-2">Start je volgende idee</h2>
+                <p class="text-slate-500 text-sm max-w-xs">Gebruik de balk onderaan om je eerste app te genereren met de Kavrix Agent.</p>
+            </div>
+            <iframe id="preview" class="hidden"></iframe>
+        </div>
+
+        <!-- Quick Edit Bar (De "DeepAgent" Command Bar) -->
+        <div class="mt-6 max-w-3xl mx-auto w-full relative">
+            <div class="glass-input rounded-3xl p-2 flex items-center shadow-2xl">
+                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-4 text-sm" placeholder="Vraag de agent om iets te bouwen of aan te passen...">
+                <button id="go" class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center hover:bg-indigo-500 transition-all active:scale-90">
+                    <i class="fas fa-paper-plane text-xs"></i>
+                </button>
+            </div>
         </div>
     </main>
 
     <script>
         const RENDER_URL = "https://kavrix.onrender.com";
-        let currentProjectId = null;
+        let currentProjectId = localStorage.getItem('kavrix_active_id');
 
         async function loadProjects() {
             const r = await fetch(`${RENDER_URL}/projects`);
@@ -65,44 +87,66 @@
             const list = document.getElementById("projectList");
             list.innerHTML = "";
             projects.forEach(p => {
-                const div = document.createElement("div");
-                div.className = "project-card p-4 rounded-xl text-xs font-medium";
-                div.innerText = p.name || "Naamloos Project";
-                div.onclick = () => loadProject(p.id);
-                list.appendChild(div);
+                const btn = document.createElement("button");
+                btn.className = "w-full text-left p-4 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all mb-1";
+                btn.innerHTML = `<i class="fas fa-file-code mr-3 opacity-30"></i> ${p.name || 'Naamloos'}`;
+                btn.onclick = () => selectProject(p.id);
+                list.appendChild(btn);
             });
         }
 
-        async function loadProject(id) {
+        async function selectProject(id) {
             currentProjectId = id;
+            localStorage.setItem('kavrix_active_id', id);
+            document.getElementById("loader").style.display = "flex";
             const r = await fetch(`${RENDER_URL}/project/${id}`);
             const d = await r.json();
-            const view = document.getElementById("view");
-            view.srcdoc = d.code;
-            view.classList.remove("hidden");
-            document.getElementById("empty").classList.add("hidden");
+            
+            const iframe = document.getElementById("preview");
+            iframe.srcdoc = d.code;
+            iframe.classList.remove("hidden");
+            document.getElementById("emptyState").classList.add("hidden");
+            document.getElementById("activeTitle").innerText = d.name;
+            document.getElementById("dlBtn").classList.remove("hidden");
             document.getElementById("sidebar").classList.add("sidebar-closed");
+            document.getElementById("loader").style.display = "none";
         }
 
-        async function askAgent() {
+        async function runAgent() {
             const p = document.getElementById("prompt").value;
             if(!p) return;
-            document.getElementById("sidebar").classList.add("sidebar-closed");
-            
-            const r = await fetch(`${RENDER_URL}/generate`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: p, projectId: currentProjectId })
-            });
-            const d = await r.json();
-            loadProject(d.projectId);
-            loadProjects();
+
+            document.getElementById("loader").style.display = "flex";
+            const promptInput = document.getElementById("prompt");
+            promptInput.disabled = true;
+            promptInput.value = "Agent is bezig...";
+
+            try {
+                const r = await fetch(`${RENDER_URL}/generate`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: p, projectId: currentProjectId })
+                });
+                const d = await r.json();
+                await selectProject(d.projectId);
+                loadProjects();
+            } catch(e) {
+                alert("Fout: " + e.message);
+            } finally {
+                document.getElementById("loader").style.display = "none";
+                promptInput.disabled = false;
+                promptInput.value = "";
+                promptInput.focus();
+            }
         }
 
-        document.getElementById("go").onclick = askAgent;
+        document.getElementById("go").onclick = runAgent;
+        document.getElementById("prompt").onkeydown = (e) => { if(e.key === 'Enter') runAgent(); };
         document.getElementById("menuBtn").onclick = () => { loadProjects(); document.getElementById("sidebar").classList.remove("sidebar-closed"); };
         document.getElementById("closeBtn").onclick = () => document.getElementById("sidebar").classList.add("sidebar-closed");
+        document.getElementById("newProject").onclick = () => { currentProjectId = null; localStorage.removeItem('kavrix_active_id'); location.reload(); };
         
+        if(currentProjectId) selectProject(currentProjectId);
         loadProjects();
     </script>
 </body>
