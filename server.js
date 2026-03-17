@@ -10,34 +10,46 @@ app.use(express.json({ limit: '50mb' }));
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Functie om AI aan te roepen met automatische model-switch bij limiet
-async function callAIWithFallback(prompt, existingCode, apiKey) {
-    const models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"];
-    let lastError;
+// --- SELF-CORRECTION LINTER ---
+function validateCode(code) {
+    if (!code) return { valid: false, error: "Geen code gegenereerd." };
+    const hasHtml = code.includes("<​html") || code.includes("<!DOCTYPE");
+    const hasClosingHtml = code.includes("</html>");
+    const hasTailwind = code.includes("tailwindcss");
+    
+    if (!hasHtml || !hasClosingHtml) return { valid: false, error: "HTML structuur is incompleet (mis <html> of </html>)." };
+    return { valid: true };
+}
 
-    for (const model of models) {
-        try {
-            console.log(`Proberen met model: ${model}...`);
-            const response = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
-                model: model,
-                messages: [
-                    { role: "system", content: "Je bent KAVRIX DEEP-ENGINE. Bouw ALTIJD volledige HTML/Tailwind code. Geen tekst, alleen code." },
-                    { role: "user", content: existingCode ? `UPDATE:\n${existingCode}\n\nWIJZIGING: ${prompt}` : prompt }
-                ],
-                temperature: 0.2
-            }, { headers: { "Authorization": `Bearer ${apiKey}` }, timeout: 60000 });
+async function callAIWithCorrection(prompt, existingCode, apiKey, attempt = 1) {
+    const model = attempt === 1 ? "llama-3.3-70b-versatile" : "llama-3.1-8b-instant";
+    
+    try {
+        const response = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
+            model: model,
+            messages: [
+                { role: "system", content: "Je bent KAVRIX DEEP-ENGINE. Bouw ALTIJD volledige, werkende HTML/Tailwind code. Geen tekst, alleen code." },
+                { role: "user", content: existingCode ? `UPDATE:\n${existingCode}\n\nWIJZIGING: ${prompt}` : prompt }
+            ],
+            temperature: 0.2
+        }, { headers: { "Authorization": `Bearer ${apiKey}` }, timeout: 60000 });
 
-            return response.data.choices[0].message.content;
-        } catch (error) {
-            lastError = error;
-            if (error.response && error.response.status === 429) {
-                console.log(`Limiet bereikt voor ${model}, probeer volgende model...`);
-                continue; // Probeer het volgende (lichtere) model in de lijst
-            }
-            throw error; // Andere fout? Stop dan.
+        let aiCode = response.data.choices[0].message.content;
+        
+        // ZELF-CORRECTIE CHECK
+        const check = validateCode(aiCode);
+        if (!check.valid && attempt < 3) {
+            console.log(`Fout gedetecteerd: ${check.error}. Agent start zelf-correctie (poging ${attempt + 1})...`);
+            return await callAIWithCorrection(`FIX DEZE FOUT: ${check.error}\n\nCODE:\n${aiCode}`, null, apiKey, attempt + 1);
         }
+
+        return aiCode;
+    } catch (error) {
+        if (error.response && error.response.status === 429 && attempt < 3) {
+            return await callAIWithCorrection(prompt, existingCode, apiKey, attempt + 1);
+        }
+        throw error;
     }
-    throw lastError;
 }
 
 app.post("/generate", async (req, res) => {
@@ -45,29 +57,18 @@ app.post("/generate", async (req, res) => {
     const API_KEY = process.env.API_KEY;
 
     try {
-        const aiResponse = await callAIWithFallback(prompt, existingCode, API_KEY);
+        const finalCode = await callAIWithCorrection(prompt, existingCode, API_KEY);
         
-        // Opslaan in Supabase
         let dbResult;
         if (projectId) {
-            dbResult = await supabase.from("projects").update({ 
-                code: aiResponse, 
-                prompt: prompt, 
-                updated_at: new Date() 
-            }).eq("id", projectId).select();
+            dbResult = await supabase.from("projects").update({ code: finalCode, prompt: prompt, updated_at: new Date() }).eq("id", projectId).select();
         } else {
-            dbResult = await supabase.from("projects").insert([{ 
-                name: prompt.substring(0, 30), 
-                code: aiResponse, 
-                prompt: prompt 
-            }]).select();
+            dbResult = await supabase.from("projects").insert([{ name: prompt.substring(0, 30), code: finalCode, prompt: prompt }]).select();
         }
 
-        res.json({ code: aiResponse, projectId: dbResult.data[0].id });
-
+        res.json({ code: finalCode, projectId: dbResult.data[0].id });
     } catch (error) {
-        const msg = error.response?.data?.error?.message || error.message;
-        res.status(500).json({ error: "KAVRIX ENGINE FOUT: " + msg });
+        res.status(500).json({ error: "AGENT CRITICAL ERROR: " + error.message });
     }
 });
 
@@ -77,4 +78,4 @@ app.get("/project/:id", async (req, res) => {
     res.json(data);
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Smart-Efficiency Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Self-Correction Engine Online"));
