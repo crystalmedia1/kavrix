@@ -26,7 +26,15 @@ app.get("/proxy", async (req, res) => {
     }
 });
 
-// Project verwijderen
+// --- NIEUW: PUBLIEKE DEEL-LINK ---
+app.get("/share/:id", async (req, res) => {
+    try {
+        const { data, error } = await supabase.from("projects").select("code").eq("id", req.params.id).single();
+        if (error || !data) return res.status(404).send("App niet gevonden");
+        res.send(data.code);
+    } catch (e) { res.status(500).send("Server Fout"); }
+});
+
 app.delete("/delete-project/:id", async (req, res) => {
     try {
         const { error } = await supabase.from("projects").delete().eq("id", req.params.id);
@@ -55,13 +63,12 @@ async function callDeepAgent(prompt, context, attempt = 0) {
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v2.0. Je bouwt high-end digitale producten.
+                    content: `Je bent KAVRIX DEEP-ENGINE v3.0. Je bouwt complete, deelbare web-apps.
                     RICHTLIJNEN:
-                    1. Gebruik ALTIJD Tailwind CSS, FontAwesome en Google Fonts (Inter/Poppins).
-                    2. Focus op 'Premium UI': Gebruik subtiele schaduwen, grote border-radius (24px+), en vloeiende transities.
-                    3. Voor afbeeldingen: Gebruik Unsplash met specifieke keywords voor hoge kwaliteit.
-                    4. Als de gebruiker vraagt om het platform-thema aan te passen, geef dan een JSON object terug met kleurencodes, anders geef je HTML code.
-                    5. Geef NOOIT uitleg, alleen de volledige, schone code.`
+                    1. Gebruik Tailwind CSS, FontAwesome en Google Fonts.
+                    2. Bouw apps die 'responsive' zijn (werken op mobiel en desktop).
+                    3. Gebruik voor afbeeldingen Unsplash.
+                    4. Geef NOOIT uitleg, alleen de volledige HTML code.`
                 },
                 { role: "user", content: `${context}\n\nOPDRACHT: ${prompt}` }
             ],
@@ -108,4 +115,4 @@ app.post("/generate", async (req, res) => {
     }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Premium Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Publishing Engine Online"));
