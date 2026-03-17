@@ -12,7 +12,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const API_KEY = process.env.API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// --- NIEUW: LIVE DATA PROXY ---
+// Proxy voor live data (voorkomt $undefined)
 app.get("/api/proxy", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).json({ error: "URL is verplicht" });
@@ -30,12 +30,18 @@ async function callDeepEngine(prompt, previousCode = "") {
         messages: [
             { 
                 role: "system", 
-                content: `Je bent KAVRIX DEEP-ENGINE v5.0. Je bouwt enterprise-grade web-apps.
-                RICHTLIJNEN:
-                1. Gebruik Tailwind CSS, Lucide Icons (via UNPKG) en Chart.js.
-                2. Voor live data, gebruik fetch naar: ${process.env.RENDER_EXTERNAL_URL}/api/proxy?url=HIER_DE_URL
-                3. Maak de UI extreem luxe: gebruik subtiele gradients, glassmorphism en animaties.
-                4. Geef ALLEEN de volledige HTML code terug.` 
+                content: `Je bent KAVRIX DEEP-ENGINE v6.0. Je bouwt apps van wereldklasse.
+                
+                TECHNISCHE EISEN:
+                1. Gebruik Tailwind CSS voor ALLES.
+                2. Gebruik Lucide Icons en Google Fonts (Inter of Poppins).
+                3. Voor LIVE DATA (zoals Crypto): Gebruik ALTIJD de proxy route: 
+                   https://kavrix.onrender.com/api/proxy?url=HIER_DE_API_URL
+                4. Gebruik voor Crypto de CoinGecko API: https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd
+                5. UI STIJL: Donker thema, Glassmorphism (bg-white/5 backdrop-blur-lg), afgeronde hoeken (rounded-3xl), en vloeiende animaties.
+                6. Zorg dat de JavaScript code robuust is en fouten afhandelt (geen undefined).
+                
+                Geef ALLEEN de volledige HTML code terug, beginnend met <!DOCTYPE html>.` 
             },
             { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
         ],
@@ -58,11 +64,7 @@ app.post("/generate", async (req, res) => {
         }
 
         if (!id) {
-            const { data } = await supabase.from("projects").insert([{ 
-                name: "Nieuw Project...", 
-                code: "GENERATING", 
-                prompt: prompt 
-            }]).select();
+            const { data } = await supabase.from("projects").insert([{ name: "Nieuw Project...", code: "GENERATING", prompt: prompt }]).select();
             id = data[0].id;
         } else {
             await supabase.from("projects").update({ code: "GENERATING", prompt: prompt }).eq("id", id);
@@ -70,12 +72,10 @@ app.post("/generate", async (req, res) => {
 
         res.json({ projectId: id });
 
-        // Achtergrond proces
         callDeepEngine(prompt, previousCode).then(async (finalCode) => {
-            // Extra stap: Laat AI een naam verzinnen
             const nameResponse = await axios.post(GROQ_API_URL, {
                 model: "llama-3.1-8b-instant",
-                messages: [{ role: "user", content: `Verzin een korte, krachtige naam (max 2 woorden) voor deze app opdracht: ${prompt}. Geef alleen de naam.` }]
+                messages: [{ role: "user", content: `Verzin een korte naam voor: ${prompt}. Geef alleen de naam.` }]
             }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
             
             const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
@@ -102,4 +102,4 @@ app.delete("/delete-project/:id", async (req, res) => {
     res.json({ success: true });
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Engine v5.0 Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Engine v6.0 Online"));
