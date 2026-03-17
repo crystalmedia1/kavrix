@@ -10,7 +10,10 @@ app.use(express.json({ limit: "50mb" }));
 
 const supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABASE_KEY || "");
 const API_KEY = process.env.API_KEY;
-const ROUTE_LLM_URL = "https://routellm.abacus.ai/v1/chat/completions";
+
+// We gebruiken Groq direct voor maximale snelheid en stabiliteit
+const AI_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const AI_MODEL = "llama-3.3-70b-versatile"; 
 
 // Proxy voor live data
 app.get("/api/proxy", async (req, res) => {
@@ -26,45 +29,39 @@ app.get("/api/proxy", async (req, res) => {
 
 async function callDeepEngine(prompt, previousCode = "") {
     try {
-        const response = await axios.post(ROUTE_LLM_URL, {
-            // We gebruiken 'route-llm' voor de beste balans tussen snelheid en intelligentie (Abacus-stijl)
-            model: "route-llm", 
+        const response = await axios.post(AI_API_URL, {
+            model: AI_MODEL,
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v9.0, een elite AI App Builder vergelijkbaar met Abacus.ai.
+                    content: `Je bent KAVRIX DEEP-ENGINE v10.0, een elite AI App Builder.
                     
-                    JOUW MISSIE:
-                    Bouw pixel-perfecte, functionele en moderne web-applicaties op basis van gebruikerswensen.
+                    JOUW STIJL-GIDS (STRIKT VOLGEN):
+                    1. UI: Ultra-modern, donker thema (bg-[#020617]), Glassmorphism (bg-white/5 backdrop-blur-2xl border border-white/10).
+                    2. UX: Gebruik afgeronde hoeken (rounded-[32px]), grote paddings, en vloeiende transities.
+                    3. FONTS: Gebruik 'Plus Jakarta Sans' via Google Fonts.
+                    4. COMPONENTEN: Gebruik Lucide Icons en Chart.js voor data.
                     
-                    DESIGN PRINCIPES:
-                    1. Gebruik Tailwind CSS voor een high-end look.
-                    2. Gebruik Lucide Icons voor strakke, consistente iconen.
-                    3. Gebruik Google Fonts (Inter of Plus Jakarta Sans).
-                    4. UI: Gebruik diepe schaduwen, subtiele gradients, glassmorphism (bg-white/5 backdrop-blur-xl) en afgeronde hoeken (rounded-3xl).
-                    5. UX: Voeg hover-effecten, transities en animaties toe (gebruik Framer Motion of CSS transitions).
+                    TECHNISCH:
+                    - Gebruik Tailwind CSS via CDN.
+                    - Schrijf volledige, werkende JavaScript.
+                    - Gebruik de proxy voor API calls: https://kavrix.onrender.com/api/proxy?url=...
                     
-                    FUNCTIONALITEIT:
-                    1. Schrijf SCHONE en MODULAIRE JavaScript.
-                    2. Gebruik voor live data ALTIJD de proxy: https://kavrix.onrender.com/api/proxy?url=URL
-                    3. Als de gebruiker vraagt om een dashboard, voeg dan interactieve grafieken toe met Chart.js.
-                    
-                    OUTPUT:
-                    Geef ALLEEN de volledige, werkende HTML code terug. Geen uitleg, geen markdown blokken.` 
+                    Geef ALLEEN de volledige HTML code terug.` 
                 },
-                { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nNIEUWE OPDRACHT: ${prompt}\n\nBouw een complete, luxe oplossing.` }
+                { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ],
-            temperature: 0.3
+            temperature: 0.2
         }, { 
             headers: { "Authorization": `Bearer ${API_KEY}` },
-            timeout: 90000 
+            timeout: 120000 // Verhoogd naar 2 minuten voor grote apps
         });
         
         let code = response.data.choices[0].message.content;
         return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
     } catch (error) {
-        console.error("AI Error:", error.message);
-        throw new Error("De DeepEngine is momenteel druk. Probeer het over enkele seconden opnieuw.");
+        console.error("AI Error:", error.response ? error.response.data : error.message);
+        throw new Error("De AI-verbinding is mislukt. Controleer je API-key of probeer het opnieuw.");
     }
 }
 
@@ -91,10 +88,10 @@ app.post("/generate", async (req, res) => {
 
         // Achtergrond proces
         callDeepEngine(prompt, previousCode).then(async (finalCode) => {
-            // Naam verzinnen op basis van de opdracht
-            const nameResponse = await axios.post(ROUTE_LLM_URL, {
-                model: "route-llm",
-                messages: [{ role: "user", content: `Geef een korte, luxe naam (max 2 woorden) voor deze app: ${prompt}. Geef alleen de naam.` }]
+            // Naam verzinnen
+            const nameResponse = await axios.post(AI_API_URL, {
+                model: "llama-3.1-8b-instant",
+                messages: [{ role: "user", content: `Korte naam (2 woorden) voor: ${prompt}. Alleen de naam.` }]
             }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
             
             const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
@@ -108,7 +105,7 @@ app.post("/generate", async (req, res) => {
     }
 });
 
-// Overige routes blijven gelijk...
+// Overige routes...
 app.get("/projects", async (req, res) => {
     try {
         const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
@@ -131,6 +128,6 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v9.0 Online`));
+app.listen(PORT, () => console.log(`Kavrix Engine v10.0 Online`));
 
 process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
