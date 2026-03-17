@@ -3,57 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kavrix AI | Architect</title>
+    <title>Kavrix AI | Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        #sidebar { transition: transform 0.3s ease-in-out; }
-        .sidebar-closed { transform: translateX(-100%); }
-        iframe { background: white; border-radius: 20px; }
+        #sidebar { transition: all 0.3s ease; z-index: 100; }
+        .sidebar-closed { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+        .glass-menu { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); }
     </style>
 </head>
 <body class="bg-[#020617] text-slate-200 font-sans overflow-hidden">
-    <!-- Menu Knop voor Mobiel -->
-    <button id="menuToggle" class="fixed top-4 right-4 z-50 bg-indigo-600 w-12 h-12 rounded-full shadow-lg flex items-center justify-center md:hidden">
-        <i class="fas fa-bars text-white"></i>
-    </button>
 
-    <div class="flex h-screen">
-        <!-- Sidebar -->
-        <div id="sidebar" class="fixed md:relative w-full md:w-[380px] h-full bg-[#0f172a] border-r border-slate-800 flex flex-col z-40 sidebar-closed md:transform-none">
-            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
-                <h1 class="text-xl font-black text-white tracking-tighter">KAVRIX <span class="text-cyan-400">AI</span></h1>
-                <button id="resetBtn" class="text-slate-500 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
+    <!-- Top Bar -->
+    <div class="h-16 border-b border-slate-800 flex items-center justify-between px-4 bg-[#0f172a] z-50 relative">
+        <div class="flex items-center gap-2">
+            <button id="menuToggle" class="w-10 h-10 flex items-center justify-center bg-indigo-600 rounded-lg">
+                <i class="fas fa-bars text-white"></i>
+            </button>
+            <h1 class="text-lg font-black tracking-tighter">KAVRIX <span class="text-cyan-400">AI</span></h1>
+        </div>
+        <button id="resetBtn" class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-400">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    </div>
+
+    <div class="flex h-[calc(100vh-64px)] relative">
+        <!-- Sidebar Overlay -->
+        <div id="sidebar" class="absolute inset-0 glass-menu p-6 space-y-6 sidebar-closed">
+            <div class="space-y-4">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nieuw Project</label>
+                <textarea id="promptInput" class="w-full h-24 bg-[#020617] border border-slate-700 rounded-xl p-4 text-sm outline-none" placeholder="Beschrijf je app..."></textarea>
+                <button id="buildBtn" class="w-full bg-indigo-600 py-3 rounded-xl font-bold text-sm">BOUW APP</button>
             </div>
-            
-            <div class="flex-1 p-5 overflow-y-auto space-y-6">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nieuw Project</label>
-                    <textarea id="promptInput" class="w-full h-28 bg-[#020617] border border-slate-700 rounded-xl p-4 text-white text-sm outline-none focus:border-indigo-500" placeholder="Wat wil je bouwen?"></textarea>
-                    <button id="buildBtn" class="w-full bg-indigo-600 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/20">BOUW APP</button>
-                </div>
 
-                <div id="editSection" class="space-y-2 opacity-40 pointer-events-none">
-                    <label class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Aanpassen & Chat</label>
-                    <textarea id="editInput" class="w-full h-28 bg-[#020617] border border-slate-700 rounded-xl p-4 text-white text-sm outline-none focus:border-purple-500" placeholder="Bijv: 'Maak de lijst werkend'"></textarea>
-                    <button id="editBtn" class="w-full bg-purple-600 py-3 rounded-xl font-bold text-sm shadow-lg shadow-purple-500/20">VOER WIJZIGING UIT</button>
-                </div>
+            <div id="editSection" class="space-y-4 opacity-40 pointer-events-none">
+                <label class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Aanpassen & Chat</label>
+                <textarea id="editInput" class="w-full h-24 bg-[#020617] border border-slate-700 rounded-xl p-4 text-sm outline-none" placeholder="Wat moet er anders?"></textarea>
+                <button id="editBtn" class="w-full bg-purple-600 py-3 rounded-xl font-bold text-sm">PAS AAN</button>
+            </div>
 
-                <div id="statusArea" class="hidden p-4 bg-slate-900 rounded-xl border border-slate-800 text-center animate-pulse">
-                    <span id="statusText" class="text-xs text-cyan-400 font-bold uppercase tracking-widest">Architect werkt...</span>
-                </div>
+            <div id="statusArea" class="hidden text-center p-4 bg-slate-900 rounded-xl border border-slate-800">
+                <i class="fas fa-sync-alt fa-spin text-cyan-400 mr-2"></i>
+                <span class="text-xs text-cyan-400 font-bold uppercase">Architect werkt...</span>
             </div>
         </div>
 
         <!-- Preview Area -->
-        <div class="flex-1 flex flex-col bg-[#020617] p-4 md:p-8">
-            <div class="flex-1 relative">
-                <iframe id="previewFrame" class="w-full h-full border-none shadow-2xl"></iframe>
-                <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-700">
-                    <i class="fas fa-rocket text-4xl mb-4 opacity-20"></i>
-                    <p class="text-[10px] uppercase tracking-[0.4em] opacity-30">Kavrix Engine v4.4</p>
-                </div>
-            </div>
+        <div class="flex-1 bg-[#020617] p-2">
+            <iframe id="previewFrame" class="w-full h-full border-none rounded-2xl bg-white shadow-2xl"></iframe>
         </div>
     </div>
 
@@ -65,7 +62,6 @@
 
         if(currentCode) {
             document.getElementById("previewFrame").srcdoc = currentCode;
-            document.getElementById("emptyState").classList.add("hidden");
             document.getElementById("editSection").classList.remove("opacity-40", "pointer-events-none");
         }
 
@@ -88,8 +84,7 @@
                     localStorage.setItem('kavrix_last_code', currentCode);
                     document.getElementById("previewFrame").srcdoc = data.code;
                     document.getElementById("editSection").classList.remove("opacity-40", "pointer-events-none");
-                    document.getElementById("emptyState").classList.add("hidden");
-                    if(window.innerWidth < 768) sidebar.classList.add("sidebar-closed");
+                    sidebar.classList.add("sidebar-closed");
                 }
             } catch (e) { alert("Fout!"); }
             finally { btn.disabled = false; statusArea.classList.add("hidden"); }
@@ -106,7 +101,7 @@
         });
 
         document.getElementById("resetBtn").addEventListener("click", () => {
-            if(confirm("Alles wissen?")) { localStorage.removeItem('kavrix_last_code'); location.reload(); }
+            if(confirm("Project wissen?")) { localStorage.removeItem('kavrix_last_code'); location.reload(); }
         });
     </script>
 </body>
