@@ -12,7 +12,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const API_KEY = process.env.API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// Proxy voor live data (voorkomt $undefined)
+// Proxy voor live data
 app.get("/api/proxy", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).json({ error: "URL is verplicht" });
@@ -30,22 +30,36 @@ async function callDeepEngine(prompt, previousCode = "") {
         messages: [
             { 
                 role: "system", 
-                content: `Je bent KAVRIX DEEP-ENGINE v6.0. Je bouwt apps van wereldklasse.
+                content: `Je bent KAVRIX DEEP-ENGINE v7.0. Je bouwt uitsluitend ULTRA-LUXE web-apps.
                 
-                TECHNISCHE EISEN:
-                1. Gebruik Tailwind CSS voor ALLES.
-                2. Gebruik Lucide Icons en Google Fonts (Inter of Poppins).
-                3. Voor LIVE DATA (zoals Crypto): Gebruik ALTIJD de proxy route: 
-                   https://kavrix.onrender.com/api/proxy?url=HIER_DE_API_URL
-                4. Gebruik voor Crypto de CoinGecko API: https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd
-                5. UI STIJL: Donker thema, Glassmorphism (bg-white/5 backdrop-blur-lg), afgeronde hoeken (rounded-3xl), en vloeiende animaties.
-                6. Zorg dat de JavaScript code robuust is en fouten afhandelt (geen undefined).
+                STRICTE STIJL-GIDS:
+                1. Achtergrond: ALTIJD een zeer donkere gradient (bg-slate-950).
+                2. Kaarten/Containers: Gebruik Glassmorphism (bg-white/5 backdrop-blur-xl border border-white/10 rounded-[32px] p-8).
+                3. Fonts: Gebruik 'Plus Jakarta Sans' of 'Inter' met font-black voor titels.
+                4. Kleuren: Gebruik Indigo-500, Violet-500 en Emerald-500 voor accenten.
+                5. JavaScript: Zorg dat data-fetching via de proxy vlekkeloos werkt.
                 
-                Geef ALLEEN de volledige HTML code terug, beginnend met <!DOCTYPE html>.` 
+                MASTER TEMPLATE STRUCTUUR:
+                Gebruik altijd deze basis:
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <script src="https://cdn.tailwindcss.com"></script>
+                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+                    <style>body { background: #020617; color: white; font-family: 'Inter', sans-serif; }</style>
+                </head>
+                <body class="min-h-screen p-8 md:p-12">
+                    <div class="max-w-6xl mx-auto">
+                        <!-- HIER DE CONTENT DIE JE BOUWT -->
+                    </div>
+                </body>
+                </html>
+                
+                Geef ALLEEN de volledige HTML code terug.` 
             },
             { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
         ],
-        temperature: 0.2
+        temperature: 0.1 // Extreem laag voor maximale precisie
     }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
     
     let code = response.data.choices[0].message.content;
@@ -102,4 +116,4 @@ app.delete("/delete-project/:id", async (req, res) => {
     res.json({ success: true });
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Engine v6.0 Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Engine v7.0 Online"));
