@@ -1,190 +1,144 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Simple Racing Frenzy</title>
-  <style>
-    html,body{height:100%;margin:0;background:#0b1020;color:#fff;font-family:Inter,system-ui,Arial}
-    .wrap{display:flex;flex-direction:column;height:100%;align-items:center;justify-content:center;padding:20px;box-sizing:border-box}
-    canvas{background:linear-gradient(#2b3344,#0f1724);border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.6)}
-    .hud{margin-top:14px;display:flex;gap:12px;align-items:center}
-    .btn{background:#111827;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);cursor:pointer}
-    .score{font-weight:700}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAVRIX | Live Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background: #020617; color: white; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; }
+        #sidebar { transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 200; background: #0f172a; border-right: 1px solid #1e293b; }
+        .sidebar-closed { transform: translateX(-100%); }
+        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .glass-input { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        .agent-loader { display: none; position: fixed; top: 20px; right: 20px; z-index: 1000; }
+    </style>
 </head>
 <body>
-  <div class="wrap">
-    <canvas id="game" width="480" height="720"></canvas>
-    <div class="hud">
-      <div class="btn">Gebruik pijltjestoetsen ← → om te sturen</div>
-      <div class="btn">R: reset</div>
-      <div class="score" id="time">Tijd: 0.00s</div>
+    <!-- Agent Loader -->
+    <div id="loader" class="agent-loader bg-indigo-600 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+        <div class="w-2 h-2 bg-white rounded-full animate-ping"></div>
+        <span class="text-xs font-black uppercase tracking-widest">Agent is aan het bouwen...</span>
     </div>
-  </div>
 
-  <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-full md:w-[350px] h-full p-8 flex flex-col sidebar-closed shadow-2xl">
+        <div class="flex justify-between items-center mb-10">
+            <h1 class="text-xl font-black italic tracking-tighter">KAVRIX <span class="text-indigo-500">PRO</span></h1>
+            <button id="closeBtn" class="text-slate-500 hover:text-white text-2xl">&times;</button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto space-y-6">
+            <button id="newProject" class="w-full bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 py-4 rounded-2xl font-bold text-sm hover:bg-indigo-600 hover:text-white transition-all">
+                + NIEUW PROJECT
+            </button>
+            
+            <div class="pt-6 border-t border-slate-800">
+                <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4 block">Mijn Apps</label>
+                <div id="projectList" class="space-y-2"></div>
+            </div>
+        </div>
+    </aside>
 
-    const W = canvas.width, H = canvas.height;
-    let last = performance.now();
-    let elapsed = 0;
-    let running = false;
-    let startTime = 0;
+    <!-- Main Workspace -->
+    <main class="h-full w-full flex flex-col p-4 md:p-6 transition-all" id="mainContent">
+        <div class="flex justify-between items-center mb-4 px-2">
+            <button id="menuBtn" class="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 hover:border-indigo-500 transition-all">
+                <i class="fas fa-th-large text-slate-400"></i>
+            </button>
+            <div class="flex items-center gap-4">
+                <span id="activeTitle" class="text-xs font-bold text-slate-500 uppercase tracking-widest">Geen project actief</span>
+                <button id="dlBtn" class="hidden w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 hover:text-indigo-400"><i class="fas fa-download text-xs"></i></button>
+            </div>
+        </div>
 
-    // Player (auto)
-    const car = {
-      x: W/2,
-      y: H - 120,
-      w: 40,
-      h: 70,
-      speed: 0,
-      maxSpeed: 6,
-      accel: 0.25,
-      decel: 0.2,
-      dir: 0
-    };
+        <div class="flex-1 relative">
+            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <div class="w-20 h-20 bg-indigo-600/10 rounded-3xl flex items-center justify-center mb-6 border border-indigo-500/20">
+                    <i class="fas fa-rocket text-3xl text-indigo-500"></i>
+                </div>
+                <h2 class="text-2xl font-black mb-2">Start je volgende idee</h2>
+                <p class="text-slate-500 text-sm max-w-xs">Typ hieronder wat je wilt bouwen.</p>
+            </div>
+            <iframe id="preview" class="hidden"></iframe>
+        </div>
 
-    // Track / obstacles simple
-    const finishY = 80;
-    const obstacles = [];
-    for(let i=0;i<8;i++){
-      obstacles.push({
-        x: 60 + Math.random()*(W-120),
-        y: 120 + i*70 + Math.random()*40,
-        r: 18 + Math.random()*12
-      });
-    }
+        <!-- Command Bar -->
+        <div class="mt-6 max-w-3xl mx-auto w-full relative">
+            <div class="glass-input rounded-3xl p-2 flex items-center shadow-2xl">
+                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-4 text-sm" placeholder="Vraag de agent om iets te bouwen...">
+                <button id="go" class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center hover:bg-indigo-500 transition-all">
+                    <i class="fas fa-paper-plane text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </main>
 
-    const keys = {};
-    window.addEventListener('keydown', e=>{ keys[e.key]=true; if (e.key==='r') reset(); });
-    window.addEventListener('keyup', e=>{ keys[e.key]=false; });
+    <script>
+        const RENDER_URL = "https://kavrix.onrender.com";
+        let currentProjectId = localStorage.getItem('kavrix_active_id');
 
-    function reset(){
-      car.x = W/2; car.speed=0; car.dir=0; elapsed=0; running=false; startTime = performance.now(); 
-      // randomize obstacles
-      obstacles.forEach((o,i)=>{ o.x = 60 + Math.random()*(W-120); o.y = 120 + i*70 + Math.random()*40; });
-    }
-
-    function update(dt){
-      // start timer after first input
-      if (!running && (keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp)) {
-        running = true; startTime = performance.now();
-      }
-
-      // steering
-      if (keys.ArrowLeft) { car.dir = -1; car.speed = Math.max(-car.maxSpeed, car.speed - car.accel); }
-      else if (keys.ArrowRight) { car.dir = 1; car.speed = Math.min(car.maxSpeed, car.speed + car.accel); }
-      else { // natural decel
-        if (car.speed > 0) car.speed = Math.max(0, car.speed - car.decel);
-        if (car.speed < 0) car.speed = Math.min(0, car.speed + car.decel);
-        car.dir = 0;
-      }
-
-      car.x += car.speed * 0.9;
-      // clamp to road
-      car.x = Math.max(40, Math.min(W-40, car.x));
-
-      // move obstacles downward relative to car speed to simulate movement
-      for(const o of obstacles) {
-        o.y += Math.abs(car.speed)*0.7 + 1;
-        if (o.y > H+50) {
-          o.y = -40 - Math.random()*80;
-          o.x = 60 + Math.random()*(W-120);
+        async function loadProjects() {
+            try {
+                const r = await fetch(`${RENDER_URL}/projects`);
+                const projects = await r.json();
+                const list = document.getElementById("projectList");
+                list.innerHTML = "";
+                projects.forEach(p => {
+                    const btn = document.createElement("button");
+                    btn.className = "w-full text-left p-4 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all mb-1";
+                    btn.innerHTML = `<i class="fas fa-file-code mr-3 opacity-30"></i> ${p.name || 'Naamloos'}`;
+                    btn.onclick = () => selectProject(p.id);
+                    list.appendChild(btn);
+                });
+            } catch(e) { console.log("Laden projecten mislukt"); }
         }
-      }
 
-      // collision
-      for(const o of obstacles) {
-        const dx = o.x - car.x;
-        const dy = o.y - car.y + 10;
-        const dist = Math.sqrt(dx*dx+dy*dy);
-        if (dist < o.r + Math.max(car.w, car.h)/3) {
-          // collision -> bounce back a bit and slow
-          car.speed *= -0.4;
-          car.x += (dx/dist) * 20;
+        async function selectProject(id) {
+            currentProjectId = id;
+            localStorage.setItem('kavrix_active_id', id);
+            document.getElementById("loader").style.display = "flex";
+            try {
+                const r = await fetch(`${RENDER_URL}/project/${id}`);
+                const d = await r.json();
+                const iframe = document.getElementById("preview");
+                iframe.srcdoc = d.code;
+                iframe.classList.remove("hidden");
+                document.getElementById("emptyState").classList.add("hidden");
+                document.getElementById("activeTitle").innerText = d.name;
+                document.getElementById("dlBtn").classList.remove("hidden");
+                document.getElementById("sidebar").classList.add("sidebar-closed");
+            } catch(e) { alert("Project laden mislukt"); }
+            document.getElementById("loader").style.display = "none";
         }
-      }
 
-      // finish check (if any obstacle passes finish line while player Y less than finish)
-      if (car.y <= finishY + 30) {
-        // nothing (we keep static player)
-      }
+        async function runAgent() {
+            const p = document.getElementById("prompt").value;
+            if(!p) return;
+            document.getElementById("loader").style.display = "flex";
+            try {
+                const r = await fetch(`${RENDER_URL}/generate`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: p, projectId: currentProjectId })
+                });
+                const d = await r.json();
+                await selectProject(d.projectId);
+                loadProjects();
+            } catch(e) { alert("Fout: " + e.message); }
+            document.getElementById("loader").style.display = "none";
+            document.getElementById("prompt").value = "";
+        }
 
-      // update timer
-      if (running) {
-        elapsed = (performance.now() - startTime) / 1000;
-        document.getElementById('time').innerText = 'Tijd: ' + elapsed.toFixed(2) + 's';
-      }
-    }
-
-    function draw(){
-      // background
-      ctx.clearRect(0,0,W,H);
-      // road
-      ctx.fillStyle = '#0b1220';
-      ctx.fillRect(40,0,W-80,H);
-      // side strips
-      ctx.fillStyle = '#071023';
-      ctx.fillRect(0,0,40,H);
-      ctx.fillRect(W-40,0,40,H);
-      // center dashed line
-      ctx.strokeStyle = '#263749';
-      ctx.lineWidth = 6;
-      ctx.setLineDash([24,18]);
-      ctx.beginPath();
-      ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
-      ctx.setLineDash([]);
-
-      // finish line
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(40, finishY, W-80, 6);
-
-      // obstacles
-      for(const o of obstacles) {
-        ctx.beginPath();
-        ctx.fillStyle = '#d94b4b';
-        ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(0,0,0,0.15)';
-        ctx.fillRect(o.x-10, o.y-4, 20, 3);
-      }
-
-      // player car
-      ctx.save();
-      ctx.translate(car.x, car.y);
-      // body
-      ctx.fillStyle = '#10b981';
-      ctx.fillRect(-car.w/2, -car.h/2, car.w, car.h);
-      // windows
-      ctx.fillStyle = '#071023';
-      ctx.fillRect(-car.w/3, -car.h/2 + 8, car.w*0.6, car.h*0.25);
-      // wheels
-      ctx.fillStyle = '#111827';
-      ctx.fillRect(-car.w/2 - 5, car.h/4, 12, 6);
-      ctx.fillRect(car.w/2 - 7, car.h/4, 12, 6);
-      ctx.restore();
-
-      // HUD small
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(12,12,140,36);
-      ctx.fillStyle = '#fff';
-      ctx.font = '14px Arial';
-      ctx.fillText('Speed: ' + Math.abs(Math.round(car.speed*10)), 20, 36);
-    }
-
-    function loop(now){
-      const dt = (now - last) / 1000;
-      last = now;
-      update(dt);
-      draw();
-      requestAnimationFrame(loop);
-    }
-
-    // init
-    reset();
-    requestAnimationFrame(loop);
-  </script>
+        document.getElementById("go").onclick = runAgent;
+        document.getElementById("prompt").onkeydown = (e) => { if(e.key === 'Enter') runAgent(); };
+        document.getElementById("menuBtn").onclick = () => { loadProjects(); document.getElementById("sidebar").classList.remove("sidebar-closed"); };
+        document.getElementById("closeBtn").onclick = () => document.getElementById("sidebar").classList.add("sidebar-closed");
+        document.getElementById("newProject").onclick = () => { currentProjectId = null; localStorage.removeItem('kavrix_active_id'); location.reload(); };
+        
+        if(currentProjectId) selectProject(currentProjectId);
+        loadProjects();
+    </script>
 </body>
 </html>
