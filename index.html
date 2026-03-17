@@ -3,143 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KAVRIX PRO | Enterprise Builder</title>
+    <title>KAVRIX | DeepAgent Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; margin: 0; overflow: hidden; height: 100vh; }
-        #sidebar { transition: all 0.4s ease; z-index: 200; background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(20px); }
-        .sidebar-closed { transform: translateX(-100%); opacity: 0; pointer-events: none; }
-        #main-viewport { height: 100vh; width: 100vw; position: relative; z-index: 10; }
-        iframe { width: 100%; height: 100%; border: none; background: white; display: block; }
-        #emptyState { position: absolute; inset: 0; background: #020617; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
-        .loader-bar { height: 4px; width: 100%; background: #1e293b; position: fixed; top: 0; left: 0; z-index: 300; overflow: hidden; display: none; }
-        .loader-progress { height: 100%; background: #6366f1; width: 40%; position: absolute; animation: loading 1.5s infinite linear; }
-        @keyframes loading { 0% { left: -40%; } 100% { left: 100%; } }
+        body { background: #020617; color: white; font-family: sans-serif; overflow: hidden; height: 100vh; }
+        #sidebar { transition: 0.4s; z-index: 200; background: #0f172a; }
+        .sidebar-closed { transform: translateX(-100%); }
+        iframe { width: 100%; height: 100%; border: none; background: white; }
+        .loader { height: 4px; width: 100%; background: #1e293b; position: fixed; top: 0; z-index: 300; display: none; }
+        .progress { height: 100%; background: #6366f1; width: 40%; position: absolute; animation: load 1.5s infinite linear; }
+        @keyframes load { 0% { left: -40%; } 100% { left: 100%; } }
     </style>
 </head>
 <body>
+    <div id="loader" class="loader"><div class="progress"></div></div>
+    
+    <button id="menuBtn" class="fixed top-4 left-4 w-12 h-12 bg-indigo-600 rounded-2xl z-[250] shadow-lg"><i class="fas fa-bars"></i></button>
 
-    <div id="loader" class="loader-bar"><div class="loader-progress"></div></div>
-
-    <button id="menuToggle" class="fixed top-4 left-4 w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center z-[250] shadow-2xl shadow-indigo-600/40 active:scale-90 transition-transform">
-        <i class="fas fa-bars text-white text-xl"></i>
-    </button>
-
-    <aside id="sidebar" class="fixed inset-0 w-full md:w-[400px] h-full border-r border-slate-800 p-6 flex flex-col sidebar-closed">
-        <div class="flex justify-between items-center mb-8 mt-12 md:mt-0">
-            <h1 class="text-2xl font-black tracking-tighter text-white">KAVRIX <span class="text-indigo-500">PRO</span></h1>
-            <button id="closeMenu" class="text-slate-400 text-2xl"><i class="fas fa-times"></i></button>
+    <aside id="sidebar" class="fixed inset-0 w-full md:w-96 h-full p-6 flex flex-col sidebar-closed">
+        <div class="flex justify-between items-center mb-8 mt-10">
+            <h1 class="text-2xl font-bold">KAVRIX <span class="text-indigo-500">AI</span></h1>
+            <button id="closeBtn" class="text-2xl">&times;</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto space-y-8">
-            <div class="space-y-4">
-                <label class="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Nieuwe Opdracht</label>
-                <textarea id="promptInput" class="w-full h-32 bg-slate-900 border border-slate-700 rounded-2xl p-4 text-sm outline-none focus:border-indigo-500 transition-all" placeholder="Beschrijf je app..."></textarea>
-                <button id="buildBtn" class="w-full bg-indigo-600 py-4 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20">GENEREER APP</button>
+        <div class="flex-1 overflow-y-auto space-y-6">
+            <div>
+                <label class="text-xs font-bold text-slate-500 uppercase">Opdracht</label>
+                <textarea id="prompt" class="w-full h-32 bg-slate-900 border border-slate-700 rounded-xl p-4 mt-2 outline-none focus:border-indigo-500" placeholder="Wat wil je bouwen?"></textarea>
+                <button id="go" class="w-full bg-indigo-600 py-4 rounded-xl font-bold mt-4 shadow-lg shadow-indigo-600/20">GENEREER</button>
             </div>
 
-            <div id="editSection" class="space-y-4 opacity-30 pointer-events-none">
-                <label class="text-[11px] font-black text-emerald-400 uppercase tracking-widest">Aanpassen</label>
-                <textarea id="editInput" class="w-full h-24 bg-slate-900 border border-slate-700 rounded-2xl p-4 text-sm outline-none focus:border-emerald-500 transition-all" placeholder="Wat moet er anders?"></textarea>
-                <button id="editBtn" class="w-full bg-emerald-600 py-3 rounded-2xl font-black text-sm">UPDATE DOORVOEREN</button>
+            <div id="editBox" class="hidden">
+                <label class="text-xs font-bold text-emerald-500 uppercase">Aanpassen</label>
+                <textarea id="edit" class="w-full h-24 bg-slate-900 border border-slate-700 rounded-xl p-4 mt-2 outline-none focus:border-emerald-500" placeholder="Wat moet er anders?"></textarea>
+                <button id="update" class="w-full bg-emerald-600 py-3 rounded-xl font-bold mt-2">UPDATE</button>
             </div>
+        </div>
 
-            <div class="pt-6 border-t border-slate-800 space-y-3">
-                <button id="downloadBtn" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/50 text-sm font-bold text-slate-400"><i class="fas fa-download text-cyan-400"></i> Export HTML</button>
-                <button id="resetBtn" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/5 text-sm font-bold text-red-500/50"><i class="fas fa-trash-alt"></i> Reset Project</button>
-            </div>
+        <div class="pt-4 border-t border-slate-800 flex gap-2">
+            <button id="dl" class="flex-1 bg-slate-800 py-3 rounded-xl text-xs font-bold"><i class="fas fa-download"></i> HTML</button>
+            <button id="reset" class="flex-1 bg-red-900/20 py-3 rounded-xl text-xs font-bold text-red-500">RESET</button>
         </div>
     </aside>
 
-    <main id="main-viewport">
-        <iframe id="previewFrame"></iframe>
-        <div id="emptyState">
-            <div class="w-20 h-20 bg-indigo-600/10 rounded-3xl flex items-center justify-center mb-6 border border-indigo-500/20">
-                <i class="fas fa-rocket text-3xl text-indigo-500"></i>
-            </div>
-            <p class="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px]">Open het menu om te starten</p>
+    <main class="h-full w-full relative">
+        <iframe id="view"></iframe>
+        <div id="empty" class="absolute inset-0 flex flex-col items-center justify-center bg-[#020617]">
+            <i class="fas fa-magic text-5xl text-indigo-500 mb-4"></i>
+            <p class="text-slate-500 font-bold uppercase tracking-widest text-xs">Kavrix DeepAgent Mode</p>
         </div>
     </main>
 
     <script>
-        let currentCode = localStorage.getItem('kavrix_v7_code') || "";
+        let code = localStorage.getItem('kavrix_code') || "";
+        const RENDER_URL = "https://kavrix.onrender.com"; // VERVANG DIT DOOR JOUW URL
+
         const sidebar = document.getElementById("sidebar");
-        const preview = document.getElementById("previewFrame");
-        const empty = document.getElementById("emptyState");
-        const loader = document.getElementById("loader");
+        const view = document.getElementById("view");
+        const empty = document.getElementById("empty");
 
-        // --- CONFIGURATIE: VERVANG DIT DOOR JOUW RENDER URL ---
-        const RENDER_URL = "https://kavrix.onrender.com"; 
+        document.getElementById("menuBtn").onclick = () => sidebar.classList.remove("sidebar-closed");
+        document.getElementById("closeBtn").onclick = () => sidebar.classList.add("sidebar-closed");
 
-        document.getElementById("menuToggle").onclick = () => sidebar.classList.remove("sidebar-closed");
-        document.getElementById("closeMenu").onclick = () => sidebar.classList.add("sidebar-closed");
+        if(code) { view.srcdoc = code; empty.style.display = "none"; document.getElementById("editBox").classList.remove("hidden"); }
 
-        function updatePreview(code) {
-            if(code) {
-                preview.srcdoc = code;
-                empty.style.display = "none";
-                document.getElementById("editSection").classList.remove("opacity-30", "pointer-events-none");
-            }
-        }
-
-        if(currentCode) updatePreview(currentCode);
-
-        async function callAI(prompt, isEdit = false) {
-            const btn = isEdit ? document.getElementById("editBtn") : document.getElementById("buildBtn");
-            btn.disabled = true;
-            loader.style.display = "block";
+        async function askAI(p, isEdit) {
+            document.getElementById("loader").style.display = "block";
             sidebar.classList.add("sidebar-closed");
-
             try {
-                const response = await fetch(`${RENDER_URL}/generate`, {
+                const r = await fetch(`${RENDER_URL}/generate`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ prompt, existingCode: isEdit ? currentCode : "" })
+                    body: JSON.stringify({ prompt: p, existingCode: isEdit ? code : "" })
                 });
-
-                const data = await response.json();
-                if (data.code) {
-                    currentCode = data.code;
-                    localStorage.setItem('kavrix_v7_code', currentCode);
-                    updatePreview(currentCode);
-                } else {
-                    alert("FOUT: " + (data.error || "Onbekende fout"));
-                }
-            } catch (e) { 
-                alert("KAN SERVER NIET VINDEN. Controleer of de URL in index.html klopt met Render."); 
-            } finally { 
-                btn.disabled = false; 
-                loader.style.display = "none"; 
-            }
+                const d = await r.json();
+                if(d.code) {
+                    code = d.code;
+                    localStorage.setItem('kavrix_code', code);
+                    view.srcdoc = code;
+                    empty.style.display = "none";
+                    document.getElementById("editBox").classList.remove("hidden");
+                } else { alert(d.error); }
+            } catch(e) { alert("Server offline?"); }
+            finally { document.getElementById("loader").style.display = "none"; }
         }
 
-        document.getElementById("buildBtn").onclick = () => {
-            const p = document.getElementById("promptInput").value.trim();
-            if(p) callAI(p, false);
-        };
-
-        document.getElementById("editBtn").onclick = () => {
-            const p = document.getElementById("editInput").value.trim();
-            if(p) callAI(p, true);
-        };
-
-        document.getElementById("resetBtn").onclick = () => {
-            if(confirm("Alles wissen?")) {
-                localStorage.removeItem('kavrix_v7_code');
-                location.reload();
-            }
-        };
-
-        document.getElementById("downloadBtn").onclick = () => {
-            if(!currentCode) return alert("Geen app om te exporteren.");
-            const blob = new Blob([currentCode], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
+        document.getElementById("go").onclick = () => askAI(document.getElementById("prompt").value, false);
+        document.getElementById("update").onclick = () => askAI(document.getElementById("edit").value, true);
+        document.getElementById("reset").onclick = () => { localStorage.removeItem('kavrix_code'); location.reload(); };
+        document.getElementById("dl").onclick = () => {
             const a = document.createElement('a');
-            a.href = url;
-            a.download = 'kavrix-app.html';
-            a.click();
+            a.href = URL.createObjectURL(new Blob([code], {type:'text/html'}));
+            a.download = 'kavrix-app.html'; a.click();
         };
     </script>
 </body>
