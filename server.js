@@ -8,13 +8,12 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// --- SUPABASE CONNECTIE ---
+// --- JOUW SUPABASE DATABASE ---
 const supabase = createClient(
     process.env.SUPABASE_URL || "https://qixbvlixyanoswsbucav.supabase.co",
     process.env.SUPABASE_KEY || "sb_publishable_wkhKyrhGyEN-ma8-DV61hw_Q47c98lB"
 );
 
-// --- HULPFUNCTIES ---
 function cleanCode(text) {
     if (!text) return "";
     let code = text.trim();
@@ -25,44 +24,39 @@ function cleanCode(text) {
     return code;
 }
 
-// --- AI GENERATE & OPSLAAN ---
 app.post("/generate", async (req, res) => {
     const { prompt, existingCode, projectId } = req.body;
-    const API_KEY = process.env.ROUTELLM_KEY || process.env.API_KEY;
+    // We gebruiken de API_KEY die je al in Render had staan (de gsk_... sleutel)
+    const API_KEY = process.env.API_KEY || process.env.ROUTELLM_KEY;
 
-    if (!API_KEY) return res.status(500).json({ error: "Geen API_KEY gevonden." });
+    if (!API_KEY) return res.status(500).json({ error: "FOUT: Geen API_KEY gevonden in Render." });
 
     try {
-        // 1. AI aanroepen (RouteLLM voor topkwaliteit)
+        // 1. AI aanroepen via de JUISTE Groq URL
         const response = await axios.post(
-            "https://routellm.abacus.ai/v1/chat/completions", 
+            "https://api.groq.com/openai/v1/chat/completions", 
             {
-                model: "route-llm",
+                model: "llama-3.3-70b-versatile",
                 messages: [
                     { role: "system", content: "Je bent KAVRIX PRO AI. Bouw ALTIJD volledige HTML/Tailwind code. Geen tekst, alleen code." },
                     { role: "user", content: existingCode ? `UPDATE DEZE CODE:\n${existingCode}\n\nWIJZIGING: ${prompt}` : `BOUW NIEUWE APP: ${prompt}` }
                 ],
                 temperature: 0.2
             },
-            {
-                headers: { "Authorization": `Bearer ${API_KEY}` },
-                timeout: 60000
-            }
+            { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 60000 }
         );
 
         const newCode = cleanCode(response.data.choices[0].message.content);
 
-        // 2. Opslaan in Supabase Database
+        // 2. Opslaan in je Supabase Database
         let dbResult;
         if (projectId) {
-            // Update bestaand project
             dbResult = await supabase.from("projects").update({ 
                 code: newCode, 
                 prompt: prompt,
                 updated_at: new Date() 
             }).eq("id", projectId).select();
         } else {
-            // Nieuw project aanmaken
             dbResult = await supabase.from("projects").insert([{ 
                 name: prompt.substring(0, 20), 
                 code: newCode, 
@@ -70,22 +64,20 @@ app.post("/generate", async (req, res) => {
             }]).select();
         }
 
-        res.json({ 
-            code: newCode, 
-            projectId: dbResult.data[0].id 
-        });
+        if (dbResult.error) throw new Error("Database fout: " + dbResult.error.message);
+
+        res.json({ code: newCode, projectId: dbResult.data[0].id });
 
     } catch (error) {
-        console.error("Fout:", error.message);
-        res.status(500).json({ error: "AI of Database fout. Probeer het opnieuw." });
+        const msg = error.response?.data?.error?.message || error.message;
+        res.status(500).json({ error: "FOUT: " + msg });
     }
 });
 
-// --- PROJECT OPHALEN ---
 app.get("/project/:id", async (req, res) => {
     const { data, error } = await supabase.from("projects").select("*").eq("id", req.params.id).single();
-    if (error) return res.status(404).json({ error: "Niet gevonden" });
+    if (error) return res.status(404).json({ error: "Project niet gevonden." });
     res.json(data);
 });
 
-app.listen(process.env.PORT || 3000, () => console.log("Kavrix Database Engine Online"));
+app.listen(process.env.PORT || 3000, () => console.log("Kavrix Groq Engine Online"));
