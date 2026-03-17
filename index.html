@@ -3,100 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAVRIX | Premium Workspace</title>
+    <title>KAVRIX | Publishing Workspace</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;900&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #6366f1; --bg: #020617; --sidebar: #0f172a; }
+        :root { --primary: #6366f1; --bg: #020617; }
         body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; }
-        
-        /* Glassmorphism Sidebar */
-        #sidebar { 
-            transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
-            z-index: 200; 
-            background: rgba(15, 23, 42, 0.8); 
-            backdrop-filter: blur(30px);
-            border-right: 1px solid rgba(255,255,255,0.05); 
-        }
+        #sidebar { transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 200; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(30px); border-right: 1px solid rgba(255,255,255,0.05); }
         .sidebar-closed { transform: translateX(-100%); }
-        
-        /* Premium Preview Frame */
-        .preview-container {
-            perspective: 1000px;
-            transition: 0.5s;
-        }
-        iframe { 
-            width: 100%; height: 100%; border: none; 
-            background: white; border-radius: 32px; 
-            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
-            transition: 0.5s transform cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        iframe:hover { transform: scale(1.01) translateY(-5px); }
-        
-        /* Floating Command Bar */
-        .glass-input { 
-            background: rgba(30, 41, 59, 0.7); 
-            backdrop-filter: blur(20px); 
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        }
-        
-        .agent-loader { 
-            display: none; position: fixed; top: 30px; left: 50%; 
-            transform: translateX(-50%); z-index: 1000; 
-        }
-
-        .project-item { transition: 0.3s; border-radius: 16px; }
-        .project-item:hover { background: rgba(255,255,255,0.05); }
-        
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 32px; box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8); }
+        .glass-input { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        .agent-loader { display: none; position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+        .share-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 2000; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
+    <!-- Share Modal -->
+    <div id="shareModal" class="share-modal">
+        <div class="bg-slate-900 p-10 rounded-[40px] border border-white/10 max-w-md w-full text-center">
+            <div class="w-20 h-20 bg-indigo-600/20 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-share-nodes text-3xl text-indigo-500"></i>
+            </div>
+            <h3 class="text-2xl font-black mb-2">App is Live!</h3>
+            <p class="text-slate-500 text-sm mb-8">Deel deze link met je vrienden of klanten.</p>
+            <input id="shareUrl" readonly type="text" class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs text-indigo-400 mb-6 text-center outline-none">
+            <div class="flex gap-3">
+                <button onclick="copyLink()" class="flex-1 bg-indigo-600 py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Kopieer Link</button>
+                <button onclick="closeShare()" class="flex-1 bg-white/5 py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Sluiten</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Agent Loader -->
     <div id="loader" class="agent-loader bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-4 rounded-full shadow-2xl flex items-center gap-4">
-        <div class="flex gap-1">
-            <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
-            <div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-            <div class="w-2 h-2 bg-indigo-300 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-        </div>
-        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">DeepAgent is aan het polijsten...</span>
+        <div class="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
+        <span class="text-[10px] font-black uppercase tracking-widest text-indigo-400">DeepAgent publiceert...</span>
     </div>
 
     <!-- Sidebar -->
     <aside id="sidebar" class="fixed inset-y-0 left-0 w-full md:w-[380px] h-full p-10 flex flex-col sidebar-closed shadow-2xl">
         <div class="flex justify-between items-center mb-12">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                    <i class="fas fa-bolt text-white"></i>
-                </div>
-                <h1 class="text-2xl font-black tracking-tighter">KAVRIX</h1>
-            </div>
-            <button id="closeBtn" class="text-slate-500 hover:text-white text-2xl transition-colors">&times;</button>
+            <h1 class="text-2xl font-black tracking-tighter italic">KAVRIX <span class="text-indigo-500">OS</span></h1>
+            <button id="closeBtn" class="text-slate-500 hover:text-white text-2xl">&times;</button>
         </div>
-        
-        <div class="flex-1 overflow-y-auto space-y-8 pr-2">
-            <button id="newProject" class="w-full bg-white text-black py-5 rounded-2xl font-black text-xs tracking-widest hover:bg-indigo-500 hover:text-white transition-all shadow-xl">
-                NIEUW PROJECT
-            </button>
-            
+        <div class="flex-1 overflow-y-auto space-y-8">
+            <button id="newProject" class="w-full bg-white text-black py-5 rounded-2xl font-black text-xs tracking-widest hover:bg-indigo-500 hover:text-white transition-all">NIEUW PROJECT</button>
             <div>
-                <label class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-6 block">Workspace History</label>
+                <label class="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-6 block">Mijn Apps</label>
                 <div id="projectList" class="space-y-1"></div>
-            </div>
-        </div>
-        
-        <div class="mt-auto pt-8 border-t border-white/5">
-            <div class="flex items-center gap-4 p-4 bg-white/5 rounded-2xl">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500"></div>
-                <div>
-                    <p class="text-xs font-bold">Admin User</p>
-                    <p class="text-[10px] text-slate-500">Pro Plan Actief</p>
-                </div>
             </div>
         </div>
     </aside>
@@ -104,31 +59,21 @@
     <!-- Main Workspace -->
     <main class="h-full w-full flex flex-col p-6 md:p-10 transition-all" id="mainContent">
         <div class="flex justify-between items-center mb-8">
-            <button id="menuBtn" class="w-14 h-14 bg-slate-900/50 backdrop-blur rounded-2xl flex items-center justify-center border border-white/5 hover:border-indigo-500/50 transition-all group">
-                <i class="fas fa-grid-2 text-slate-400 group-hover:text-indigo-400"></i>
-            </button>
-            
-            <div class="flex items-center gap-6">
-                <div class="hidden md:flex flex-col items-end">
-                    <span id="activeTitle" class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Geen Actief Project</span>
-                    <span class="text-[9px] text-indigo-500/50 font-bold">v2.0 PREMIUM ENGINE</span>
-                </div>
-                <button id="dlBtn" class="hidden w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/20">
-                    <i class="fas fa-download text-xs"></i>
+            <button id="menuBtn" class="w-14 h-14 bg-slate-900/50 backdrop-blur rounded-2xl flex items-center justify-center border border-white/5 hover:border-indigo-500/50 transition-all"><i class="fas fa-bars text-slate-400"></i></button>
+            <div class="flex items-center gap-4">
+                <button id="shareBtn" class="hidden px-6 h-12 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-xl flex items-center gap-3 hover:bg-indigo-600 hover:text-white transition-all">
+                    <i class="fas fa-globe text-xs"></i>
+                    <span class="text-[10px] font-black uppercase tracking-widest">Publiceren</span>
                 </button>
+                <button id="dlBtn" class="hidden w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-white/5 hover:text-indigo-400"><i class="fas fa-download text-xs"></i></button>
             </div>
         </div>
 
-        <div class="flex-1 relative preview-container">
+        <div class="flex-1 relative">
             <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-indigo-500 blur-[80px] opacity-20"></div>
-                    <div class="w-32 h-32 bg-slate-900 rounded-[40px] flex items-center justify-center mb-8 border border-white/10 relative">
-                        <i class="fas fa-wand-magic-sparkles text-5xl text-indigo-500"></i>
-                    </div>
-                </div>
-                <h2 class="text-4xl font-black mb-4 tracking-tighter">Wat gaan we vandaag creëren?</h2>
-                <p class="text-slate-500 text-sm max-w-sm leading-relaxed">Beschrijf je idee en de DeepAgent Engine bouwt een pixel-perfecte applicatie voor je.</p>
+                <div class="w-32 h-32 bg-slate-900 rounded-[40px] flex items-center justify-center mb-8 border border-white/10"><i class="fas fa-rocket text-5xl text-indigo-500"></i></div>
+                <h2 class="text-4xl font-black mb-4 tracking-tighter">Klaar om te lanceren?</h2>
+                <p class="text-slate-500 text-sm max-w-sm">Bouw je app en zet hem direct live met één klik.</p>
             </div>
             <iframe id="preview" class="hidden"></iframe>
         </div>
@@ -136,13 +81,10 @@
         <!-- Command Bar -->
         <div class="mt-10 max-w-5xl mx-auto w-full relative">
             <div class="glass-input rounded-[32px] p-3 flex items-center">
-                <div class="w-12 h-12 flex items-center justify-center text-slate-500">
-                    <i class="fas fa-sparkles"></i>
-                </div>
-                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-4 py-4 text-sm font-medium placeholder:text-slate-600" placeholder="Bouw een luxe dashboard voor mijn nieuwe startup...">
-                <button id="go" class="px-8 h-14 bg-indigo-600 rounded-[24px] flex items-center gap-3 hover:bg-indigo-500 transition-all active:scale-95 shadow-xl shadow-indigo-500/20">
-                    <span class="text-xs font-black uppercase tracking-widest">Genereer</span>
-                    <i class="fas fa-arrow-right text-[10px]"></i>
+                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-4 text-sm font-medium" placeholder="Wat wil je vandaag bouwen?">
+                <button id="go" class="px-8 h-14 bg-indigo-600 rounded-[24px] flex items-center gap-3 hover:bg-indigo-500 transition-all active:scale-95">
+                    <span class="text-xs font-black uppercase tracking-widest text-white">Start</span>
+                    <i class="fas fa-arrow-right text-[10px] text-white"></i>
                 </button>
             </div>
         </div>
@@ -160,14 +102,10 @@
                 list.innerHTML = "";
                 projects.forEach(p => {
                     const div = document.createElement("div");
-                    div.className = "project-item flex items-center justify-between p-2";
+                    div.className = "flex items-center justify-between p-1";
                     div.innerHTML = `
-                        <button class="flex-1 text-left p-4 rounded-xl text-[11px] font-bold text-slate-400 hover:text-white transition-all">
-                            ${p.name || 'Naamloos'}
-                        </button>
-                        <button onclick="deleteProject('${p.id}', event)" class="p-4 text-slate-700 hover:text-red-500 transition-all">
-                            <i class="fas fa-trash-alt text-[10px]"></i>
-                        </button>
+                        <button class="flex-1 text-left p-4 rounded-xl text-[11px] font-bold text-slate-400 hover:text-white transition-all">${p.name || 'Naamloos'}</button>
+                        <button onclick="deleteProject('${p.id}', event)" class="p-4 text-slate-700 hover:text-red-500 transition-all"><i class="fas fa-trash-alt text-[10px]"></i></button>
                     `;
                     div.querySelector('button:first-child').onclick = () => selectProject(p.id);
                     list.appendChild(div);
@@ -177,15 +115,12 @@
 
         async function deleteProject(id, event) {
             event.stopPropagation();
-            if(!confirm("Project definitief verwijderen?")) return;
+            if(!confirm("Verwijderen?")) return;
             try {
                 await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
-                if(currentProjectId === id) {
-                    currentProjectId = null;
-                    localStorage.removeItem('kavrix_active_id');
-                    location.reload();
-                } else { loadProjects(); }
-            } catch(e) { alert("Fout bij verwijderen"); }
+                if(currentProjectId === id) { currentProjectId = null; localStorage.removeItem('kavrix_active_id'); location.reload(); }
+                else { loadProjects(); }
+            } catch(e) { alert("Fout"); }
         }
 
         async function selectProject(id) {
@@ -199,8 +134,8 @@
                 iframe.srcdoc = d.code;
                 iframe.classList.remove("hidden");
                 document.getElementById("emptyState").classList.add("hidden");
-                document.getElementById("activeTitle").innerText = d.name;
                 document.getElementById("dlBtn").classList.remove("hidden");
+                document.getElementById("shareBtn").classList.remove("hidden");
                 document.getElementById("sidebar").classList.add("sidebar-closed");
             } catch(e) { alert("Laden mislukt"); }
             document.getElementById("loader").style.display = "none";
@@ -210,9 +145,6 @@
             const p = document.getElementById("prompt").value;
             if(!p) return;
             document.getElementById("loader").style.display = "flex";
-            const input = document.getElementById("prompt");
-            input.disabled = true;
-            input.value = "DeepAgent is aan het bouwen...";
             try {
                 const r = await fetch(`${RENDER_URL}/generate`, {
                     method: "POST",
@@ -224,24 +156,29 @@
                 loadProjects();
             } catch(e) { alert("Fout: " + e.message); }
             document.getElementById("loader").style.display = "none";
-            input.disabled = false;
-            input.value = "";
-            input.focus();
+            document.getElementById("prompt").value = "";
         }
+
+        document.getElementById("shareBtn").onclick = () => {
+            const url = `${RENDER_URL}/share/${currentProjectId}`;
+            document.getElementById("shareUrl").value = url;
+            document.getElementById("shareModal").style.display = "flex";
+        };
+
+        function copyLink() {
+            const input = document.getElementById("shareUrl");
+            input.select();
+            document.execCommand("copy");
+            alert("Link gekopieerd naar klembord!");
+        }
+
+        function closeShare() { document.getElementById("shareModal").style.display = "none"; }
 
         document.getElementById("go").onclick = runAgent;
         document.getElementById("prompt").onkeydown = (e) => { if(e.key === 'Enter') runAgent(); };
         document.getElementById("menuBtn").onclick = () => { loadProjects(); document.getElementById("sidebar").classList.remove("sidebar-closed"); };
         document.getElementById("closeBtn").onclick = () => document.getElementById("sidebar").classList.add("sidebar-closed");
         document.getElementById("newProject").onclick = () => { currentProjectId = null; localStorage.removeItem('kavrix_active_id'); location.reload(); };
-        document.getElementById("dlBtn").onclick = () => {
-            const iframe = document.getElementById("preview");
-            const blob = new Blob([iframe.srcdoc], {type: 'text/html'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'kavrix-premium-app.html';
-            a.click();
-        };
         
         if(currentProjectId) selectProject(currentProjectId);
         loadProjects();
