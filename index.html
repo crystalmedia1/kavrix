@@ -3,112 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KAVRIX ENTERPRISE | App Factory</title>
+    <title>KAVRIX ENTERPRISE | Mobile App Factory</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; }
-        .sidebar-item { transition: all 0.2s; border-left: 3px solid transparent; }
-        .sidebar-item.active { background: rgba(99, 102, 241, 0.1); border-left-color: #6366f1; color: white; }
-        #sidebar { transition: transform 0.3s ease; z-index: 100; }
-        @media (max-width: 768px) { .sidebar-closed { transform: translateX(-100%); } }
-        iframe { background: white; border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020617; color: #f8fafc; margin: 0; padding: 0; overflow: hidden; }
+        
+        /* Sidebar Styling */
+        #sidebar { 
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+        }
+        .sidebar-closed { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+
+        /* Preview Area - Vult het hele scherm */
+        #main-viewport {
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+        iframe { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+            background: white;
+        }
+
+        /* Overlay voor lege status */
+        #emptyState {
+            position: absolute;
+            inset: 0;
+            background: #020617;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        /* Loading Bar */
+        .loader-bar { height: 4px; width: 100%; background: #1e293b; position: fixed; top: 0; left: 0; z-index: 110; overflow: hidden; display: none; }
+        .loader-progress { height: 100%; background: #6366f1; width: 40%; position: absolute; animation: loading 1.5s infinite ease-in-out; }
+        @keyframes loading { 0% { left: -40%; } 100% { left: 100%; } }
     </style>
 </head>
-<body class="text-slate-300 overflow-hidden">
+<body>
 
-    <div class="flex h-screen">
-        <!-- Sidebar (Het Dashboard Menu) -->
-        <aside id="sidebar" class="fixed md:relative w-72 h-full bg-[#0f172a] border-r border-slate-800 flex flex-col sidebar-closed md:transform-none">
-            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
-                <h1 class="text-xl font-extrabold text-white tracking-tighter">KAVRIX <span class="text-indigo-500">PRO</span></h1>
-                <button id="closeMenu" class="md:hidden text-slate-500"><i class="fas fa-times"></i></button>
+    <!-- Loading Bar bovenaan -->
+    <div id="loader" class="loader-bar"><div class="loader-progress"></div></div>
+
+    <!-- Zwevende Menu Knop -->
+    <button id="menuToggle" class="fixed top-4 left-4 w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center z-[110] shadow-2xl shadow-indigo-600/40 active:scale-90 transition-transform">
+        <i class="fas fa-bars text-white text-xl"></i>
+    </button>
+
+    <!-- Sidebar (Menu dat over het scherm schuift) -->
+    <aside id="sidebar" class="fixed inset-0 w-full md:w-[400px] h-full border-r border-slate-800 p-6 flex flex-col sidebar-closed">
+        <div class="flex justify-between items-center mb-8 mt-12 md:mt-0">
+            <h1 class="text-2xl font-black tracking-tighter text-white">KAVRIX <span class="text-indigo-500">PRO</span></h1>
+            <button id="closeMenu" class="text-slate-400 text-2xl"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto space-y-8">
+            <!-- Build Section -->
+            <div class="space-y-4">
+                <label class="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Nieuwe Opdracht</label>
+                <textarea id="promptInput" class="w-full h-32 bg-slate-900 border border-slate-700 rounded-2xl p-4 text-sm outline-none focus:border-indigo-500 transition-all" placeholder="Wat gaan we bouwen?"></textarea>
+                <button id="buildBtn" class="w-full bg-indigo-600 py-4 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20">GENEREER APP</button>
             </div>
 
-            <nav class="flex-1 p-4 space-y-2">
-                <div class="text-[10px] font-bold text-slate-500 uppercase px-4 mb-2 tracking-widest">App Builder</div>
-                <button class="sidebar-item active w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold">
-                    <i class="fas fa-code w-5 text-indigo-400"></i> Web App (HTML)
-                </button>
-                <button onclick="alert('APK Builder wordt geactiveerd zodra de Build-Server gekoppeld is.')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-800/50">
-                    <i class="fab fa-android w-5"></i> Android APK
-                </button>
-                <button onclick="alert('iOS Builder vereist een MacOS Cloud Agent.')" class="sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-800/50">
-                    <i class="fab fa-apple w-5"></i> iOS App
-                </button>
-                
-                <div class="text-[10px] font-bold text-slate-500 uppercase px-4 mt-8 mb-2 tracking-widest">Project Tools</div>
-                <button id="downloadBtn" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold hover:bg-slate-800 transition">
-                    <i class="fas fa-cloud-download-alt w-5 text-cyan-400"></i> Export HTML
-                </button>
-                <button id="resetBtn" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold hover:bg-red-500/10 text-red-400 transition">
-                    <i class="fas fa-trash-alt w-5"></i> Reset Factory
-                </button>
-            </nav>
-
-            <div class="p-4 border-t border-slate-800">
-                <div class="bg-indigo-600/10 p-4 rounded-2xl border border-indigo-500/20 text-center">
-                    <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Systeem Status</p>
-                    <p class="text-[11px] text-slate-400 mt-1">Engine v7.0 Online</p>
-                </div>
+            <!-- Edit Section -->
+            <div id="editSection" class="space-y-4 opacity-30 pointer-events-none">
+                <label class="text-[11px] font-black text-emerald-400 uppercase tracking-widest">Aanpassen</label>
+                <textarea id="editInput" class="w-full h-24 bg-slate-900 border border-slate-700 rounded-2xl p-4 text-sm outline-none focus:border-emerald-500 transition-all" placeholder="Wat moet er anders?"></textarea>
+                <button id="editBtn" class="w-full bg-emerald-600 py-3 rounded-2xl font-black text-sm">UPDATE DOORVOEREN</button>
             </div>
-        </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 flex flex-col min-w-0 relative">
-            <!-- Header -->
-            <header class="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-[#020617]">
-                <button id="openMenu" class="md:hidden w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-600/20">
-                    <i class="fas fa-bars text-white"></i>
+            <!-- Extra Functies -->
+            <div class="pt-6 border-t border-slate-800 space-y-3">
+                <button onclick="alert('APK Builder start...')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/50 text-sm font-bold text-slate-400">
+                    <i class="fab fa-android text-emerald-500"></i> Android APK
                 </button>
-                <div class="flex-1 px-6">
-                    <div id="statusIndicator" class="hidden flex items-center gap-3">
-                        <div class="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
-                        <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em]">AI Architect bouwt je app...</span>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Workspace -->
-            <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-                <!-- Input Area -->
-                <div class="w-full md:w-96 border-r border-slate-800 p-6 flex flex-col gap-6 bg-[#0f172a]/30 overflow-y-auto">
-                    <div class="space-y-3">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nieuwe Opdracht</label>
-                        <textarea id="promptInput" class="w-full h-40 bg-slate-900 border border-slate-700 rounded-2xl p-4 text-sm outline-none focus:border-indigo-500 transition-all placeholder:text-slate-600" placeholder="Beschrijf je app in detail..."></textarea>
-                        <button id="buildBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black text-white shadow-xl shadow-indigo-600/20 transition-all active:scale-95">BOUW APPLICATIE</button>
-                    </div>
-
-                    <div id="editSection" class="space-y-3 opacity-30 pointer-events-none transition-all">
-                        <label class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Aanpassen & Chat</label>
-                        <textarea id="editInput" class="w-full h-32 bg-slate-900 border border-slate-700 rounded-2xl p-4 text-sm outline-none focus:border-emerald-500 transition-all" placeholder="Wat moet er veranderen?"></textarea>
-                        <button id="editBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-2xl font-black text-white transition-all active:scale-95">UPDATE DOORVOEREN</button>
-                    </div>
-                </div>
-
-                <!-- Preview Area -->
-                <div class="flex-1 p-4 md:p-8 bg-[#020617] relative">
-                    <iframe id="previewFrame" class="w-full h-full border-none"></iframe>
-                    <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center bg-[#020617]">
-                        <div class="w-20 h-20 bg-indigo-600/10 rounded-3xl flex items-center justify-center mb-6 border border-indigo-500/20">
-                            <i class="fas fa-layer-group text-3xl text-indigo-500"></i>
-                        </div>
-                        <p class="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px]">Wachten op instructies</p>
-                    </div>
-                </div>
+                <button id="downloadBtn" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/50 text-sm font-bold text-slate-400">
+                    <i class="fas fa-download text-cyan-400"></i> Export HTML
+                </button>
+                <button id="resetBtn" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/5 text-sm font-bold text-red-500/50">
+                    <i class="fas fa-trash-alt"></i> Reset Project
+                </button>
             </div>
-        </main>
-    </div>
+        </div>
+    </aside>
+
+    <!-- Main Viewport (De App zelf) -->
+    <main id="main-viewport">
+        <iframe id="previewFrame"></iframe>
+        
+        <!-- Lege status -->
+        <div id="emptyState">
+            <div class="w-20 h-20 bg-indigo-600/10 rounded-3xl flex items-center justify-center mb-6 border border-indigo-500/20">
+                <i class="fas fa-rocket text-3xl text-indigo-500"></i>
+            </div>
+            <p class="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px]">Open het menu om te starten</p>
+        </div>
+    </main>
 
     <script>
-        let currentCode = localStorage.getItem('kavrix_enterprise_code') || "";
+        let currentCode = localStorage.getItem('kavrix_mobile_code') || "";
         const sidebar = document.getElementById("sidebar");
         const preview = document.getElementById("previewFrame");
         const empty = document.getElementById("emptyState");
+        const loader = document.getElementById("loader");
 
-        // Menu Bediening
-        document.getElementById("openMenu").onclick = () => sidebar.classList.remove("sidebar-closed");
+        // Menu Logica
+        document.getElementById("menuToggle").onclick = () => sidebar.classList.remove("sidebar-closed");
         document.getElementById("closeMenu").onclick = () => sidebar.classList.add("sidebar-closed");
 
         if(currentCode) {
@@ -119,10 +129,9 @@
 
         async function callAI(prompt, isEdit = false) {
             const btn = isEdit ? document.getElementById("editBtn") : document.getElementById("buildBtn");
-            const status = document.getElementById("statusIndicator");
-            
             btn.disabled = true;
-            status.classList.remove("hidden");
+            loader.style.display = "block";
+            sidebar.classList.add("sidebar-closed");
 
             try {
                 const response = await fetch("https://kavrix.onrender.com/generate", {
@@ -134,14 +143,13 @@
                 const data = await response.json();
                 if (data.code) {
                     currentCode = data.code;
-                    localStorage.setItem('kavrix_enterprise_code', currentCode);
+                    localStorage.setItem('kavrix_mobile_code', currentCode);
                     preview.srcdoc = data.code;
                     empty.classList.add("hidden");
                     document.getElementById("editSection").classList.remove("opacity-30", "pointer-events-none");
-                    if(window.innerWidth < 768) sidebar.classList.add("sidebar-closed");
                 }
-            } catch (e) { alert("Fout bij verbinden met server."); }
-            finally { btn.disabled = false; status.classList.add("hidden"); }
+            } catch (e) { alert("Fout bij genereren."); }
+            finally { btn.disabled = false; loader.style.display = "none"; }
         }
 
         document.getElementById("buildBtn").onclick = () => {
@@ -155,8 +163,8 @@
         };
 
         document.getElementById("resetBtn").onclick = () => {
-            if(confirm("Project volledig wissen?")) {
-                localStorage.removeItem('kavrix_enterprise_code');
+            if(confirm("Alles wissen?")) {
+                localStorage.removeItem('kavrix_mobile_code');
                 location.reload();
             }
         };
@@ -166,7 +174,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'kavrix-app.html';
+            a.download = 'mijn-kavrix-app.html';
             a.click();
         };
     </script>
