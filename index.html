@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAVRIX | DeepAgent Data Workspace</title>
+    <title>KAVRIX | DeepAgent Workspace</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -13,20 +13,21 @@
         iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 24px; }
         .glass-input { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
         .agent-loader { display: none; position: fixed; top: 20px; right: 20px; z-index: 1000; }
-        .data-badge { background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+        .project-item:hover .delete-btn { opacity: 1; }
+        .delete-btn { opacity: 0; transition: 0.2s; }
     </style>
 </head>
 <body>
     <!-- Agent Loader -->
     <div id="loader" class="agent-loader bg-indigo-600 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
         <div class="w-2 h-2 bg-white rounded-full animate-ping"></div>
-        <span class="text-xs font-black uppercase tracking-widest">Agent koppelt Live Data...</span>
+        <span class="text-xs font-black uppercase tracking-widest">Agent voert beheer uit...</span>
     </div>
 
     <!-- Sidebar -->
     <aside id="sidebar" class="fixed inset-y-0 left-0 w-full md:w-[350px] h-full p-8 flex flex-col sidebar-closed shadow-2xl">
         <div class="flex justify-between items-center mb-10">
-            <h1 class="text-xl font-black italic tracking-tighter">KAVRIX <span class="text-indigo-500">DATA</span></h1>
+            <h1 class="text-xl font-black italic tracking-tighter">KAVRIX <span class="text-indigo-500">PRO</span></h1>
             <button id="closeBtn" class="text-slate-500 hover:text-white text-2xl">&times;</button>
         </div>
         <div class="flex-1 overflow-y-auto space-y-6">
@@ -41,10 +42,7 @@
     <!-- Main Workspace -->
     <main class="h-full w-full flex flex-col p-4 md:p-6 transition-all" id="mainContent">
         <div class="flex justify-between items-center mb-4 px-2">
-            <div class="flex gap-3">
-                <button id="menuBtn" class="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 hover:border-indigo-500 transition-all"><i class="fas fa-th-large text-slate-400"></i></button>
-                <div id="dataStatus" class="hidden flex items-center"><span class="data-badge">Live Data Proxy Actief</span></div>
-            </div>
+            <button id="menuBtn" class="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 hover:border-indigo-500 transition-all"><i class="fas fa-th-large text-slate-400"></i></button>
             <div class="flex items-center gap-4">
                 <span id="activeTitle" class="text-xs font-bold text-slate-500 uppercase tracking-widest">Geen project actief</span>
                 <button id="dlBtn" class="hidden w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800 hover:text-indigo-400"><i class="fas fa-download text-xs"></i></button>
@@ -53,9 +51,9 @@
 
         <div class="flex-1 relative">
             <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <div class="w-24 h-24 bg-indigo-600/10 rounded-3xl flex items-center justify-center mb-6 border border-indigo-500/20"><i class="fas fa-database text-4xl text-indigo-500"></i></div>
-                <h2 class="text-2xl font-black mb-2">Data Engine v1.4</h2>
-                <p class="text-slate-500 text-sm max-w-xs">Vraag de agent om een app te bouwen die live data ophaalt.</p>
+                <div class="w-24 h-24 bg-indigo-600/10 rounded-3xl flex items-center justify-center mb-6 border border-indigo-500/20"><i class="fas fa-folder-open text-4xl text-indigo-500"></i></div>
+                <h2 class="text-2xl font-black mb-2">Workspace v1.5</h2>
+                <p class="text-slate-500 text-sm max-w-xs">Beheer je projecten of start een nieuwe creatie.</p>
             </div>
             <iframe id="preview" class="hidden"></iframe>
         </div>
@@ -63,7 +61,7 @@
         <!-- Command Bar -->
         <div class="mt-6 max-w-4xl mx-auto w-full relative">
             <div class="glass-input rounded-3xl p-2 flex items-center shadow-2xl">
-                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-5 text-sm" placeholder="Bijv: Bouw een crypto dashboard met live Bitcoin prijzen...">
+                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-5 text-sm" placeholder="Vraag de agent om iets te bouwen...">
                 <button id="go" class="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center hover:bg-indigo-500 transition-all active:scale-90"><i class="fas fa-paper-plane text-sm"></i></button>
             </div>
         </div>
@@ -80,13 +78,35 @@
                 const list = document.getElementById("projectList");
                 list.innerHTML = "";
                 projects.forEach(p => {
-                    const btn = document.createElement("button");
-                    btn.className = "w-full text-left p-4 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all mb-1";
-                    btn.innerHTML = `<i class="fas fa-code mr-3 opacity-30"></i> ${p.name || 'Naamloos'}`;
-                    btn.onclick = () => selectProject(p.id);
-                    list.appendChild(btn);
+                    const div = document.createElement("div");
+                    div.className = "project-item flex items-center justify-between group";
+                    div.innerHTML = `
+                        <button class="flex-1 text-left p-4 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all mb-1">
+                            <i class="fas fa-code mr-3 opacity-30"></i> ${p.name || 'Naamloos'}
+                        </button>
+                        <button onclick="deleteProject('${p.id}', event)" class="delete-btn p-4 text-slate-600 hover:text-red-500 transition-all">
+                            <i class="fas fa-trash-alt text-xs"></i>
+                        </button>
+                    `;
+                    div.querySelector('button:first-child').onclick = () => selectProject(p.id);
+                    list.appendChild(div);
                 });
             } catch(e) { console.log("Laden mislukt"); }
+        }
+
+        async function deleteProject(id, event) {
+            event.stopPropagation();
+            if(!confirm("Weet je zeker dat je dit project wilt verwijderen?")) return;
+            try {
+                await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
+                if(currentProjectId === id) {
+                    currentProjectId = null;
+                    localStorage.removeItem('kavrix_active_id');
+                    location.reload();
+                } else {
+                    loadProjects();
+                }
+            } catch(e) { alert("Verwijderen mislukt"); }
         }
 
         async function selectProject(id) {
@@ -103,7 +123,6 @@
                 document.getElementById("activeTitle").innerText = d.name;
                 document.getElementById("dlBtn").classList.remove("hidden");
                 document.getElementById("sidebar").classList.add("sidebar-closed");
-                document.getElementById("dataStatus").classList.remove("hidden");
             } catch(e) { alert("Laden mislukt"); }
             document.getElementById("loader").style.display = "none";
         }
@@ -114,7 +133,7 @@
             document.getElementById("loader").style.display = "flex";
             const input = document.getElementById("prompt");
             input.disabled = true;
-            input.value = "Agent koppelt data bronnen...";
+            input.value = "Agent voert opdracht uit...";
             try {
                 const r = await fetch(`${RENDER_URL}/generate`, {
                     method: "POST",
@@ -141,7 +160,7 @@
             const blob = new Blob([iframe.srcdoc], {type: 'text/html'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'kavrix-data-app.html';
+            a.download = 'kavrix-project.html';
             a.click();
         };
         
