@@ -12,31 +12,12 @@ app.use(express.static(__dirname));
 app.post("/generate", async (req, res) => {
   const { prompt, existingCode } = req.body;
   
-  const systemMessage = `Je bent KAVRIX AI. Bouw een professionele, mobile-first web-app.
-  
-  ALS DE GEBRUIKER EEN IPTV PLAYER WIL, GEBRUIK DAN DIT EXACTE RECEPT:
-  1. Gebruik HLS.js voor de video.
-  2. Gebruik deze FETCH functie voor de M3U: 
-     fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url))
-     .then(r => r.text())
-     .then(data => {
-        const lines = data.split('\\n');
-        const channels = [];
-        for(let i=0; i<lines.length; i++) {
-           if(lines[i].startsWith('#EXTINF')) {
-              const name = lines[i].split(',').pop();
-              const url = lines[i+1].trim();
-              channels.push({name, url});
-           }
-        }
-        // Toon de kanalen in de UI...
-     });
-  3. Zorg dat de lijst ONDER de video staat voor mobiel gebruik.
-  
+  const systemMessage = `Je bent KAVRIX AI. Bouw een professionele web-app.
   STRIKTE REGELS:
-  - Antwoord ALLEEN met de volledige HTML code.
-  - Geen uitleg of tekst voor/na de code.
-  - Begin met <!DOCTYPE html>.`;
+  - Antwoord ALLEEN met de HTML code.
+  - GEEN uitleg, GEEN backticks, GEEN \`\`\`html blokken.
+  - Begin direct met <!DOCTYPE html>.
+  - Gebruik voor IPTV: HLS.js en de AllOrigins proxy.`;
 
   try {
     const response = await axios.post(
@@ -55,8 +36,22 @@ app.post("/generate", async (req, res) => {
     );
     
     let code = response.data.choices[0].message.content.trim();
-    if (code.includes("<​!DOCTYPE html>")) code = code.substring(code.indexOf("<​!DOCTYPE html>"));
-    if (code.includes("<​/html>")) code = code.substring(0, code.indexOf("<​/html>") + 7);
+    
+    // --- DE ULTIEME SCHOONMAAK LOGICA ---
+    // Zoek het begin van de HTML
+    const htmlStart = code.indexOf("<​!DOCTYPE html>");
+    if (htmlStart !== -1) {
+        code = code.substring(htmlStart);
+    }
+    
+    // Zoek het einde van de HTML en snij alles daarna weg
+    const htmlEnd = code.lastIndexOf("<​/html>");
+    if (htmlEnd !== -1) {
+        code = code.substring(0, htmlEnd + 7);
+    }
+
+    // Verwijder eventuele overgebleven backticks
+    code = code.replace(/```html/g, "").replace(/```/g, "").trim();
 
     res.json({ code });
   } catch (error) {
@@ -67,4 +62,4 @@ app.post("/generate", async (req, res) => {
 app.get("/", (req, res) => { res.sendFile(path.join(__dirname, "index.html")); });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix v4.5 Live`));
+app.listen(PORT, () => console.log(`Kavrix v4.6 Clean Engine Live`));
