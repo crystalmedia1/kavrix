@@ -3,42 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAVRIX | Publishing Workspace</title>
+    <title>KAVRIX | DeepAgent OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;900&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #6366f1; --bg: #020617; }
-        body { background: var(--bg); color: white; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; }
-        #sidebar { transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 200; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(30px); border-right: 1px solid rgba(255,255,255,0.05); }
+        body { background: #020617; color: white; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; }
+        #sidebar { transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 200; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(30px); border-right: 1px solid rgba(255,255,255,0.05); }
         .sidebar-closed { transform: translateX(-100%); }
-        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 32px; box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8); }
+        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 32px; box-shadow: 0 40px 100px rgba(0,0,0,0.8); }
         .glass-input { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
         .agent-loader { display: none; position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; }
-        .share-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 2000; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
-    <!-- Share Modal -->
-    <div id="shareModal" class="share-modal">
-        <div class="bg-slate-900 p-10 rounded-[40px] border border-white/10 max-w-md w-full text-center">
-            <div class="w-20 h-20 bg-indigo-600/20 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <i class="fas fa-share-nodes text-3xl text-indigo-500"></i>
-            </div>
-            <h3 class="text-2xl font-black mb-2">App is Live!</h3>
-            <p class="text-slate-500 text-sm mb-8">Deel deze link met je vrienden of klanten.</p>
-            <input id="shareUrl" readonly type="text" class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs text-indigo-400 mb-6 text-center outline-none">
-            <div class="flex gap-3">
-                <button onclick="copyLink()" class="flex-1 bg-indigo-600 py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Kopieer Link</button>
-                <button onclick="closeShare()" class="flex-1 bg-white/5 py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Sluiten</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Agent Loader -->
-    <div id="loader" class="agent-loader bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-4 rounded-full shadow-2xl flex items-center gap-4">
-        <div class="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
-        <span class="text-[10px] font-black uppercase tracking-widest text-indigo-400">DeepAgent publiceert...</span>
+    <div id="loader" class="agent-loader bg-indigo-600 px-8 py-4 rounded-full shadow-2xl flex items-center gap-4 border border-white/20">
+        <div class="w-3 h-3 bg-white rounded-full animate-ping"></div>
+        <span id="loaderText" class="text-[10px] font-black uppercase tracking-widest">DeepAgent is aan het denken...</span>
     </div>
 
     <!-- Sidebar -->
@@ -63,7 +44,7 @@
             <div class="flex items-center gap-4">
                 <button id="shareBtn" class="hidden px-6 h-12 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-xl flex items-center gap-3 hover:bg-indigo-600 hover:text-white transition-all">
                     <i class="fas fa-globe text-xs"></i>
-                    <span class="text-[10px] font-black uppercase tracking-widest">Publiceren</span>
+                    <span class="text-[10px] font-black uppercase tracking-widest">Delen</span>
                 </button>
                 <button id="dlBtn" class="hidden w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-white/5 hover:text-indigo-400"><i class="fas fa-download text-xs"></i></button>
             </div>
@@ -71,9 +52,9 @@
 
         <div class="flex-1 relative">
             <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <div class="w-32 h-32 bg-slate-900 rounded-[40px] flex items-center justify-center mb-8 border border-white/10"><i class="fas fa-rocket text-5xl text-indigo-500"></i></div>
-                <h2 class="text-4xl font-black mb-4 tracking-tighter">Klaar om te lanceren?</h2>
-                <p class="text-slate-500 text-sm max-w-sm">Bouw je app en zet hem direct live met één klik.</p>
+                <div class="w-32 h-32 bg-slate-900 rounded-[40px] flex items-center justify-center mb-8 border border-white/10"><i class="fas fa-brain text-5xl text-indigo-500"></i></div>
+                <h2 class="text-4xl font-black mb-4 tracking-tighter">Deep-Reasoning Engine</h2>
+                <p class="text-slate-500 text-sm max-w-sm">Vraag de agent om een complexe, werkende app te bouwen.</p>
             </div>
             <iframe id="preview" class="hidden"></iframe>
         </div>
@@ -81,10 +62,10 @@
         <!-- Command Bar -->
         <div class="mt-10 max-w-5xl mx-auto w-full relative">
             <div class="glass-input rounded-[32px] p-3 flex items-center">
-                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-4 text-sm font-medium" placeholder="Wat wil je vandaag bouwen?">
+                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-4 text-sm font-medium" placeholder="Beschrijf je app in detail...">
                 <button id="go" class="px-8 h-14 bg-indigo-600 rounded-[24px] flex items-center gap-3 hover:bg-indigo-500 transition-all active:scale-95">
-                    <span class="text-xs font-black uppercase tracking-widest text-white">Start</span>
-                    <i class="fas fa-arrow-right text-[10px] text-white"></i>
+                    <span class="text-xs font-black uppercase tracking-widest text-white">Bouw App</span>
+                    <i class="fas fa-bolt text-[10px] text-white"></i>
                 </button>
             </div>
         </div>
@@ -127,6 +108,7 @@
             currentProjectId = id;
             localStorage.setItem('kavrix_active_id', id);
             document.getElementById("loader").style.display = "flex";
+            document.getElementById("loaderText").innerText = "Project laden...";
             try {
                 const r = await fetch(`${RENDER_URL}/project/${id}`);
                 const d = await r.json();
@@ -144,35 +126,41 @@
         async function runAgent() {
             const p = document.getElementById("prompt").value;
             if(!p) return;
+            
             document.getElementById("loader").style.display = "flex";
+            document.getElementById("loaderText").innerText = "DeepAgent plant & bouwt (kan 1-2 min duren)...";
+            
+            const input = document.getElementById("prompt");
+            input.disabled = true;
+
             try {
+                // Verlengde timeout voor de fetch call
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minuten wachten
+
                 const r = await fetch(`${RENDER_URL}/generate`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ prompt: p, projectId: currentProjectId })
+                    body: JSON.stringify({ prompt: p, projectId: currentProjectId }),
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
                 const d = await r.json();
+                
+                if(d.error) throw new Error(d.error);
+                
                 await selectProject(d.projectId);
                 loadProjects();
-            } catch(e) { alert("Fout: " + e.message); }
-            document.getElementById("loader").style.display = "none";
-            document.getElementById("prompt").value = "";
+            } catch(e) { 
+                alert("DeepAgent is nog bezig of er is een timeout. Wacht even en ververs de lijst in de zijbalk."); 
+                console.error(e);
+            } finally {
+                document.getElementById("loader").style.display = "none";
+                input.disabled = false;
+                input.value = "";
+            }
         }
-
-        document.getElementById("shareBtn").onclick = () => {
-            const url = `${RENDER_URL}/share/${currentProjectId}`;
-            document.getElementById("shareUrl").value = url;
-            document.getElementById("shareModal").style.display = "flex";
-        };
-
-        function copyLink() {
-            const input = document.getElementById("shareUrl");
-            input.select();
-            document.execCommand("copy");
-            alert("Link gekopieerd naar klembord!");
-        }
-
-        function closeShare() { document.getElementById("shareModal").style.display = "none"; }
 
         document.getElementById("go").onclick = runAgent;
         document.getElementById("prompt").onkeydown = (e) => { if(e.key === 'Enter') runAgent(); };
