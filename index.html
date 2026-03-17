@@ -3,173 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAVRIX | DeepAgent OS</title>
+    <title>KAVRIX | DeepAgent</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background: #020617; color: white; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; }
-        #sidebar { transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 200; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(30px); border-right: 1px solid rgba(255,255,255,0.05); }
-        .sidebar-closed { transform: translateX(-100%); }
-        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 32px; box-shadow: 0 40px 100px rgba(0,0,0,0.8); }
-        .glass-input { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
-        .agent-loader { display: none; position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+        body { background: #020617; color: white; font-family: sans-serif; overflow: hidden; height: 100vh; }
+        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 24px; }
+        .loader { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #4f46e5; padding: 10px 20px; border-radius: 50px; font-weight: bold; font-size: 12px; }
     </style>
 </head>
-<body>
-    <!-- Agent Loader -->
-    <div id="loader" class="agent-loader bg-indigo-600 px-8 py-4 rounded-full shadow-2xl flex items-center gap-4 border border-white/20">
-        <div class="w-3 h-3 bg-white rounded-full animate-ping"></div>
-        <span id="loaderText" class="text-[10px] font-black uppercase tracking-widest">DeepAgent is aan het denken...</span>
+<body class="flex flex-col p-4">
+
+    <div id="loader" class="loader">DeepAgent is aan het bouwen... <i class="fas fa-spinner animate-spin ml-2"></i></div>
+
+    <div class="flex justify-between items-center mb-4">
+        <h1 class="text-xl font-black tracking-tighter">KAVRIX</h1>
+        <div class="flex gap-2">
+            <button onclick="toggleSidebar()" class="p-3 bg-slate-900 rounded-xl"><i class="fas fa-history"></i></button>
+            <button onclick="location.reload()" class="p-3 bg-slate-900 rounded-xl"><i class="fas fa-plus"></i></button>
+        </div>
+    </div>
+
+    <div class="flex-1 relative">
+        <div id="empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+            <i class="fas fa-magic text-4xl mb-4"></i>
+            <p>Voer een opdracht in om te beginnen.</p>
+        </div>
+        <iframe id="preview" class="hidden"></iframe>
+    </div>
+
+    <div class="mt-4 flex gap-2 bg-slate-900 p-2 rounded-2xl">
+        <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none p-3 text-sm" placeholder="Wat wil je bouwen?">
+        <button id="go" class="bg-indigo-600 px-6 py-3 rounded-xl font-bold text-sm">Bouw</button>
     </div>
 
     <!-- Sidebar -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 w-full md:w-[380px] h-full p-10 flex flex-col sidebar-closed shadow-2xl">
-        <div class="flex justify-between items-center mb-12">
-            <h1 class="text-2xl font-black tracking-tighter italic">KAVRIX <span class="text-indigo-500">OS</span></h1>
-            <button id="closeBtn" class="text-slate-500 hover:text-white text-2xl">&times;</button>
-        </div>
-        <div class="flex-1 overflow-y-auto space-y-8">
-            <button id="newProject" class="w-full bg-white text-black py-5 rounded-2xl font-black text-xs tracking-widest hover:bg-indigo-500 hover:text-white transition-all">NIEUW PROJECT</button>
-            <div>
-                <label class="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-6 block">Mijn Apps</label>
-                <div id="projectList" class="space-y-1"></div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Main Workspace -->
-    <main class="h-full w-full flex flex-col p-6 md:p-10 transition-all" id="mainContent">
-        <div class="flex justify-between items-center mb-8">
-            <button id="menuBtn" class="w-14 h-14 bg-slate-900/50 backdrop-blur rounded-2xl flex items-center justify-center border border-white/5 hover:border-indigo-500/50 transition-all"><i class="fas fa-bars text-slate-400"></i></button>
-            <div class="flex items-center gap-4">
-                <button id="shareBtn" class="hidden px-6 h-12 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 rounded-xl flex items-center gap-3 hover:bg-indigo-600 hover:text-white transition-all">
-                    <i class="fas fa-globe text-xs"></i>
-                    <span class="text-[10px] font-black uppercase tracking-widest">Delen</span>
-                </button>
-                <button id="dlBtn" class="hidden w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center border border-white/5 hover:text-indigo-400"><i class="fas fa-download text-xs"></i></button>
-            </div>
-        </div>
-
-        <div class="flex-1 relative">
-            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <div class="w-32 h-32 bg-slate-900 rounded-[40px] flex items-center justify-center mb-8 border border-white/10"><i class="fas fa-brain text-5xl text-indigo-500"></i></div>
-                <h2 class="text-4xl font-black mb-4 tracking-tighter">Deep-Reasoning Engine</h2>
-                <p class="text-slate-500 text-sm max-w-sm">Vraag de agent om een complexe, werkende app te bouwen.</p>
-            </div>
-            <iframe id="preview" class="hidden"></iframe>
-        </div>
-
-        <!-- Command Bar -->
-        <div class="mt-10 max-w-5xl mx-auto w-full relative">
-            <div class="glass-input rounded-[32px] p-3 flex items-center">
-                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-6 py-4 text-sm font-medium" placeholder="Beschrijf je app in detail...">
-                <button id="go" class="px-8 h-14 bg-indigo-600 rounded-[24px] flex items-center gap-3 hover:bg-indigo-500 transition-all active:scale-95">
-                    <span class="text-xs font-black uppercase tracking-widest text-white">Bouw App</span>
-                    <i class="fas fa-bolt text-[10px] text-white"></i>
-                </button>
-            </div>
-        </div>
-    </main>
+    <div id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-950 border-right border-white/10 p-6 transform -translate-x-full transition-transform z-50">
+        <button onclick="toggleSidebar()" class="mb-8 text-slate-500">Sluiten</button>
+        <div id="projectList" class="space-y-2"></div>
+    </div>
 
     <script>
         const RENDER_URL = "https://kavrix.onrender.com";
-        let currentProjectId = localStorage.getItem('kavrix_active_id');
+        let currentId = null;
+        let pollInterval = null;
 
         async function loadProjects() {
-            try {
-                const r = await fetch(`${RENDER_URL}/projects`);
-                const projects = await r.json();
-                const list = document.getElementById("projectList");
-                list.innerHTML = "";
-                projects.forEach(p => {
-                    const div = document.createElement("div");
-                    div.className = "flex items-center justify-between p-1";
-                    div.innerHTML = `
-                        <button class="flex-1 text-left p-4 rounded-xl text-[11px] font-bold text-slate-400 hover:text-white transition-all">${p.name || 'Naamloos'}</button>
-                        <button onclick="deleteProject('${p.id}', event)" class="p-4 text-slate-700 hover:text-red-500 transition-all"><i class="fas fa-trash-alt text-[10px]"></i></button>
-                    `;
-                    div.querySelector('button:first-child').onclick = () => selectProject(p.id);
-                    list.appendChild(div);
-                });
-            } catch(e) { console.log("Laden mislukt"); }
-        }
-
-        async function deleteProject(id, event) {
-            event.stopPropagation();
-            if(!confirm("Verwijderen?")) return;
-            try {
-                await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
-                if(currentProjectId === id) { currentProjectId = null; localStorage.removeItem('kavrix_active_id'); location.reload(); }
-                else { loadProjects(); }
-            } catch(e) { alert("Fout"); }
+            const r = await fetch(`${RENDER_URL}/projects`);
+            const data = await r.json();
+            const list = document.getElementById("projectList");
+            list.innerHTML = "";
+            data.forEach(p => {
+                const btn = document.createElement("button");
+                btn.className = "w-full text-left p-3 text-xs hover:bg-white/5 rounded-lg";
+                btn.innerText = p.name;
+                btn.onclick = () => { selectProject(p.id); toggleSidebar(); };
+                list.appendChild(btn);
+            });
         }
 
         async function selectProject(id) {
-            currentProjectId = id;
-            localStorage.setItem('kavrix_active_id', id);
-            document.getElementById("loader").style.display = "flex";
-            document.getElementById("loaderText").innerText = "Project laden...";
-            try {
-                const r = await fetch(`${RENDER_URL}/project/${id}`);
-                const d = await r.json();
+            currentId = id;
+            const r = await fetch(`${RENDER_URL}/project/${id}`);
+            const d = await r.json();
+            
+            if (d.code === "GENERATING") {
+                startPolling(id);
+            } else {
                 const iframe = document.getElementById("preview");
                 iframe.srcdoc = d.code;
                 iframe.classList.remove("hidden");
-                document.getElementById("emptyState").classList.add("hidden");
-                document.getElementById("dlBtn").classList.remove("hidden");
-                document.getElementById("shareBtn").classList.remove("hidden");
-                document.getElementById("sidebar").classList.add("sidebar-closed");
-            } catch(e) { alert("Laden mislukt"); }
-            document.getElementById("loader").style.display = "none";
-        }
-
-        async function runAgent() {
-            const p = document.getElementById("prompt").value;
-            if(!p) return;
-            
-            document.getElementById("loader").style.display = "flex";
-            document.getElementById("loaderText").innerText = "DeepAgent plant & bouwt (kan 1-2 min duren)...";
-            
-            const input = document.getElementById("prompt");
-            input.disabled = true;
-
-            try {
-                // Verlengde timeout voor de fetch call
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minuten wachten
-
-                const r = await fetch(`${RENDER_URL}/generate`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ prompt: p, projectId: currentProjectId }),
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
-                const d = await r.json();
-                
-                if(d.error) throw new Error(d.error);
-                
-                await selectProject(d.projectId);
-                loadProjects();
-            } catch(e) { 
-                alert("DeepAgent is nog bezig of er is een timeout. Wacht even en ververs de lijst in de zijbalk."); 
-                console.error(e);
-            } finally {
+                document.getElementById("empty").classList.add("hidden");
                 document.getElementById("loader").style.display = "none";
-                input.disabled = false;
-                input.value = "";
             }
         }
 
-        document.getElementById("go").onclick = runAgent;
-        document.getElementById("prompt").onkeydown = (e) => { if(e.key === 'Enter') runAgent(); };
-        document.getElementById("menuBtn").onclick = () => { loadProjects(); document.getElementById("sidebar").classList.remove("sidebar-closed"); };
-        document.getElementById("closeBtn").onclick = () => document.getElementById("sidebar").classList.add("sidebar-closed");
-        document.getElementById("newProject").onclick = () => { currentProjectId = null; localStorage.removeItem('kavrix_active_id'); location.reload(); };
-        
-        if(currentProjectId) selectProject(currentProjectId);
-        loadProjects();
+        function startPolling(id) {
+            document.getElementById("loader").style.display = "block";
+            if (pollInterval) clearInterval(pollInterval);
+            
+            pollInterval = setInterval(async () => {
+                const r = await fetch(`${RENDER_URL}/project/${id}`);
+                const d = await r.json();
+                if (d.code !== "GENERATING") {
+                    clearInterval(pollInterval);
+                    selectProject(id);
+                }
+            }, 3000); // Check elke 3 seconden
+        }
+
+        async function run() {
+            const p = document.getElementById("prompt").value;
+            if (!p) return;
+            
+            document.getElementById("loader").style.display = "block";
+            const r = await fetch(`${RENDER_URL}/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prompt: p, projectId: currentId })
+            });
+            const d = await r.json();
+            startPolling(d.projectId);
+            document.getElementById("prompt").value = "";
+        }
+
+        function toggleSidebar() {
+            const s = document.getElementById("sidebar");
+            s.classList.toggle("-translate-x-full");
+            if (!s.classList.contains("-translate-x-full")) loadProjects();
+        }
+
+        document.getElementById("go").onclick = run;
+        document.getElementById("prompt").onkeydown = (e) => { if(e.key === 'Enter') run(); };
     </script>
 </body>
 </html>
