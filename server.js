@@ -10,17 +10,13 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // --- CODE CLEANER ---
-function cleanAIResponse(text) {
+function cleanCode(text) {
     if (!text) return "";
     let code = text.trim();
-    // Verwijder markdown backticks
     code = code.replace(/```html/g, "").replace(/```/g, "").trim();
-    // Pak alleen de HTML kern
     const start = code.indexOf("<​!DOCTYPE html>");
     const end = code.lastIndexOf("<​/html>");
-    if (start !== -1 && end !== -1) {
-        code = code.substring(start, end + 7);
-    }
+    if (start !== -1 && end !== -1) code = code.substring(start, end + 7);
     return code;
 }
 
@@ -29,17 +25,17 @@ app.post("/generate", async (req, res) => {
     const { prompt, existingCode } = req.body;
 
     if (!process.env.API_KEY) {
-        return res.status(500).json({ error: "API_KEY niet ingesteld op Render." });
+        return res.status(500).json({ error: "API_KEY ontbreekt." });
     }
 
-    const systemMessage = `Je bent KAVRIX OS AI, een elite Full-Stack Developer.
+    const systemMessage = `Je bent KAVRIX ENTERPRISE AI. Je bouwt high-end applicaties.
     
-    JOUW OPDRACHT:
-    1. Bouw complete, moderne web-apps met Tailwind CSS.
-    2. Zorg dat elke app MOBILE-FIRST is en er prachtig uitziet op smartphones.
-    3. Gebruik interactieve elementen (knoppen, animaties, modals).
-    4. Stuur ALLEEN de HTML code terug. Geen tekst, geen uitleg, geen praatjes.
-    5. Begin ALTIJD met <!DOCTYPE html> en eindig met </html>.`;
+    RICHTLIJNEN:
+    1. Gebruik Tailwind CSS voor styling.
+    2. Maak apps die 100% responsive zijn (Mobile & Desktop).
+    3. Voeg geavanceerde functies toe zoals LocalStorage opslag, animaties en filters.
+    4. Stuur ALLEEN de HTML code terug. Geen tekst of uitleg.
+    5. Begin met <!DOCTYPE html>.`;
 
     try {
         const response = await axios.post(
@@ -48,7 +44,7 @@ app.post("/generate", async (req, res) => {
                 model: "llama-3.3-70b-versatile",
                 messages: [
                     { role: "system", content: systemMessage },
-                    { role: "user", content: existingCode ? `HUIDIGE CODE:\n${existingCode}\n\nPAS AAN: ${prompt}` : `BOUW NIEUWE APP: ${prompt}` }
+                    { role: "user", content: existingCode ? `WIJZIG CODE:\n${existingCode}\n\nOPDRACHT: ${prompt}` : `BOUW APP: ${prompt}` }
                 ],
                 temperature: 0.2
             },
@@ -57,19 +53,12 @@ app.post("/generate", async (req, res) => {
             }
         );
 
-        const rawContent = response.data.choices[0].message.content;
-        const finalCode = cleanAIResponse(rawContent);
-        
-        res.json({ code: finalCode });
+        res.json({ code: cleanCode(response.data.choices[0].message.content) });
     } catch (error) {
-        console.error("AI Error:", error.message);
-        res.status(500).json({ error: "AI kon de code niet genereren." });
+        res.status(500).json({ error: "AI Engine Error" });
     }
 });
 
-// --- SERVER ROUTES ---
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.get("/ping", (req, res) => res.json({ status: "Kavrix OS Online", version: "5.2" }));
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix OS draait op poort ${PORT}`));
+app.listen(PORT, () => console.log(`Kavrix Enterprise Live op ${PORT}`));
