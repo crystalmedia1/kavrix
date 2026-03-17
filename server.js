@@ -8,10 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
+// Supabase configuratie (gebruikt de Service Role Key uit Render)
 const supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABASE_KEY || "");
 const API_KEY = process.env.API_KEY;
 
-// Proxy voor live data
+// Proxy voor live data (voorkomt CORS fouten in je apps)
 app.get("/api/proxy", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).json({ error: "URL is verplicht" });
@@ -24,12 +25,12 @@ app.get("/api/proxy", async (req, res) => {
 });
 
 async function callDeepEngine(prompt, previousCode = "") {
-    // Automatische detectie van de provider op basis van de key
+    // We gebruiken het 8b-instant model voor maximale snelheid en hogere limieten
     let apiUrl = "https://api.groq.com/openai/v1/chat/completions";
-    let model = "llama-3.3-70b-versatile";
+    let model = "llama-3.1-8b-instant"; 
 
+    // Automatische detectie voor Abacus/RouteLLM keys
     if (API_KEY && !API_KEY.startsWith("gsk_")) {
-        // Als de key niet met gsk_ begint, gaan we ervan uit dat het Abacus/RouteLLM is
         apiUrl = "https://routellm.abacus.ai/v1/chat/completions";
         model = "route-llm";
     }
@@ -40,11 +41,22 @@ async function callDeepEngine(prompt, previousCode = "") {
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v11.0. Bouw luxe, moderne web-apps.
-                    STIJL: Donker thema, Glassmorphism, Tailwind CSS, Lucide Icons.
-                    Geef ALLEEN de volledige HTML code terug.` 
+                    content: `Je bent KAVRIX DEEP-ENGINE v12.0. Je bouwt luxe, moderne web-apps.
+                    
+                    DESIGN RICHTLIJNEN:
+                    1. UI: Ultra-modern, donker thema (bg-[#020617]), Glassmorphism (bg-white/5 backdrop-blur-2xl border border-white/10).
+                    2. UX: Gebruik afgeronde hoeken (rounded-[32px]), grote paddings, en vloeiende transities.
+                    3. FONTS: Gebruik 'Plus Jakarta Sans' via Google Fonts.
+                    4. COMPONENTEN: Gebruik Lucide Icons en Chart.js voor data.
+                    
+                    TECHNISCH:
+                    - Gebruik Tailwind CSS via CDN.
+                    - Schrijf volledige, werkende JavaScript.
+                    - Gebruik de proxy voor API calls: https://kavrix.onrender.com/api/proxy?url=...
+                    
+                    Geef ALLEEN de volledige HTML code terug, beginnend met <!DOCTYPE html>.` 
                 },
-                { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
+                { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ],
             temperature: 0.2
         }, { 
@@ -56,7 +68,7 @@ async function callDeepEngine(prompt, previousCode = "") {
         return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
     } catch (error) {
         console.error("AI Error Details:", error.response ? error.response.data : error.message);
-        throw new Error("AI Verbinding mislukt. Controleer of je API_KEY in Render correct is.");
+        throw new Error("AI Verbinding mislukt of limiet bereikt. Probeer het over een paar minuten opnieuw.");
     }
 }
 
@@ -81,8 +93,16 @@ app.post("/generate", async (req, res) => {
 
         res.json({ projectId: id });
 
+        // Achtergrond proces voor het genereren van de code
         callDeepEngine(prompt, previousCode).then(async (finalCode) => {
-            await supabase.from("projects").update({ code: finalCode }).eq("id", id);
+            // Genereer een passende naam voor het project
+            const nameResponse = await axios.post(apiUrl, {
+                model: "llama-3.1-8b-instant",
+                messages: [{ role: "user", content: `Geef een korte, luxe naam (max 2 woorden) voor deze app: ${prompt}. Geef alleen de naam.` }]
+            }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => ({ data: { choices: [{ message: { content: "Nieuw Project" } }] } }));
+            
+            const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
+            await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", id);
         }).catch(async (err) => {
             await supabase.from("projects").update({ code: "FOUT: " + err.message }).eq("id", id);
         });
@@ -114,4 +134,6 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v11.0 Online`));
+app.listen(PORT, () => console.log(`Kavrix Engine v12.0 Online`));
+
+process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
