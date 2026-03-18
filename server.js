@@ -8,11 +8,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-// Verbinding met je Database
 const supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABASE_KEY || "");
 const API_KEY = process.env.API_KEY;
 
-// AI Configuratie (RouteLLM of Groq fallback)
 let AI_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 let AI_MODEL = "llama-3.3-70b-versatile"; 
 
@@ -21,51 +19,45 @@ if (API_KEY && !API_KEY.startsWith("gsk_")) {
     AI_MODEL = "route-llm";
 }
 
-// --- LIVE DATA PROXY ---
-app.get("/api/proxy", async (req, res) => {
-    const targetUrl = req.query.url;
-    if (!targetUrl) return res.status(400).json({ error: "URL is verplicht" });
-    try {
-        const response = await axios.get(targetUrl, { 
-            timeout: 15000,
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-        });
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: "Proxy Error" });
-    }
-});
+// --- WACHTRIJ SYSTEEM ---
+let queue = [];
+let isProcessing = false;
 
-// --- DEEP ENGINE ASYNC LOGICA v17.0 ---
+async function processQueue() {
+    if (isProcessing || queue.length === 0) return;
+    isProcessing = true;
+    
+    const task = queue.shift();
+    try {
+        await processAIRequest(task.prompt, task.previousCode, task.projectId);
+    } catch (e) {
+        console.error("Queue Error:", e.message);
+    }
+    
+    isProcessing = false;
+    // Wacht 2 seconden tussen taken om de AI ademruimte te geven
+    setTimeout(processQueue, 2000);
+}
+
+// --- ULTIMATE ENGINE LOGICA v18.0 ---
 async function processAIRequest(prompt, previousCode, projectId) {
     try {
-        console.log(`Kavrix Engine start voor project: ${projectId}`);
-        
-        // STAP 1: ARCHITECT (Bouwt de App)
+        // STAP 1: ARCHITECT
         const architectResponse = await axios.post(AI_API_URL, {
             model: AI_MODEL,
             messages: [
-                { 
-                    role: "system", 
-                    content: `Je bent de KAVRIX ULTIMATE ARCHITECT. 
-                    Bouw luxe, moderne apps met Tailwind CSS. 
-                    - Gebruik 'glassmorphism' (blur) voor kaarten.
-                    - Voor E-commerce: Maak een interactieve winkelwagen met JS.
-                    - Voor Games: Gebruik HTML5 Canvas of strakke DOM elementen.
-                    - Voor Dashboards: Gebruik Chart.js via CDN.
-                    Geef ALLEEN de ruwe HTML code terug, beginnend met <!DOCTYPE html>.` 
-                },
+                { role: "system", content: "Je bent de KAVRIX ARCHITECT. Bouw luxe HTML5 apps met Tailwind CSS. Geef ALLEEN de ruwe HTML code terug." },
                 { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 180000 });
 
         let rawCode = architectResponse.data.choices[0].message.content;
 
-        // STAP 2: REVIEWER (Schoont de code op voor de zijbalk)
+        // STAP 2: REVIEWER
         const reviewerResponse = await axios.post(AI_API_URL, {
             model: "llama-3.1-8b-instant",
             messages: [
-                { role: "system", content: "Je bent de KAVRIX REVIEWER. Verwijder alle tekst die geen code is. Begin met <!DOCTYPE html> en eindig met </html>. Geen markdown blokken!" },
+                { role: "system", content: "Je bent de KAVRIX REVIEWER. Verwijder alle tekst die geen code is. Begin met <!DOCTYPE html>." },
                 { role: "user", content: rawCode }
             ]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
@@ -74,22 +66,19 @@ async function processAIRequest(prompt, previousCode, projectId) {
         if (finalCode.includes("<​/html>")) finalCode = finalCode.split("<​/html>")[0] + "<​/html>";
         finalCode = finalCode.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
 
-        // STAP 3: NAAM GENEREREN (Gefixeerd op max 15 tekens voor de zijbalk)
+        // STAP 3: NAAM
         const nameResponse = await axios.post(AI_API_URL, {
             model: "llama-3.1-8b-instant",
-            messages: [{ role: "user", content: `Geef een ZEER KORTE naam (max 12 tekens, GEEN code, GEEN leestekens) voor dit project: ${prompt}` }]
+            messages: [{ role: "user", content: `Korte naam (max 12 tekens) voor: ${prompt}` }]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => ({ data: { choices: [{ message: { content: "PROJECT" } }] } }));
         
-        let newName = nameResponse.data.choices[0].message.content.replace(/[#*"`]/g, "").trim().toUpperCase();
-        if (newName.length > 15) newName = newName.substring(0, 12) + "...";
+        let newName = nameResponse.data.choices[0].message.content.replace(/[#*"`]/g, "").trim().toUpperCase().substring(0, 12);
 
-        // STAP 4: DATABASE UPDATEN
         await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", projectId);
-        console.log(`Project ${projectId} succesvol opgeslagen.`);
 
     } catch (error) {
         console.error("AI Fout:", error.message);
-        await supabase.from("projects").update({ code: "FOUT: De AI is momenteel te druk. Probeer het over een minuutje opnieuw." }).eq("id", projectId);
+        await supabase.from("projects").update({ code: "FOUT: De AI is overbelast. Ik probeer het zo nog een keer..." }).eq("id", projectId);
     }
 }
 
@@ -105,20 +94,19 @@ app.post("/generate", async (req, res) => {
             previousCode = data ? data.code : "";
         }
 
-        // Maak of update project naar 'GENERATING' status
         if (!id) {
-            const { data, error } = await supabase.from("projects").insert([{ name: "DENKT NA...", code: "GENERATING", prompt: prompt }]).select();
+            const { data, error } = await supabase.from("projects").insert([{ name: "IN WACHTRIJ...", code: "GENERATING", prompt: prompt }]).select();
             if (error) throw error;
             id = data[0].id;
         } else {
             await supabase.from("projects").update({ code: "GENERATING", prompt: prompt }).eq("id", id);
         }
 
-        // Stuur direct antwoord naar de browser (Async)
         res.json({ projectId: id });
-
-        // Start het AI proces op de achtergrond
-        processAIRequest(prompt, previousCode, id);
+        
+        // Voeg toe aan de wachtrij in plaats van direct uitvoeren
+        queue.push({ prompt, previousCode, projectId: id });
+        processQueue();
 
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -147,4 +135,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Ultimate Engine v17.0 Online`));
+app.listen(PORT, () => console.log(`Kavrix Queue Engine v18.0 Online`));
