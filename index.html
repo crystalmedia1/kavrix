@@ -16,23 +16,19 @@
         .project-card.active { background: linear-gradient(45deg, #4f46e5, #7c3aed); border-color: #818cf8; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
         iframe { background: white; border-radius: 16px; width: 100%; height: 100%; border: none; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
         
-        /* Splash Screen */
-        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease, visibility 0.8s; }
+        /* Splash Screen met Force Hide */
+        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; pointer-events: all; }
         .logo-anim { font-size: 3.5rem; font-weight: 900; letter-spacing: -3px; animation: pulse 2s infinite; background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); filter: blur(0px); } 50% { opacity: 0.7; transform: scale(0.96); filter: blur(2px); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.96); } }
         
         .hidden-sidebar { transform: translateX(-100%); }
         @media (min-width: 768px) { .hidden-sidebar { transform: translateX(0); } }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
 
-    <!-- SPLASH SCREEN -->
-    <div id="splash">
+    <!-- SPLASH SCREEN (Klik om te forceren) -->
+    <div id="splash" onclick="hideSplash()">
         <div class="logo-anim">KAVRIX</div>
         <div class="mt-6 flex items-center gap-3">
             <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
@@ -40,6 +36,7 @@
             <div class="w-2 h-2 bg-pink-500 rounded-full animate-bounce [animation-delay:0.4s]"></div>
         </div>
         <div class="mt-4 text-slate-500 text-[10px] font-bold tracking-[0.4em] uppercase">Neural Engine Loading</div>
+        <div class="mt-8 text-slate-600 text-[8px] uppercase tracking-widest opacity-50">Tik om over te slaan</div>
     </div>
 
     <!-- HEADER -->
@@ -79,11 +76,9 @@
 
         <main class="flex-1 flex flex-col p-4 md:p-6 gap-4 relative bg-[#0f172a]">
             <div id="loaderLine" class="absolute top-0 left-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-700 shadow-[0_0_15px_rgba(99,102,241,0.5)]" style="width: 0%"></div>
-            
             <div class="flex-1 glass rounded-2xl overflow-hidden relative p-1 bg-white/5">
                 <iframe id="preview"></iframe>
             </div>
-
             <div class="max-w-4xl mx-auto w-full glass p-2 rounded-2xl flex items-center gap-2 shadow-2xl border-white/10">
                 <div class="pl-4 text-indigo-500"><i class="fas fa-sparkles"></i></div>
                 <input id="prompt" type="text" placeholder="Beschrijf je droom app..." class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm font-medium placeholder:text-slate-500">
@@ -118,16 +113,8 @@
                 <div class='icon-circle'><i class='fas fa-wand-magic-sparkles'></i></div>
                 <h1 style='font-size: 28px; font-weight: 900; margin-bottom: 12px; letter-spacing: -1px;'>KAVRIX ENGINE READY</h1>
                 <p style='color: #94a3b8; font-size: 15px; line-height: 1.6; margin-bottom: 24px;'>
-                    Je persoonlijke AI-ontwikkelaar staat klaar. Beschrijf je idee hieronder of kies een template om de kracht van Kavrix te ervaren.
+                    Je persoonlijke AI-ontwikkelaar staat klaar. Beschrijf je idee hieronder of kies een template.
                 </p>
-                <div style='display: flex; gap: 10px; justify-content: center;'>
-                    <div style='background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); padding: 10px 16px; border-radius: 12px; font-size: 11px; font-weight: 800; color: #818cf8; text-transform: uppercase; letter-spacing: 1px;'>
-                        <i class='fas fa-bolt' style='margin-right: 6px;'></i> Ultra Fast
-                    </div>
-                    <div style='background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.2); padding: 10px 16px; border-radius: 12px; font-size: 11px; font-weight: 800; color: #c084fc; text-transform: uppercase; letter-spacing: 1px;'>
-                        <i class='fas fa-lock' style='margin-right: 6px;'></i> Private
-                    </div>
-                </div>
             </div>
         </body>
         </html>`;
@@ -138,27 +125,21 @@
             localStorage.setItem('kavrix_user_id', userId);
         }
 
-        // VERBETERDE INITIALISATIE MET FORCE EXIT
         function hideSplash() {
-            const splash = document.getElementById('splash');
-            if (splash) {
-                splash.style.opacity = '0';
-                setTimeout(() => {
-                    splash.style.visibility = 'hidden';
-                    splash.remove();
-                }, 800);
+            const s = document.getElementById('splash');
+            if(s) {
+                s.style.opacity = '0';
+                setTimeout(() => s.remove(), 500);
             }
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById("preview").srcdoc = WELCOME_HTML;
-            
-            // Probeer projecten te laden
-            loadProjects();
+        // FORCEER HIDE NA 3 SECONDEN
+        setTimeout(hideSplash, 3000);
 
-            // Forceer het weghalen van het splash screen na 4 seconden, ongeacht wat er gebeurt
-            setTimeout(hideSplash, 4000);
-        });
+        window.onload = () => {
+            document.getElementById("preview").srcdoc = WELCOME_HTML;
+            loadProjects();
+        };
 
         function toggleSidebar() {
             document.getElementById("sidebar").classList.toggle("hidden-sidebar");
@@ -167,30 +148,18 @@
         async function loadProjects() {
             try {
                 const r = await fetch(`${RENDER_URL}/projects/${userId}`);
-                if (!r.ok) throw new Error();
                 const data = await r.json();
                 const list = document.getElementById("projectList");
                 list.innerHTML = "";
                 data.forEach(p => {
                     const card = document.createElement("div");
                     card.className = `project-card ${currentId === p.id ? 'active' : ''}`;
-                    card.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-3 overflow-hidden">
-                                <i class="fas fa-code text-[10px] opacity-40"></i>
-                                <span class="text-[10px] font-black uppercase tracking-wider truncate">${p.name || 'Project'}</span>
-                            </div>
-                            <button onclick="deleteProject('${p.id}', event)" class="p-1 hover:text-white text-white/20 transition"><i class="fas fa-times text-[10px]"></i></button>
-                        </div>
-                    `;
-                    card.onclick = () => { selectProject(p.id); if(window.innerWidth < 768) toggleSidebar(); };
+                    card.innerHTML = `<div class="flex justify-between items-center"><span class="text-[10px] font-black uppercase truncate">${p.name || 'Project'}</span><button onclick="deleteProject('${p.id}', event)" class="text-white/20 hover:text-white"><i class="fas fa-times text-[10px]"></i></button></div>`;
+                    card.onclick = () => selectProject(p.id);
                     list.appendChild(card);
                 });
-                // Als projecten succesvol zijn geladen, mag het splash screen ook weg
-                hideSplash();
-            } catch(e) {
-                console.log("Server start nog op...");
-            }
+                hideSplash(); // Als data binnen is, splash weg
+            } catch(e) {}
         }
 
         async function run() {
@@ -207,7 +176,7 @@
                 currentId = d.projectId;
                 startPolling(d.projectId);
                 document.getElementById("prompt").value = "";
-            } catch(e) { alert("Fout bij genereren. Is de server online?"); }
+            } catch(e) { alert("Fout bij genereren"); }
         }
 
         function startPolling(id) {
@@ -230,15 +199,11 @@
 
         async function selectProject(id) {
             currentId = id;
-            document.getElementById("loaderLine").style.width = "100%";
-            try {
-                const r = await fetch(`${RENDER_URL}/project/${id}`);
-                const d = await r.json();
-                currentCode = d.code;
-                document.getElementById("preview").srcdoc = d.code;
-                setTimeout(() => document.getElementById("loaderLine").style.width = "0%", 500);
-                loadProjects();
-            } catch(e) {}
+            const r = await fetch(`${RENDER_URL}/project/${id}`);
+            const d = await r.json();
+            currentCode = d.code;
+            document.getElementById("preview").srcdoc = d.code;
+            loadProjects();
         }
 
         function newProject() {
@@ -250,23 +215,20 @@
 
         async function deleteProject(id, e) {
             e.stopPropagation();
-            if (!confirm("Project definitief verwijderen?")) return;
-            try {
-                await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
-                if (currentId === id) newProject();
-                loadProjects();
-            } catch(e) {}
+            if (!confirm("Verwijderen?")) return;
+            await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
+            if (currentId === id) newProject();
+            loadProjects();
         }
 
         function useTemplate(type) {
-            document.getElementById("prompt").value = `Maak een luxe ${type} app met Tailwind CSS, FontAwesome iconen en interactieve elementen.`;
+            document.getElementById("prompt").value = `Maak een luxe ${type} app.`;
             run();
         }
 
         function copyCode() {
-            if(!currentCode) return alert("Geen code om te kopiëren!");
             navigator.clipboard.writeText(currentCode);
-            alert("Code gekopieerd naar klembord!");
+            alert("Gekopieerd!");
         }
     </script>
 </body>
