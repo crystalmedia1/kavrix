@@ -16,25 +16,39 @@
         iframe { background: #f8fafc; border-radius: 24px; width: 100%; height: 100%; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.4); }
         
         /* Luxe Splash Screen */
-        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 1s ease; }
-        .logo-anim { font-size: 4rem; font-weight: 900; letter-spacing: -4px; animation: pulse 2.5s infinite; background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.3)); }
-        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); filter: blur(0px); } 50% { opacity: 0.6; transform: scale(0.94); filter: blur(1px); } }
+        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; cursor: pointer; }
+        .logo-anim { font-size: 4rem; font-weight: 900; letter-spacing: -4px; animation: pulse 2s infinite; background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.3)); }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
         
         .hidden-sidebar { transform: translateX(-100%); }
         @media (min-width: 768px) { .hidden-sidebar { transform: translateX(0); } }
     </style>
+    <script>
+        // EMERGENCY HIDE FUNCTION (Moet bovenaan staan)
+        function hideSplash() {
+            const s = document.getElementById('splash');
+            if(s) {
+                s.style.opacity = '0';
+                setTimeout(() => { s.remove(); }, 800);
+                console.log("Splash removed");
+            }
+        }
+        // Forceer hide na 5 seconden
+        setTimeout(hideSplash, 5000);
+    </script>
 </head>
 <body class="flex flex-col">
 
-    <!-- LUXE SPLASH SCREEN (5 seconden) -->
+    <!-- LUXE SPLASH SCREEN (Tik om over te slaan) -->
     <div id="splash" onclick="hideSplash()">
         <div class="logo-anim">KAVRIX</div>
         <div class="mt-8 flex items-center gap-4">
-            <div class="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></div>
-            <div class="w-1.5 h-1.5 bg-purple-500 rounded-full animate-ping [animation-delay:0.3s]"></div>
-            <div class="w-1.5 h-1.5 bg-pink-500 rounded-full animate-ping [animation-delay:0.6s]"></div>
+            <div class="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
+            <div class="w-2 h-2 bg-purple-500 rounded-full animate-ping [animation-delay:0.2s]"></div>
+            <div class="w-2 h-2 bg-pink-500 rounded-full animate-ping [animation-delay:0.4s]"></div>
         </div>
         <div class="mt-6 text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase opacity-50">Neural Engine Initializing</div>
+        <div class="mt-12 text-white/20 text-[8px] uppercase tracking-widest font-bold">Tik om te starten</div>
     </div>
 
     <!-- HEADER -->
@@ -77,23 +91,11 @@
     </div>
 
     <script>
-        function hideSplash() {
-            const s = document.getElementById('splash');
-            if(s) {
-                s.style.opacity = '0';
-                setTimeout(() => { s.remove(); }, 1000);
-            }
-        }
-
-        // Splash tijd verlengd naar 5 seconden
-        setTimeout(hideSplash, 5000);
-
         const RENDER_URL = "https://kavrix.onrender.com";
         let currentId = null;
         let currentCode = "";
 
-        // ULTRA LUXE DASHBOARD PREVIEW
-        const WELCOME_HTML = "<html><head><script src='https://cdn.tailwindcss.com'></script><link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'></head><body style='background:radial-gradient(circle at top right, #1e293b, #0f172a); color:white; font-family:sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; margin:0; overflow:hidden;'><div style='text-align:center; animation: fadeIn 1.5s ease-out;'><div style='width:100px; height:100px; background:linear-gradient(135deg, #6366f1, #a855f7); border-radius:35px; display:flex; align-items:center; justify-content:center; margin:0 auto 30px; font-size:40px; box-shadow:0 25px 50px rgba(99,102,241,0.4); transform:rotate(-5deg);'><i class='fas fa-rocket'></i></div><h1 style='font-size:32px; font-weight:900; letter-spacing:-1px; margin-bottom:10px;'>KAVRIX ENGINE</h1><p style='color:#94a3b8; font-size:16px; max-width:300px; margin:0 auto; line-height:1.6;'>Klaar om je visie om te zetten in code. Beschrijf je app hieronder.</p><div style='margin-top:30px; display:flex; gap:10px; justify-content:center;'><div style='background:rgba(255,255,255,0.05); padding:10px 20px; border-radius:15px; font-size:11px; font-weight:bold; color:#6366f1; border:1px solid rgba(99,102,241,0.2);'>V3.0 PRO</div></div></div><style>@keyframes fadeIn { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }</style></body></html>";
+        const WELCOME_HTML = "<html><head><script src='https://cdn.tailwindcss.com'></script><link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'></head><body style='background:radial-gradient(circle at top right, #1e293b, #0f172a); color:white; font-family:sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; margin:0; overflow:hidden;'><div style='text-align:center; animation: fadeIn 1.5s ease-out;'><div style='width:100px; height:100px; background:linear-gradient(135deg, #6366f1, #a855f7); border-radius:35px; display:flex; align-items:center; justify-content:center; margin:0 auto 30px; font-size:40px; box-shadow:0 25px 50px rgba(99, 102, 241, 0.4); transform:rotate(-5deg);'><i class='fas fa-rocket'></i></div><h1 style='font-size:32px; font-weight:900; letter-spacing:-1px; margin-bottom:10px;'>KAVRIX ENGINE</h1><p style='color:#94a3b8; font-size:16px; max-width:300px; margin:0 auto; line-height:1.6;'>Klaar om je visie om te zetten in code. Beschrijf je app hieronder.</p><div style='margin-top:30px; display:flex; gap:10px; justify-content:center;'><div style='background:rgba(255,255,255,0.05); padding:10px 20px; border-radius:15px; font-size:11px; font-weight:bold; color:#6366f1; border:1px solid rgba(99, 102, 241, 0.2);'>V3.0 PRO</div></div></div><style>@keyframes fadeIn { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }</style></body></html>";
 
         let userId = localStorage.getItem('kavrix_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('kavrix_user_id', userId);
@@ -120,8 +122,8 @@
                     card.onclick = () => selectProject(p.id);
                     list.appendChild(card);
                 });
-                // Als data geladen is, splash weg (maar timer van 5s blijft de limiet)
-                if(data.length > 0) setTimeout(hideSplash, 2000);
+                // Als data geladen is, splash weg
+                if(data.length > 0) hideSplash();
             } catch(e) {}
         }
 
