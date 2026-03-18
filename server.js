@@ -34,44 +34,37 @@ app.get("/api/proxy", async (req, res) => {
     }
 });
 
-// --- MULTI-AGENT LOGICA v16.1 ---
+// --- MULTI-AGENT LOGICA v16.2 ---
 async function callDeepEngine(prompt, previousCode = "") {
     try {
-        // STAP 1: ARCHITECT
+        // STAP 1: ARCHITECT (90 sec timeout)
         const architectResponse = await axios.post(AI_API_URL, {
             model: AI_MODEL,
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent de KAVRIX ARCHITECT. Bouw een luxe HTML5 app. 
-                    BELANGRIJK: Gebruik Tailwind CSS 'flex' en 'items-center' om alles PERFECT gecentreerd en passend te maken op mobiel en desktop. Geen chaos.
-                    Geef ALLEEN de ruwe HTML code terug.` 
+                    content: `Je bent de KAVRIX ARCHITECT. Bouw een luxe HTML5 app. Gebruik Tailwind CSS flexbox voor een perfecte layout. Geef ALLEEN de ruwe HTML code terug.` 
                 },
                 { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ]
-        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 120000 });
 
         let rawCode = architectResponse.data.choices[0].message.content;
 
-        // STAP 2: REVIEWER (DE "CLEANER")
+        // STAP 2: REVIEWER (Snelle opschoning)
         const reviewerResponse = await axios.post(AI_API_URL, {
             model: "llama-3.1-8b-instant",
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent de KAVRIX REVIEWER. 
-                    TAAK: 
-                    1. Zorg dat de code PERFECT PASSEND is (gebruik h-screen, overflow-hidden, en flex-col).
-                    2. Verwijder ELKE letter die geen code is. 
-                    3. Begin met <!DOCTYPE html> en eindig met </html>. Niets anders.` 
+                    content: `Je bent de KAVRIX REVIEWER. Verwijder alle tekst die geen code is. Begin met <!DOCTYPE html> en eindig met </html>.` 
                 },
-                { role: "user", content: `Maak deze code perfect passend en verwijder alle uitleg:\n\n${rawCode}` }
+                { role: "user", content: rawCode }
             ]
-        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 60000 });
 
         let finalCode = reviewerResponse.data.choices[0].message.content;
         
-        // EXTRA BEVEILIGING: Snij alles af na </html>
         if (finalCode.includes("<​/html>")) {
             finalCode = finalCode.split("<​/html>")[0] + "<​/html>";
         }
@@ -79,7 +72,9 @@ async function callDeepEngine(prompt, previousCode = "") {
         return finalCode.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
 
     } catch (error) {
-        return "FOUT: DeepEngine kon de code niet opschonen. Probeer het opnieuw.";
+        console.error("Timeout of Error:", error.message);
+        // Fallback: als de dubbele agent te lang duurt, pakken we de directe output
+        return "FOUT: De AI deed er te lang over. Probeer een kortere opdracht of ververs de pagina.";
     }
 }
 
@@ -105,6 +100,7 @@ app.post("/generate", async (req, res) => {
 
         res.json({ projectId: id });
 
+        // We voeren de AI call uit, maar we wachten er niet op voor de response naar de browser
         callDeepEngine(prompt, previousCode).then(async (finalCode) => {
             const nameResponse = await axios.post(AI_API_URL, {
                 model: "llama-3.1-8b-instant",
@@ -122,6 +118,7 @@ app.post("/generate", async (req, res) => {
     }
 });
 
+// Rest van de routes (projects, project/:id, delete) blijven hetzelfde...
 app.get("/projects", async (req, res) => {
     try {
         const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
@@ -144,4 +141,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Perfect-Fit Engine v16.1 Online`));
+app.listen(PORT, () => console.log(`Kavrix Turbo Engine v16.2 Online`));
