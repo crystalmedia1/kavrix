@@ -17,14 +17,13 @@
         iframe { background: white; border-radius: 16px; width: 100%; height: 100%; border: none; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
         
         /* Splash Screen */
-        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
+        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease, visibility 0.8s; }
         .logo-anim { font-size: 3.5rem; font-weight: 900; letter-spacing: -3px; animation: pulse 2s infinite; background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); filter: blur(0px); } 50% { opacity: 0.7; transform: scale(0.96); filter: blur(2px); } }
         
         .hidden-sidebar { transform: translateX(-100%); }
         @media (min-width: 768px) { .hidden-sidebar { transform: translateX(0); } }
 
-        /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
@@ -56,7 +55,6 @@
     </header>
 
     <div class="flex flex-1 overflow-hidden relative">
-        <!-- SIDEBAR -->
         <aside id="sidebar" class="sidebar absolute md:relative w-80 h-full hidden-sidebar flex flex-col shadow-2xl">
             <div class="p-6 font-black text-[11px] uppercase tracking-[0.2em] text-slate-500 flex justify-between items-center">
                 <span>Mijn Projecten</span>
@@ -79,15 +77,13 @@
             </div>
         </aside>
 
-        <!-- MAIN CONTENT -->
         <main class="flex-1 flex flex-col p-4 md:p-6 gap-4 relative bg-[#0f172a]">
-            <div id="loaderLine" class="absolute top-0 left-0 h-1 bg-gradient-to-right from-indigo-500 to-purple-500 transition-all duration-700 shadow-[0_0_15px_rgba(99,102,241,0.5)]" style="width: 0%"></div>
+            <div id="loaderLine" class="absolute top-0 left-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-700 shadow-[0_0_15px_rgba(99,102,241,0.5)]" style="width: 0%"></div>
             
             <div class="flex-1 glass rounded-2xl overflow-hidden relative p-1 bg-white/5">
                 <iframe id="preview"></iframe>
             </div>
 
-            <!-- INPUT AREA -->
             <div class="max-w-4xl mx-auto w-full glass p-2 rounded-2xl flex items-center gap-2 shadow-2xl border-white/10">
                 <div class="pl-4 text-indigo-500"><i class="fas fa-sparkles"></i></div>
                 <input id="prompt" type="text" placeholder="Beschrijf je droom app..." class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm font-medium placeholder:text-slate-500">
@@ -104,7 +100,6 @@
         let currentCode = "";
         let pollInterval = null;
 
-        // LUXE DASHBOARD HTML
         const WELCOME_HTML = `
         <!DOCTYPE html>
         <html>
@@ -137,22 +132,33 @@
         </body>
         </html>`;
 
-        // USER SESSION LOGICA
         let userId = localStorage.getItem('kavrix_user_id');
         if (!userId) {
             userId = 'user_' + Math.random().toString(36).substr(2, 9);
             localStorage.setItem('kavrix_user_id', userId);
         }
 
-        // INITIALISATIE
-        window.onload = () => {
+        // VERBETERDE INITIALISATIE MET FORCE EXIT
+        function hideSplash() {
+            const splash = document.getElementById('splash');
+            if (splash) {
+                splash.style.opacity = '0';
+                setTimeout(() => {
+                    splash.style.visibility = 'hidden';
+                    splash.remove();
+                }, 800);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
             document.getElementById("preview").srcdoc = WELCOME_HTML;
-            setTimeout(() => {
-                document.getElementById('splash').style.opacity = '0';
-                setTimeout(() => document.getElementById('splash').remove(), 800);
-                loadProjects();
-            }, 2500);
-        };
+            
+            // Probeer projecten te laden
+            loadProjects();
+
+            // Forceer het weghalen van het splash screen na 4 seconden, ongeacht wat er gebeurt
+            setTimeout(hideSplash, 4000);
+        });
 
         function toggleSidebar() {
             document.getElementById("sidebar").classList.toggle("hidden-sidebar");
@@ -161,6 +167,7 @@
         async function loadProjects() {
             try {
                 const r = await fetch(`${RENDER_URL}/projects/${userId}`);
+                if (!r.ok) throw new Error();
                 const data = await r.json();
                 const list = document.getElementById("projectList");
                 list.innerHTML = "";
@@ -179,7 +186,11 @@
                     card.onclick = () => { selectProject(p.id); if(window.innerWidth < 768) toggleSidebar(); };
                     list.appendChild(card);
                 });
-            } catch(e) {}
+                // Als projecten succesvol zijn geladen, mag het splash screen ook weg
+                hideSplash();
+            } catch(e) {
+                console.log("Server start nog op...");
+            }
         }
 
         async function run() {
@@ -196,34 +207,38 @@
                 currentId = d.projectId;
                 startPolling(d.projectId);
                 document.getElementById("prompt").value = "";
-            } catch(e) { alert("Fout bij genereren"); }
+            } catch(e) { alert("Fout bij genereren. Is de server online?"); }
         }
 
         function startPolling(id) {
             if (pollInterval) clearInterval(pollInterval);
             pollInterval = setInterval(async () => {
-                const r = await fetch(`${RENDER_URL}/project/${id}`);
-                const d = await r.json();
-                if (d.code !== "GENERATING") {
-                    clearInterval(pollInterval);
-                    currentCode = d.code;
-                    document.getElementById("preview").srcdoc = d.code;
-                    document.getElementById("loaderLine").style.width = "100%";
-                    setTimeout(() => document.getElementById("loaderLine").style.width = "0%", 1000);
-                    loadProjects();
-                }
+                try {
+                    const r = await fetch(`${RENDER_URL}/project/${id}`);
+                    const d = await r.json();
+                    if (d.code !== "GENERATING") {
+                        clearInterval(pollInterval);
+                        currentCode = d.code;
+                        document.getElementById("preview").srcdoc = d.code;
+                        document.getElementById("loaderLine").style.width = "100%";
+                        setTimeout(() => document.getElementById("loaderLine").style.width = "0%", 1000);
+                        loadProjects();
+                    }
+                } catch(e) {}
             }, 3000);
         }
 
         async function selectProject(id) {
             currentId = id;
             document.getElementById("loaderLine").style.width = "100%";
-            const r = await fetch(`${RENDER_URL}/project/${id}`);
-            const d = await r.json();
-            currentCode = d.code;
-            document.getElementById("preview").srcdoc = d.code;
-            setTimeout(() => document.getElementById("loaderLine").style.width = "0%", 500);
-            loadProjects();
+            try {
+                const r = await fetch(`${RENDER_URL}/project/${id}`);
+                const d = await r.json();
+                currentCode = d.code;
+                document.getElementById("preview").srcdoc = d.code;
+                setTimeout(() => document.getElementById("loaderLine").style.width = "0%", 500);
+                loadProjects();
+            } catch(e) {}
         }
 
         function newProject() {
@@ -236,9 +251,11 @@
         async function deleteProject(id, e) {
             e.stopPropagation();
             if (!confirm("Project definitief verwijderen?")) return;
-            await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
-            if (currentId === id) newProject();
-            loadProjects();
+            try {
+                await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
+                if (currentId === id) newProject();
+                loadProjects();
+            } catch(e) {}
         }
 
         function useTemplate(type) {
