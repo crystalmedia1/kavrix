@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>KAVRIX | Ultimate AI OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; overflow: hidden; margin: 0; height: 100vh; }
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); }
         .sidebar { transition: transform 0.4s ease; z-index: 40; background: #0f172a; border-right: 1px solid rgba(255,255,255,0.05); }
         
-        /* Quick Launch Buttons */
         .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; transition: 0.2s; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; }
         .nav-item:hover { background: rgba(255,255,255,0.03); color: white; border-color: rgba(255,255,255,0.05); }
         .nav-item i { width: 20px; text-align: center; font-size: 14px; color: #6366f1; }
@@ -31,7 +32,7 @@
 </head>
 <body class="flex flex-col">
 
-    <!-- CODE INSPECTOR -->
+    <!-- CODE INSPECTOR MET DOWNLOAD OPTIE -->
     <div id="codePanel">
         <div class="flex bg-[#0f172a] border-b border-white/5">
             <div onclick="showTab('html')" id="tab-html" class="tab active">HTML</div>
@@ -40,7 +41,10 @@
             <button onclick="toggleCode()" class="ml-auto p-4 text-slate-500"><i class="fas fa-times"></i></button>
         </div>
         <pre id="codeDisplay"></pre>
-        <button onclick="copyCode()" class="m-4 py-3 bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest">Copy Code</button>
+        <div class="p-4 grid grid-cols-2 gap-3 bg-[#0f172a]">
+            <button onclick="copyCode()" class="py-3 glass rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition">Copy Code</button>
+            <button onclick="downloadZip()" class="py-3 bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition shadow-lg shadow-indigo-600/20">Download ZIP</button>
+        </div>
     </div>
 
     <header class="h-20 glass flex items-center justify-between px-8 shrink-0 z-10">
@@ -55,7 +59,6 @@
     </header>
 
     <div class="flex flex-1 overflow-hidden relative">
-        <!-- SIDEBAR MET ALLE FUNCTIES TERUG -->
         <aside id="sidebar" class="sidebar absolute md:relative w-80 h-full hidden-sidebar flex flex-col shadow-2xl overflow-y-auto">
             <div class="p-6">
                 <div class="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4">Quick Launch</div>
@@ -168,6 +171,17 @@
         function copyCode() { 
             navigator.clipboard.writeText(currentFiles[activeTab]);
             alert("Gekopieerd!"); 
+        }
+
+        function downloadZip() {
+            if (!currentFiles.html) return alert("Genereer eerst een app!");
+            var zip = new JSZip();
+            zip.file("index.html", currentFiles.html);
+            zip.file("style.css", currentFiles.css);
+            zip.file("script.js", currentFiles.js);
+            zip.generateAsync({type:"blob"}).then(function(content) {
+                saveAs(content, "kavrix-app.zip");
+            });
         }
     </script>
 </body>
