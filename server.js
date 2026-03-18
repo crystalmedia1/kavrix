@@ -34,23 +34,29 @@ app.get("/api/proxy", async (req, res) => {
     }
 });
 
-// --- DEEP ENGINE ASYNC LOGICA ---
+// --- ULTIMATE ENGINE LOGICA v17.0 ---
 async function processAIRequest(prompt, previousCode, projectId) {
     try {
-        console.log(`Start AI proces voor project: ${projectId}`);
-        
-        // STAP 1: ARCHITECT
+        // STAP 1: ARCHITECT (Bouwt de App)
         const architectResponse = await axios.post(AI_API_URL, {
             model: AI_MODEL,
             messages: [
-                { role: "system", content: "Je bent de KAVRIX ARCHITECT. Bouw een luxe HTML5 app met Tailwind CSS. Geef ALLEEN de ruwe HTML code terug." },
+                { 
+                    role: "system", 
+                    content: `Je bent de KAVRIX ULTIMATE ARCHITECT. 
+                    Bouw luxe apps/games met Tailwind CSS. 
+                    Voor E-commerce: Maak een werkende winkelwagen.
+                    Voor Social Media: Maak een werkende 'like' knop en comments.
+                    Voor Admin: Gebruik Chart.js voor data.
+                    Geef ALLEEN de ruwe HTML code terug.` 
+                },
                 { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 180000 });
 
         let rawCode = architectResponse.data.choices[0].message.content;
 
-        // STAP 2: REVIEWER
+        // STAP 2: REVIEWER (Schoont de code op)
         const reviewerResponse = await axios.post(AI_API_URL, {
             model: "llama-3.1-8b-instant",
             messages: [
@@ -63,21 +69,19 @@ async function processAIRequest(prompt, previousCode, projectId) {
         if (finalCode.includes("<​/html>")) finalCode = finalCode.split("<​/html>")[0] + "<​/html>";
         finalCode = finalCode.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
 
-        // STAP 3: NAAM GENEREREN
+        // STAP 3: NAAM GENEREREN (Gefixeerd op max 20 tekens)
         const nameResponse = await axios.post(AI_API_URL, {
             model: "llama-3.1-8b-instant",
-            messages: [{ role: "user", content: `Korte naam (max 2 woorden) voor: ${prompt}. Alleen de naam.` }]
+            messages: [{ role: "user", content: `Geef een ZEER KORTE naam (max 15 tekens, GEEN code, GEEN leestekens) voor dit project: ${prompt}` }]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => ({ data: { choices: [{ message: { content: "Nieuw Project" } }] } }));
         
-        const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
+        let newName = nameResponse.data.choices[0].message.content.replace(/[#*"`]/g, "").trim().substring(0, 15).toUpperCase();
 
         // STAP 4: DATABASE UPDATEN
         await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", projectId);
-        console.log(`Project ${projectId} succesvol voltooid.`);
 
     } catch (error) {
-        console.error("AI Fout:", error.message);
-        await supabase.from("projects").update({ code: "FOUT: De AI is momenteel te druk. Probeer het over een minuutje opnieuw." }).eq("id", projectId);
+        await supabase.from("projects").update({ code: "FOUT: De AI is overbelast. Probeer het opnieuw." }).eq("id", projectId);
     }
 }
 
@@ -93,19 +97,15 @@ app.post("/generate", async (req, res) => {
             previousCode = data ? data.code : "";
         }
 
-        // Maak of update project naar 'GENERATING' status
         if (!id) {
-            const { data, error } = await supabase.from("projects").insert([{ name: "DeepEngine denkt na...", code: "GENERATING", prompt: prompt }]).select();
+            const { data, error } = await supabase.from("projects").insert([{ name: "DENKT NA...", code: "GENERATING", prompt: prompt }]).select();
             if (error) throw error;
             id = data[0].id;
         } else {
             await supabase.from("projects").update({ code: "GENERATING", prompt: prompt }).eq("id", id);
         }
 
-        // STUUR DIRECT ANTWOORD NAAR BROWSER (Geen timeout meer!)
         res.json({ projectId: id });
-
-        // Start het AI proces op de achtergrond
         processAIRequest(prompt, previousCode, id);
 
     } catch (error) {
@@ -135,4 +135,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Async Engine v16.3 Online`));
+app.listen(PORT, () => console.log(`Kavrix Ultimate Engine v17.0 Online`));
