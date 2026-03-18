@@ -15,11 +15,6 @@ let AI_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 let PRIMARY_MODEL = "llama-3.3-70b-versatile"; 
 let FALLBACK_MODEL = "llama-3.1-8b-instant";
 
-if (API_KEY && !API_KEY.startsWith("gsk_")) {
-    AI_API_URL = "https://routellm.abacus.ai/v1/chat/completions";
-    PRIMARY_MODEL = "route-llm";
-}
-
 let queue = [];
 let isProcessing = false;
 
@@ -32,12 +27,9 @@ async function processQueue() {
     setTimeout(processQueue, 2000);
 }
 
-// Slimme functie met Retry en Fallback
 async function smartAIRequest(prompt, previousCode, projectId, attempt = 1) {
     try {
         const model = attempt > 1 ? FALLBACK_MODEL : PRIMARY_MODEL;
-        console.log(`Poging ${attempt} met model: ${model}`);
-
         const architectResponse = await axios.post(AI_API_URL, {
             model: model,
             messages: [
@@ -47,7 +39,6 @@ async function smartAIRequest(prompt, previousCode, projectId, attempt = 1) {
         }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 180000 });
 
         let rawCode = architectResponse.data.choices[0].message.content;
-
         const reviewerResponse = await axios.post(AI_API_URL, {
             model: FALLBACK_MODEL,
             messages: [
@@ -66,21 +57,15 @@ async function smartAIRequest(prompt, previousCode, projectId, attempt = 1) {
         }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => ({ data: { choices: [{ message: { content: "APP" } }] } }));
         
         let newName = nameResponse.data.choices[0].message.content.replace(/[#*"`]/g, "").trim().toUpperCase().substring(0, 10);
-
         await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", projectId);
-
     } catch (error) {
-        if (attempt < 3) {
-            console.log("AI druk, even wachten en opnieuw proberen...");
-            await new Promise(r => setTimeout(r, 5000));
-            return smartAIRequest(prompt, previousCode, projectId, attempt + 1);
-        }
-        await supabase.from("projects").update({ code: "FOUT: De AI-servers zijn momenteel overbelast. Probeer het over 5 minuten nog eens." }).eq("id", projectId);
+        if (attempt < 3) return smartAIRequest(prompt, previousCode, projectId, attempt + 1);
+        await supabase.from("projects").update({ code: "FOUT: AI overbelast. Probeer opnieuw." }).eq("id", projectId);
     }
 }
 
 app.post("/generate", async (req, res) => {
-    const { prompt, projectId } = req.body;
+    const { prompt, projectId, userId } = req.body;
     try {
         let id = projectId;
         let previousCode = "";
@@ -89,7 +74,12 @@ app.post("/generate", async (req, res) => {
             previousCode = data ? data.code : "";
         }
         if (!id) {
-            const { data, error } = await supabase.from("projects").insert([{ name: "WACHTEN...", code: "GENERATING", prompt: prompt }]).select();
+            const { data, error } = await supabase.from("projects").insert([{ 
+                name: "WACHTEN...", 
+                code: "GENERATING", 
+                prompt: prompt,
+                user_id: userId 
+            }]).select();
             if (error) throw error;
             id = data[0].id;
         } else {
@@ -101,9 +91,12 @@ app.post("/generate", async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-app.get("/projects", async (req, res) => {
+app.get("/projects/:userId", async (req, res) => {
     try {
-        const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
+        const { data } = await supabase.from("projects")
+            .select("id, name, created_at")
+            .eq("user_id", req.params.userId)
+            .order("created_at", { ascending: false });
         res.json(data || []);
     } catch (e) { res.json([]); }
 });
@@ -123,4 +116,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Resilience Engine v20.0 Online`));
+app.listen(PORT, () => console.log(`Kavrix Launch Engine v22.0 Online`));
