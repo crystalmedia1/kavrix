@@ -10,49 +10,46 @@ app.use(express.json());
 const projects = {};
 
 app.post('/generate', async (req, res) => {
-    const { prompt, userId } = req.body;
+    const { prompt, userId, existingCode } = req.body;
     const projectId = 'proj_' + Math.random().toString(36).substr(2, 9);
     
-    // We slaan de naam op van wat de gebruiker vroeg
     projects[projectId] = { 
         code: "GENERATING", 
-        name: prompt.length > 20 ? prompt.substring(0, 20) + "..." : prompt, 
+        name: prompt.substring(0, 20), 
         userId: userId 
     };
     res.json({ projectId });
 
     try {
+        // Als er al code is, vertellen we de AI dat hij die moet aanpassen
+        const systemPrompt = existingCode 
+            ? "Je bent een expert developer. Pas de BESTAANDE code aan op basis van de vraag van de gebruiker. Geef ALLEEN de volledige nieuwe HTML code terug. Geen tekst, geen uitleg."
+            : "Je bent een expert developer. Genereer een volledige HTML/CSS/JS app in één bestand. Gebruik Tailwind CSS. Geen tekst, alleen code.";
+
+        const userContent = existingCode 
+            ? `BESTAANDE CODE:\n${existingCode}\n\nAANPASSING: ${prompt}`
+            : `Maak deze app: ${prompt}`;
+
         const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
             model: "llama-3.3-70b-versatile",
             messages: [
-                { 
-                    role: "system", 
-                    content: "Je bent een expert web developer. Genereer ALTIJD een volledige, werkende HTML/CSS/JS code in één enkel bestand. Gebruik Tailwind CSS voor styling. Geef NOOIT tekst, uitleg of introductie. Geef DIRECT de code die begint met <!DOCTYPE html>. Gebruik GEEN markdown code blocks (dus geen ```html of ```)." 
-                },
-                { role: "user", content: "Maak deze app: " + prompt }
-            ],
-            temperature: 0.7
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userContent }
+            ]
         }, {
-            headers: { 
-                'Authorization': `Bearer ${process.env.API_KEY}`, 
-                'Content-Type': 'application/json' 
-            }
+            headers: { 'Authorization': `Bearer ${process.env.API_KEY}`, 'Content-Type': 'application/json' }
         });
 
         let code = response.data.choices[0].message.content;
+        code = code.replace(/```html/g, "").replace(/```/g, "");
         
-        // Extra beveiliging om tekst buiten de HTML te verwijderen
         if (code.includes("<​!DOCTYPE html>")) {
             code = code.substring(code.indexOf("<​!DOCTYPE html>"));
-        }
-        if (code.includes("<​/html>")) {
-            code = code.substring(0, code.indexOf("<​/html>") + 7);
         }
 
         projects[projectId].code = code;
     } catch (error) {
-        console.error("AI Error:", error);
-        projects[projectId].code = "<html><body style='background:#0f172a;color:white;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;'><div><h1>Oeps!</h1><p>De AI-motor is even oververhit. Probeer het over een minuutje weer.</p></div></body></html>";
+        projects[projectId].code = "<h1>Fout bij genereren</h1>";
     }
 });
 
@@ -68,4 +65,4 @@ app.get('/projects/:userId', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine draait op poort ${PORT}`));
+app.listen(PORT, () => console.log(`Kavrix Smart Engine live`));
