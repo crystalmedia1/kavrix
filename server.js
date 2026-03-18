@@ -18,37 +18,37 @@ app.post('/generate', async (req, res) => {
 
     const generateAI = async (retryCount = 0) => {
         try {
+            // EXTREEM KORTE INSTRUCTIES VOOR MAXIMALE SNELHEID
             const systemPrompt = `Senior Dev. Maak moderne app. 
-            GEBRUIK: Tailwind, Lucide Icons, Google Fonts. 
-            LIVE DATA: Gebruik fetch() voor gratis API's (Crypto/Weer). 
+            GEBRUIK: Tailwind, Lucide Icons. 
+            LIVE DATA: Gebruik fetch() voor crypto/weer API's. 
             FOTO'S: <img src="https://loremflickr.com/800/600/[TOPIC]">.
             OUTPUT: JSON {"html": "...", "css": "...", "js": "..."}`;
 
             let userContent = prompt;
             if (existingFiles && existingFiles.html && existingFiles.html !== "GENERATING") {
-                userContent = `UPDATE CODE:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nWIJZIGING: ${prompt}`;
+                userContent = `UPDATE CODE:\nHTML: ${existingFiles.html}\nWIJZIGING: ${prompt}`;
             }
 
             const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-                model: "mixtral-8x7b-32768", // KRACHTIGER EN STABIELER VOOR CODE
+                model: "llama3-8b-8192", // We gaan terug naar het allersnelste model
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userContent }
                 ],
-                temperature: 0.4, // Lager voor maximale stabiliteit
+                temperature: 0.3, // Zeer laag voor directe, stabiele code
                 response_format: { type: "json_object" }
             }, {
                 headers: { 'Authorization': `Bearer ${process.env.API_KEY}` },
-                timeout: 45000 // We geven hem 45 seconden de tijd
+                timeout: 20000 // Snelle timeout van 20 seconden
             });
 
             projects[projectId].files = JSON.parse(response.data.choices[0].message.content);
         } catch (error) {
-            if (retryCount < 2) {
-                console.log("Retry...");
+            if (retryCount < 1) {
                 await generateAI(retryCount + 1);
             } else {
-                projects[projectId].files = { html: "<div style='color:white;text-align:center;padding:50px;font-family:sans-serif;'><h1>KAVRIX is even aan het herstellen...</h1><p>Druk nogmaals op de Bolt-knop. De AI is momenteel erg druk.</p></div>" };
+                projects[projectId].files = { html: "<div style='color:white;text-align:center;padding:50px;'><h1>AI is even druk...</h1><p>Wacht 5 seconden en druk nogmaals op de Bolt-knop.</p></div>" };
             }
         }
     };
