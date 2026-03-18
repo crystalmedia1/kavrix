@@ -13,20 +13,15 @@ app.post('/generate', async (req, res) => {
     const { prompt, userId, existingFiles } = req.body;
     const projectId = 'proj_' + Math.random().toString(36).substr(2, 9);
     
-    projects[projectId] = { 
-        files: { html: "GENERATING", css: "", js: "" }, 
-        name: prompt.substring(0, 25), 
-        userId: userId 
-    };
+    projects[projectId] = { files: { html: "GENERATING" }, name: prompt.substring(0, 20), userId: userId };
     res.json({ projectId });
 
     try {
         let systemPrompt = `Je bent een senior developer. Genereer een moderne app. 
-        BELANGRIJK VOOR AFBEELDINGEN: Gebruik ALTIJD deze URL structuur voor <img> tags: 
-        https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80
-        OF gebruik voor specifieke onderwerpen:
-        https://source.unsplash.com/featured/800x600?[TOPIC]
-        Vervang [TOPIC] door een Engels woord (bijv. "car", "watch").
+        STRIKTE REGEL VOOR AFBEELDINGEN:
+        Gebruik ALTIJD deze exacte URL voor <img> tags: https://source.unsplash.com/featured/800x600?[TOPIC]
+        Vervang [TOPIC] door één Engels woord dat past bij de foto.
+        GEEN andere URL's, GEEN placeholders.
         
         STUUR ALTIJD EEN JSON OBJECT TERUG:
         {
@@ -35,11 +30,12 @@ app.post('/generate', async (req, res) => {
             "js": "alle javascript logica"
         }`;
 
-        let userContent = `Maak deze app: ${prompt}`;
+        let userContent = `Opdracht: ${prompt}`;
         
+        // Als we in Edit Mode zijn, sturen we de oude code mee maar hameren we op de foto-regels
         if (existingFiles && existingFiles.html) {
-            systemPrompt += `\nPas de BESTAANDE code aan op basis van de vraag.`;
-            userContent = `BESTAANDE HTML: ${existingFiles.html}\nBESTAANDE CSS: ${existingFiles.css}\nBESTAANDE JS: ${existingFiles.js}\n\nAANPASSING: ${prompt}`;
+            systemPrompt += `\n\nPAS DE BESTAANDE CODE AAN. Zorg dat alle <img> tags de bovenstaande Unsplash URL gebruiken.`;
+            userContent = `BESTAANDE CODE:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nAANPASSING: ${prompt}`;
         }
 
         const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
@@ -55,7 +51,6 @@ app.post('/generate', async (req, res) => {
 
         projects[projectId].files = JSON.parse(response.data.choices[0].message.content);
     } catch (error) {
-        console.error("AI FOUT:", error.message);
         projects[projectId].files = { html: "<h1>Fout bij genereren</h1>", css: "", js: "" };
     }
 });
