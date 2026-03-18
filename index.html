@@ -3,84 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KAVRIX | DeepAgent Workspace</title>
+    <title>KAVRIX | DeepAgent Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
-        body { background: #020617; color: white; font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; margin: 0; }
-        .glass { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
-        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 0px; md:border-radius: 24px; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        body { background: #020617; color: white; font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; height: 100vh; margin: 0; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.08); }
+        iframe { width: 100%; height: 100%; border: none; background: white; }
         .loader-line { height: 3px; width: 0%; background: linear-gradient(to right, #6366f1, #a855f7); transition: 0.5s; position: fixed; top: 0; left: 0; z-index: 1000; }
-        
-        /* Mobiele Zijbalk Logica */
-        #sidebar { transition: transform 0.3s ease-in-out; z-index: 50; }
+        #sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 50; }
         .sidebar-closed { transform: translateX(-100%); }
-        .sidebar-open { transform: translateX(0); }
-
-        .command-center {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 94%;
-            max-width: 800px;
-            z-index: 40;
-        }
-
-        .active-project { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.4); color: #818cf8; }
+        .command-center { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 700px; z-index: 40; }
+        .template-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; cursor: pointer; }
+        .template-card:hover { background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.3); transform: translateY(-4px); }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
 
     <div id="loaderLine" class="loader-line"></div>
 
-    <!-- Mobiele Menu Knop -->
-    <button onclick="toggleSidebar()" class="fixed top-4 left-4 z-[60] bg-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg md:hidden">
-        <i class="fas fa-bars text-white"></i>
+    <button onclick="toggleSidebar()" class="fixed top-5 left-5 z-[60] bg-indigo-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-xl md:hidden">
+        <i class="fas fa-th-large text-white"></i>
     </button>
 
-    <!-- Sidebar -->
-    <aside id="sidebar" class="fixed md:relative w-72 h-full glass border-r border-white/5 flex flex-col p-6 sidebar-closed md:sidebar-open shrink-0">
-        <div class="flex items-center gap-3 mb-10 px-2 mt-10 md:mt-0">
-            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                <i class="fas fa-brain text-white"></i>
+    <aside id="sidebar" class="fixed md:relative w-80 h-full glass border-r border-white/5 flex flex-col p-6 sidebar-closed md:sidebar-open shrink-0">
+        <div class="flex items-center gap-4 mb-10 mt-12 md:mt-0">
+            <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <i class="fas fa-bolt text-white text-xl"></i>
             </div>
             <div>
-                <h1 class="text-lg font-black tracking-tighter leading-none">KAVRIX</h1>
-                <span class="text-[9px] text-indigo-400 font-bold uppercase tracking-widest">DeepAgent v5.2</span>
+                <h1 class="text-xl font-black tracking-tighter">KAVRIX</h1>
+                <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-[0.2em]">DeepAgent Pro</span>
             </div>
         </div>
 
-        <button onclick="newProject()" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-xs uppercase tracking-widest mb-8 hover:bg-indigo-500 transition-all">
+        <button onclick="newProject()" class="w-full bg-white text-black py-4 rounded-2xl font-bold text-xs uppercase tracking-widest mb-8 hover:bg-indigo-50 transition-all shadow-lg">
             + Nieuw Project
         </button>
 
-        <div class="flex-1 overflow-y-auto space-y-2 pr-2" id="projectList">
-            <!-- Projecten -->
-        </div>
+        <div class="flex-1 overflow-y-auto space-y-3 pr-2" id="projectList"></div>
     </aside>
 
-    <!-- Main Content -->
     <main class="flex-1 flex flex-col relative overflow-hidden h-full">
-        <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#020617] p-6 text-center">
-            <div class="w-20 h-20 bg-slate-900 rounded-[28px] flex items-center justify-center mb-6 border border-white/5">
-                <i class="fas fa-wand-magic-sparkles text-3xl text-indigo-500"></i>
+        <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#020617] p-8 overflow-y-auto">
+            <div class="max-w-2xl w-full">
+                <h2 class="text-3xl font-black mb-2 tracking-tight text-center">Wat gaan we bouwen?</h2>
+                <p class="text-slate-500 text-sm mb-12 text-center">Kies een template of start een eigen project.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div onclick="useTemplate('Bouw een Retro Space Shooter game in HTML5 Canvas. Met een schip dat je kunt besturen, vijanden die naar beneden komen, en een scorebord. Maak het visueel spectaculair met neon effecten.')" class="template-card p-6 rounded-[32px]">
+                        <i class="fas fa-gamepad text-orange-500 mb-4 text-2xl"></i>
+                        <h3 class="font-bold text-sm mb-1">Space Shooter Game</h3>
+                        <p class="text-[11px] text-slate-500">Retro arcade actie in je browser.</p>
+                    </div>
+                    <div onclick="useTemplate('Bouw een luxe Crypto Dashboard met live Bitcoin prijs grafiek')" class="template-card p-6 rounded-[32px]">
+                        <i class="fas fa-chart-line text-emerald-500 mb-4 text-2xl"></i>
+                        <h3 class="font-bold text-sm mb-1">Crypto Tracker</h3>
+                        <p class="text-[11px] text-slate-500">Live data visualisatie.</p>
+                    </div>
+                    <div onclick="useTemplate('Bouw een professionele Portfolio website voor een designer')" class="template-card p-6 rounded-[32px]">
+                        <i class="fas fa-user-tie text-purple-500 mb-4 text-2xl"></i>
+                        <h3 class="font-bold text-sm mb-1">Portfolio Elite</h3>
+                        <p class="text-[11px] text-slate-500">Modern & responsive design.</p>
+                    </div>
+                    <div onclick="useTemplate('Bouw een AI Chat interface zoals ChatGPT')" class="template-card p-6 rounded-[32px]">
+                        <i class="fas fa-robot text-indigo-500 mb-4 text-2xl"></i>
+                        <h3 class="font-bold text-sm mb-1">AI Chat UI</h3>
+                        <p class="text-[11px] text-slate-500">Clean chat interface.</p>
+                    </div>
+                </div>
             </div>
-            <h2 class="text-2xl font-black mb-2 tracking-tight">Kavrix DeepEngine</h2>
-            <p class="text-slate-500 text-xs max-w-xs leading-relaxed">Beschrijf je app hieronder om te beginnen.</p>
         </div>
 
         <div class="flex-1 relative z-0 h-full w-full">
             <iframe id="preview" class="hidden w-full h-full"></iframe>
         </div>
 
-        <!-- Command Center -->
         <div class="command-center">
-            <div class="glass rounded-[24px] p-1.5 flex items-center shadow-2xl border border-white/10">
-                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-4 py-3 text-sm font-medium placeholder:text-slate-600 text-white" placeholder="Beschrijf je app...">
-                <button id="go" class="bg-indigo-600 w-12 h-12 rounded-[18px] flex items-center justify-center hover:bg-indigo-500 transition-all active:scale-95 shrink-0">
-                    <i class="fas fa-bolt text-white"></i>
+            <div class="glass rounded-[28px] p-2 flex items-center shadow-2xl border border-white/10">
+                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-5 py-4 text-sm font-medium text-white" placeholder="Beschrijf je app of kies een template...">
+                <button id="go" class="bg-indigo-600 w-14 h-14 rounded-[22px] flex items-center justify-center hover:bg-indigo-500 transition-all active:scale-95 shrink-0 shadow-lg shadow-indigo-500/20">
+                    <i class="fas fa-paper-plane text-white"></i>
                 </button>
             </div>
         </div>
@@ -92,9 +96,12 @@
         let pollInterval = null;
 
         function toggleSidebar() {
-            const s = document.getElementById("sidebar");
-            s.classList.toggle("sidebar-closed");
-            s.classList.toggle("sidebar-open");
+            document.getElementById("sidebar").classList.toggle("sidebar-closed");
+        }
+
+        function useTemplate(text) {
+            document.getElementById("prompt").value = text;
+            run();
         }
 
         async function loadProjects() {
@@ -105,17 +112,14 @@
                 list.innerHTML = "";
                 data.forEach(p => {
                     const div = document.createElement("div");
-                    div.className = `p-4 flex justify-between items-center rounded-xl border border-transparent transition-all ${currentId === p.id ? 'active-project' : 'hover:bg-white/5'}`;
+                    div.className = `p-4 flex justify-between items-center rounded-2xl border border-transparent transition-all cursor-pointer ${currentId === p.id ? 'bg-indigo-600/20 border-indigo-500/30 text-indigo-400' : 'hover:bg-white/5 text-slate-400'}`;
                     div.innerHTML = `
-                        <button class="flex-1 text-left text-[10px] font-bold truncate pr-2 uppercase tracking-wider">${p.name || 'Naamloos'}</button>
-                        <button onclick="deleteProject('${p.id}', event)" class="text-slate-600 hover:text-red-500">
+                        <span class="flex-1 text-[10px] font-bold truncate uppercase tracking-wider">${p.name || 'Project'}</span>
+                        <button onclick="deleteProject('${p.id}', event)" class="opacity-40 hover:opacity-100 hover:text-red-500 transition-all">
                             <i class="fas fa-trash-alt text-[10px]"></i>
                         </button>
                     `;
-                    div.querySelector('button').onclick = () => {
-                        selectProject(p.id);
-                        if(window.innerWidth < 768) toggleSidebar();
-                    };
+                    div.onclick = () => { selectProject(p.id); if(window.innerWidth < 768) toggleSidebar(); };
                     list.appendChild(div);
                 });
             } catch(e) {}
