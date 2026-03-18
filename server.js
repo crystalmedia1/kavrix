@@ -8,11 +8,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-// --- DATABASE CONFIG ---
 const supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABASE_KEY || "");
 const API_KEY = process.env.API_KEY;
 
-// --- AI ENGINE CONFIG ---
 let AI_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 let AI_MODEL = "llama-3.3-70b-versatile"; 
 
@@ -36,55 +34,56 @@ app.get("/api/proxy", async (req, res) => {
     }
 });
 
-// --- DEEP ENGINE LOGICA v15.0 ---
+// --- MULTI-AGENT LOGICA v16.0 ---
 async function callDeepEngine(prompt, previousCode = "") {
     try {
-        const response = await axios.post(AI_API_URL, {
+        // STAP 1: DE ARCHITECT BOUWT DE BASIS
+        console.log("Agent 1 (Architect) start met bouwen...");
+        const architectResponse = await axios.post(AI_API_URL, {
             model: AI_MODEL,
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v15.0. Je bent een wereldklasse Full-Stack Developer en Game Designer.
-                    
-                    JOUW EXPERTISE:
-                    1. APPS: Bouw luxe dashboards met Glassmorphism, Tailwind CSS en Chart.js.
-                    2. GAMES: Gebruik HTML5 Canvas voor games. Implementeer een 'requestAnimationFrame' loop, collision detection, en soepele controls.
-                    3. DATA: Gebruik ALTIJD de proxy voor externe data: fetch('https://kavrix.onrender.com/api/proxy?url=' + encodeURIComponent(URL))
-                    
-                    DESIGN RICHTLIJNEN:
-                    - Thema: Deep Space (#020617), Indigo Glow, Neon Accents.
-                    - Fonts: 'Plus Jakarta Sans'.
-                    - Icons: Lucide Icons (https://unpkg.com/lucide@latest).
-                    
-                    OUTPUT:
-                    Geef ALLEEN de volledige HTML code terug. Geen uitleg. Begin direct met <!DOCTYPE html>.` 
+                    content: `Je bent de KAVRIX ARCHITECT. Bouw een luxe HTML5 app/game met Tailwind CSS. 
+                    Gebruik de proxy voor data: fetch('https://kavrix.onrender.com/api/proxy?url=' + encodeURIComponent(URL))
+                    Geef ALLEEN de ruwe HTML code terug.` 
                 },
-                { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nOPDRACHT: ${prompt}\n\nMaak een technisch meesterwerk.` }
-            ],
-            temperature: 0.3
-        }, { 
-            headers: { "Authorization": `Bearer ${API_KEY}` },
-            timeout: 150000 
-        });
-        
-        let code = response.data.choices[0].message.content;
-        return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
+                { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
+            ]
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
+
+        let rawCode = architectResponse.data.choices[0].message.content.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
+
+        // STAP 2: DE REVIEWER CONTROLEERT EN VERBETERT
+        console.log("Agent 2 (Reviewer) controleert de code...");
+        const reviewerResponse = await axios.post(AI_API_URL, {
+            model: "llama-3.1-8b-instant", // Snellere model voor review
+            messages: [
+                { 
+                    role: "system", 
+                    content: `Je bent de KAVRIX REVIEWER. Je krijgt HTML code van de Architect. 
+                    Jouw taak:
+                    1. Verwijder alle tekst die GEEN code is (uitleg, intro's).
+                    2. Controleer of Tailwind CSS en FontAwesome links aanwezig zijn.
+                    3. Zorg dat de UI 'Apple-style' luxe is.
+                    4. Fix eventuele JavaScript fouten.
+                    
+                    OUTPUT: Geef ALLEEN de verbeterde, volledige HTML code terug. Begin direct met <!DOCTYPE html>.` 
+                },
+                { role: "user", content: `Controleer deze code:\n\n${rawCode}` }
+            ]
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
+
+        let finalCode = reviewerResponse.data.choices[0].message.content.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
+        return finalCode;
+
     } catch (error) {
-        console.error("AI Error, switching to Fallback...");
-        try {
-            const fallback = await axios.post(AI_API_URL, {
-                model: "llama-3.1-8b-instant",
-                messages: [
-                    { role: "system", content: "Bouw een luxe HTML app of game met Tailwind CSS. Geef alleen de code." },
-                    { role: "user", content: prompt }
-                ]
-            }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
-            
-            let code = fallback.data.choices[0].message.content;
-            return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
-        } catch (fallbackError) {
-            throw new Error("DeepEngine is momenteel overbelast.");
-        }
+        console.error("Multi-Agent Error, switching to Fallback...");
+        const fallback = await axios.post(AI_API_URL, {
+            model: "llama-3.1-8b-instant",
+            messages: [{ role: "user", content: "Bouw een luxe HTML app voor: " + prompt }]
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
+        return fallback.data.choices[0].message.content.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
     }
 }
 
@@ -101,7 +100,7 @@ app.post("/generate", async (req, res) => {
         }
 
         if (!id) {
-            const { data, error } = await supabase.from("projects").insert([{ name: "DeepEngine denkt na...", code: "GENERATING", prompt: prompt }]).select();
+            const { data, error } = await supabase.from("projects").insert([{ name: "DeepEngine analyseert...", code: "GENERATING", prompt: prompt }]).select();
             if (error) throw error;
             id = data[0].id;
         } else {
@@ -149,4 +148,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v15.0 Online`));
+app.listen(PORT, () => console.log(`Kavrix Multi-Agent Engine v16.0 Online`));
