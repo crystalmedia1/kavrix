@@ -3,91 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KAVRIX | DeepAgent Pro IDE</title>
+    <title>KAVRIX | Ultimate App OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Fira+Code:wght@400;500&display=swap');
         body { background: #020617; color: white; font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; height: 100vh; margin: 0; }
-        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.08); }
-        iframe { width: 100%; height: 100%; border: none; background: white; }
+        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
+        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 24px; }
         .loader-line { height: 3px; width: 0%; background: linear-gradient(to right, #6366f1, #a855f7); transition: 0.5s; position: fixed; top: 0; left: 0; z-index: 1000; }
-        #sidebar, #codePanel { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 50; }
+        #sidebar, #rightPanel { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 50; }
         .sidebar-closed { transform: translateX(-100%); }
-        .code-closed { transform: translateX(100%); }
+        .panel-closed { transform: translateX(100%); }
         .command-center { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 700px; z-index: 40; }
-        pre { font-family: 'Fira Code', monospace; font-size: 11px; }
+        .nav-item { transition: 0.2s; cursor: pointer; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.05); color: white; }
+        .template-grid-item { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; }
+        .template-grid-item:hover { border-color: #6366f1; transform: translateY(-2px); background: rgba(99, 102, 241, 0.05); }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
 
     <div id="loaderLine" class="loader-line"></div>
 
-    <!-- Top Bar -->
-    <div class="fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-6 z-[60] pointer-events-none">
-        <button onclick="toggleSidebar()" class="bg-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-xl pointer-events-auto">
-            <i class="fas fa-th-large text-white text-sm"></i>
-        </button>
-        <div class="flex gap-2 pointer-events-auto">
-            <button onclick="toggleCode()" class="glass px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-white/10">
-                <i class="fas fa-code mr-2"></i> Code
-            </button>
-            <button onclick="copyCode()" class="bg-white text-black px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg">
-                <i class="fas fa-copy mr-2"></i> Copy
-            </button>
-        </div>
-    </div>
-
     <!-- Sidebar -->
-    <aside id="sidebar" class="fixed md:relative w-80 h-full glass border-r border-white/5 flex flex-col p-6 sidebar-closed md:sidebar-open shrink-0">
-        <div class="flex items-center gap-4 mb-10 mt-16">
-            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+    <aside id="sidebar" class="fixed md:relative w-72 h-full glass border-r border-white/5 flex flex-col p-5 sidebar-closed md:sidebar-open shrink-0">
+        <div class="flex items-center gap-3 mb-8">
+            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
                 <i class="fas fa-bolt text-white"></i>
             </div>
-            <div>
-                <h1 class="text-lg font-black tracking-tighter leading-none">KAVRIX</h1>
-                <span class="text-[9px] text-indigo-400 font-bold uppercase tracking-widest">DeepAgent Pro</span>
+            <h1 class="text-lg font-black tracking-tighter">KAVRIX</h1>
+        </div>
+
+        <nav class="space-y-1 mb-8">
+            <div onclick="showView('projects')" class="nav-item active" id="nav-projects"><i class="fas fa-folder"></i> Projecten</div>
+            <div onclick="showView('store')" class="nav-item" id="nav-store"><i class="fas fa-shopping-bag"></i> App Store</div>
+            <div onclick="showView('settings')" class="nav-item" id="nav-settings"><i class="fas fa-cog"></i> Instellingen</div>
+        </nav>
+
+        <div id="view-projects" class="flex-1 overflow-y-auto space-y-2 pr-1">
+            <button onclick="newProject()" class="w-full bg-white text-black py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest mb-4 hover:scale-[1.02] transition-all">+ Nieuw</button>
+            <div id="projectList" class="space-y-2"></div>
+        </div>
+
+        <div id="view-store" class="hidden flex-1 overflow-y-auto space-y-3 pr-1">
+            <h3 class="text-[10px] font-black text-indigo-400 uppercase mb-4">Templates</h3>
+            <div onclick="useTemplate('Bouw een luxe E-commerce webshop')" class="template-grid-item p-3 rounded-xl cursor-pointer">
+                <i class="fas fa-shopping-cart text-blue-400 mb-2"></i>
+                <div class="text-[10px] font-bold">Webshop Pro</div>
+            </div>
+            <div onclick="useTemplate('Bouw een Social Media Feed zoals Instagram')" class="template-grid-item p-3 rounded-xl cursor-pointer">
+                <i class="fas fa-camera text-pink-400 mb-2"></i>
+                <div class="text-[10px] font-bold">Social Feed</div>
+            </div>
+            <div onclick="useTemplate('Bouw een Admin Dashboard voor data')" class="template-grid-item p-3 rounded-xl cursor-pointer">
+                <i class="fas fa-chart-pie text-emerald-400 mb-2"></i>
+                <div class="text-[10px] font-bold">Admin Panel</div>
             </div>
         </div>
-        <button onclick="newProject()" class="w-full bg-white/5 border border-white/10 text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest mb-8 hover:bg-white/10 transition-all">
-            + Nieuw Project
-        </button>
-        <div class="flex-1 overflow-y-auto space-y-2 pr-2" id="projectList"></div>
+
+        <div id="view-settings" class="hidden flex-1 space-y-6">
+            <div>
+                <label class="text-[9px] font-bold text-slate-500 uppercase">AI Modus</label>
+                <select class="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-xs mt-2 outline-none">
+                    <option>Turbo (Snel)</option>
+                    <option>Creative (Diep)</option>
+                </select>
+            </div>
+            <div class="p-4 rounded-xl bg-indigo-600/10 border border-indigo-500/20">
+                <div class="text-[10px] font-bold text-indigo-400 mb-1">Status</div>
+                <div class="text-[11px]">Verbonden met DeepEngine v16.3</div>
+            </div>
+        </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col relative overflow-hidden h-full">
-        <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[#020617] p-8">
-            <h2 class="text-2xl font-black mb-8 tracking-tight text-center">Start je creatie</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md">
-                <button onclick="useTemplate('Bouw een Retro Space Shooter game')" class="glass p-4 rounded-2xl text-left hover:bg-indigo-600/20 transition-all">
-                    <i class="fas fa-gamepad text-orange-500 mb-2"></i>
-                    <div class="text-[10px] font-bold uppercase">Space Game</div>
-                </button>
-                <button onclick="useTemplate('Bouw een Crypto Dashboard met live Bitcoin prijs')" class="glass p-4 rounded-2xl text-left hover:bg-emerald-600/20 transition-all">
-                    <i class="fas fa-chart-line text-emerald-500 mb-2"></i>
-                    <div class="text-[10px] font-bold uppercase">Crypto Live</div>
-                </button>
+    <!-- Main -->
+    <main class="flex-1 flex flex-col relative p-4">
+        <div class="flex justify-between items-center mb-4 z-20">
+            <button onclick="toggleSidebar()" class="md:hidden glass w-10 h-10 rounded-xl flex items-center justify-center"><i class="fas fa-bars"></i></button>
+            <div class="flex gap-2">
+                <button onclick="togglePanel('code')" class="glass px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest"><i class="fas fa-code"></i></button>
+                <button onclick="copyCode()" class="bg-white text-black px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg">Copy</button>
             </div>
         </div>
 
-        <div class="flex-1 relative z-0 h-full w-full">
-            <iframe id="preview" class="hidden w-full h-full"></iframe>
+        <div class="flex-1 relative z-10">
+            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center bg-[#020617]">
+                <div class="w-20 h-20 bg-indigo-600/20 rounded-3xl flex items-center justify-center mb-6 animate-pulse">
+                    <i class="fas fa-magic text-indigo-500 text-3xl"></i>
+                </div>
+                <h2 class="text-xl font-black tracking-tight">KAVRIX ENGINE</h2>
+                <p class="text-slate-500 text-xs mt-2">Kies een template of typ je idee hieronder.</p>
+            </div>
+            <iframe id="preview" class="hidden shadow-2xl"></iframe>
         </div>
 
-        <!-- Code Panel (Right) -->
-        <div id="codePanel" class="fixed right-0 top-0 w-full md:w-[500px] h-full glass border-l border-white/10 p-6 code-closed overflow-y-auto mt-16 md:mt-0">
+        <!-- Right Panels -->
+        <div id="rightPanel" class="fixed right-0 top-0 w-full md:w-[450px] h-full glass border-l border-white/10 p-6 panel-closed overflow-y-auto z-[70]">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xs font-black uppercase tracking-widest text-indigo-400">Source Code</h3>
-                <button onclick="toggleCode()" class="text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
+                <h3 id="panelTitle" class="text-xs font-black uppercase tracking-widest text-indigo-400">Code</h3>
+                <button onclick="togglePanel()" class="text-slate-500"><i class="fas fa-times"></i></button>
             </div>
-            <pre id="codeDisplay" class="text-slate-300 whitespace-pre-wrap break-all"></pre>
+            <pre id="codeDisplay" class="text-[10px] text-slate-300 whitespace-pre-wrap font-mono"></pre>
         </div>
 
-        <!-- Command Center -->
+        <!-- Input -->
         <div class="command-center">
             <div class="glass rounded-[24px] p-1.5 flex items-center shadow-2xl border border-white/10">
-                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-4 py-3 text-sm font-medium text-white" placeholder="Wat wil je aanpassen?">
+                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-4 py-3 text-sm font-medium text-white" placeholder="Beschrijf je app...">
                 <button id="go" class="bg-indigo-600 w-12 h-12 rounded-[18px] flex items-center justify-center hover:bg-indigo-500 transition-all active:scale-95 shrink-0">
                     <i class="fas fa-paper-plane text-white text-xs"></i>
                 </button>
@@ -102,13 +125,24 @@
         let pollInterval = null;
 
         function toggleSidebar() { document.getElementById("sidebar").classList.toggle("sidebar-closed"); }
-        function toggleCode() { document.getElementById("codePanel").classList.toggle("code-closed"); }
-        function useTemplate(t) { document.getElementById("prompt").value = t; run(); }
+        function togglePanel() { document.getElementById("rightPanel").classList.toggle("panel-closed"); }
         
-        function copyCode() {
-            navigator.clipboard.writeText(currentCode);
-            alert("Code gekopieerd!");
+        function showView(view) {
+            ['projects', 'store', 'settings'].forEach(v => {
+                document.getElementById(`view-${v}`).classList.add('hidden');
+                document.getElementById(`nav-${v}`).classList.remove('active');
+            });
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+            document.getElementById(`nav-${view}`).classList.add('active');
         }
+
+        function useTemplate(t) { 
+            showView('projects');
+            document.getElementById("prompt").value = t; 
+            run(); 
+        }
+
+        function copyCode() { navigator.clipboard.writeText(currentCode); alert("Gekopieerd!"); }
 
         async function loadProjects() {
             try {
