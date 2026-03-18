@@ -32,11 +32,11 @@ app.get("/api/proxy", async (req, res) => {
         });
         res.json(response.data);
     } catch (error) {
-        res.status(500).json({ error: "Proxy Error: " + error.message });
+        res.status(500).json({ error: "Proxy Error" });
     }
 });
 
-// --- DEEP ENGINE LOGICA ---
+// --- DEEP ENGINE LOGICA v15.0 ---
 async function callDeepEngine(prompt, previousCode = "") {
     try {
         const response = await axios.post(AI_API_URL, {
@@ -44,24 +44,24 @@ async function callDeepEngine(prompt, previousCode = "") {
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v14.1. Je bouwt luxe, moderne web-apps die Abacus.ai overtreffen.
+                    content: `Je bent KAVRIX DEEP-ENGINE v15.0. Je bent een wereldklasse Full-Stack Developer en Game Designer.
                     
-                    BELANGRIJK VOOR LIVE DATA:
-                    Als je data nodig hebt (zoals Bitcoin prijzen), gebruik ALTIJD deze proxy structuur in je JavaScript:
-                    fetch('https://kavrix.onrender.com/api/proxy?url=' + encodeURIComponent('https://api.coindesk.com/v1/bpi/currentprice.json'))
+                    JOUW EXPERTISE:
+                    1. APPS: Bouw luxe dashboards met Glassmorphism, Tailwind CSS en Chart.js.
+                    2. GAMES: Gebruik HTML5 Canvas voor games. Implementeer een 'requestAnimationFrame' loop, collision detection, en soepele controls.
+                    3. DATA: Gebruik ALTIJD de proxy voor externe data: fetch('https://kavrix.onrender.com/api/proxy?url=' + encodeURIComponent(URL))
                     
-                    DESIGN SYSTEEM:
-                    - UI: Deep Space (#020617), Glassmorphism (bg-white/5, backdrop-blur-xl, border-white/10).
+                    DESIGN RICHTLIJNEN:
+                    - Thema: Deep Space (#020617), Indigo Glow, Neon Accents.
                     - Fonts: 'Plus Jakarta Sans'.
                     - Icons: Lucide Icons (https://unpkg.com/lucide@latest).
-                    - Charts: Gebruik Chart.js voor alle grafieken.
                     
                     OUTPUT:
                     Geef ALLEEN de volledige HTML code terug. Geen uitleg. Begin direct met <!DOCTYPE html>.` 
                 },
-                { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nOPDRACHT: ${prompt}\n\nMaak een meesterwerk met werkende live data.` }
+                { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nOPDRACHT: ${prompt}\n\nMaak een technisch meesterwerk.` }
             ],
-            temperature: 0.2
+            temperature: 0.3
         }, { 
             headers: { "Authorization": `Bearer ${API_KEY}` },
             timeout: 150000 
@@ -75,7 +75,7 @@ async function callDeepEngine(prompt, previousCode = "") {
             const fallback = await axios.post(AI_API_URL, {
                 model: "llama-3.1-8b-instant",
                 messages: [
-                    { role: "system", content: "Bouw een luxe HTML app met Tailwind CSS en werkende live data via de proxy. Geef alleen de code." },
+                    { role: "system", content: "Bouw een luxe HTML app of game met Tailwind CSS. Geef alleen de code." },
                     { role: "user", content: prompt }
                 ]
             }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
@@ -83,7 +83,7 @@ async function callDeepEngine(prompt, previousCode = "") {
             let code = fallback.data.choices[0].message.content;
             return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
         } catch (fallbackError) {
-            throw new Error("DeepEngine is momenteel overbelast. Probeer het over 30 seconden opnieuw.");
+            throw new Error("DeepEngine is momenteel overbelast.");
         }
     }
 }
@@ -149,4 +149,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v14.1 Online`));
+app.listen(PORT, () => console.log(`Kavrix Engine v15.0 Online`));
