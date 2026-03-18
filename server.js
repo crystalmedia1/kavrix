@@ -13,14 +13,18 @@ app.post('/generate', async (req, res) => {
     const { prompt, userId, existingFiles } = req.body;
     const projectId = 'proj_' + Math.random().toString(36).substr(2, 9);
     
-    projects[projectId] = { files: { html: "GENERATING" }, name: prompt.substring(0, 20), userId: userId };
+    projects[projectId] = { 
+        files: { html: "GENERATING", css: "", js: "" }, 
+        name: prompt.substring(0, 25), 
+        userId: userId 
+    };
     res.json({ projectId });
 
     try {
-        const systemPrompt = `Je bent een senior developer. Genereer een moderne app. 
+        let systemPrompt = `Je bent een senior developer. Genereer een moderne app. 
         BELANGRIJK VOOR AFBEELDINGEN: Gebruik ALTIJD deze URL structuur voor <img> tags: 
-        https://image.pollinations.ai/prompt/[BESCHRIJVING]?width=800&height=600&nologo=true
-        Vervang [BESCHRIJVING] door een korte Engelse omschrijving.
+        https://image.pollinations.ai/prompt/[TOPIC]?width=1080&height=720&nologo=true
+        Vervang [TOPIC] door EEN ENKEL ENGELS WOORD (bijv. "car", "watch", "sneaker"). Gebruik GEEN spaties in de URL.
         
         STUUR ALTIJD EEN JSON OBJECT TERUG:
         {
@@ -29,11 +33,18 @@ app.post('/generate', async (req, res) => {
             "js": "alle javascript logica"
         }`;
 
+        let userContent = `Maak deze app: ${prompt}`;
+        
+        if (existingFiles && existingFiles.html) {
+            systemPrompt += `\nPas de BESTAANDE code aan op basis van de vraag. Behoud de AI image URL structuur.`;
+            userContent = `BESTAANDE HTML: ${existingFiles.html}\nBESTAANDE CSS: ${existingFiles.css}\nBESTAANDE JS: ${existingFiles.js}\n\nAANPASSING: ${prompt}`;
+        }
+
         const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
             model: "llama-3.3-70b-versatile",
             messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: prompt }
+                { role: "user", content: userContent }
             ],
             response_format: { type: "json_object" }
         }, {
