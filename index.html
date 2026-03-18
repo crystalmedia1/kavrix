@@ -11,32 +11,20 @@
         body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; overflow: hidden; margin: 0; height: 100vh; }
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
         .sidebar { transition: transform 0.3s ease; z-index: 40; background: #0f172a; border-right: 1px solid rgba(255,255,255,0.05); }
-        .project-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; cursor: pointer; padding: 12px; border-radius: 12px; margin-bottom: 8px; }
+        .project-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; cursor: pointer; padding: 12px; border-radius: 12px; margin-bottom: 8px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .project-card:hover { background: rgba(255,255,255,0.08); border-color: #6366f1; }
         iframe { background: white; border-radius: 16px; width: 100%; height: 100%; border: none; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
-        
-        /* Luxe Splash Screen */
-        #splash { 
-            position: fixed; inset: 0; background: #0f172a; z-index: 9999; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            transition: opacity 0.6s ease; 
-        }
-        .logo-anim { 
-            font-size: 3.5rem; font-weight: 900; letter-spacing: -3px; 
-            animation: pulse 2s infinite; 
-            background: linear-gradient(to right, #6366f1, #a855f7); 
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-        }
+        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
+        .logo-anim { font-size: 3.5rem; font-weight: 900; letter-spacing: -3px; animation: pulse 2s infinite; background: linear-gradient(to right, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
-        
         .hidden-sidebar { transform: translateX(-100%); }
         @media (min-width: 768px) { .hidden-sidebar { transform: translateX(0); } }
     </style>
 </head>
 <body class="flex flex-col">
 
-    <!-- LUXE SPLASH SCREEN (Tik om direct te starten) -->
-    <div id="splash" onclick="this.style.opacity='0'; setTimeout(()=>this.remove(),600)">
+    <!-- SPLASH SCREEN -->
+    <div id="splash" onclick="this.style.opacity='0'; setTimeout(()=>this.remove(),500)">
         <div class="logo-anim">KAVRIX</div>
         <div class="mt-6 flex items-center gap-3">
             <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
@@ -80,43 +68,21 @@
     </div>
 
     <script>
-        // 1. DEFINIEER EERST DE FUNCTIE
-        function hideSplash() {
-            const s = document.getElementById('splash');
-            if(s) {
-                s.style.opacity = '0';
-                setTimeout(() => { s.remove(); }, 700);
-            }
-        }
-
-        // 2. START DE TIMER PAS DAARNA
-        setTimeout(hideSplash, 3000);
-
         const RENDER_URL = "https://kavrix.onrender.com";
         let currentId = null;
         let currentCode = "";
 
-        const WELCOME_HTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <script src='https://cdn.tailwindcss.com'></script>
-            <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'>
-            <style>
-                body { background: radial-gradient(circle at top right, #1e293b, #0f172a); color: white; font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; overflow: hidden; }
-                .card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); padding: 40px; border-radius: 32px; text-align: center; backdrop-filter: blur(20px); max-width: 400px; animation: fadeIn 1s ease-out; }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-                .icon { width: 80px; height: 80px; background: linear-gradient(135deg, #6366f1, #a855f7); border-radius: 24px; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 32px; box-shadow: 0 15px 30px rgba(99, 102, 241, 0.3); }
-            </style>
-        </head>
-        <body>
-            <div class='card'>
-                <div class='icon'><i class='fas fa-wand-magic-sparkles'></i></div>
-                <h1 style='font-size: 24px; font-weight: 900; margin-bottom: 8px;'>KAVRIX READY</h1>
-                <p style='color: #94a3b8; font-size: 14px;'>Je AI-engine staat stand-by.</p>
-            </div>
-        </body>
-        </html>`;
+        function hideSplash() {
+            const s = document.getElementById('splash');
+            if(s) {
+                s.style.opacity = '0';
+                setTimeout(() => { s.remove(); }, 600);
+            }
+        }
+
+        setTimeout(hideSplash, 3000);
+
+        const WELCOME_HTML = "<html><body style='background:radial-gradient(circle at top right, #1e293b, #0f172a); color:white; font-family:sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; margin:0; text-align:center;'><div style='background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); padding:40px; border-radius:32px; backdrop-filter:blur(20px);'><h1 style='font-size:24px; font-weight:900; margin-bottom:8px;'>KAVRIX READY</h1><p style='color:#94a3b8; font-size:14px;'>Je AI-engine staat stand-by.</p></div></body></html>";
 
         let userId = localStorage.getItem('kavrix_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('kavrix_user_id', userId);
@@ -132,14 +98,14 @@
 
         async function loadProjects() {
             try {
-                const r = await fetch(`${RENDER_URL}/projects/${userId}`);
+                const r = await fetch(RENDER_URL + "/projects/" + userId);
                 const data = await r.json();
                 const list = document.getElementById("projectList");
                 list.innerHTML = "";
                 data.forEach(p => {
                     const card = document.createElement("div");
                     card.className = "project-card";
-                    card.innerHTML = `<span class="text-[10px] font-bold uppercase truncate">${p.name || 'Project'}</span>`;
+                    card.innerText = p.name || 'Project';
                     card.onclick = () => selectProject(p.id);
                     list.appendChild(card);
                 });
@@ -152,7 +118,7 @@
             if (!p) return;
             document.getElementById("loaderLine").style.width = "40%";
             try {
-                const r = await fetch(`${RENDER_URL}/generate`, {
+                const r = await fetch(RENDER_URL + "/generate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ prompt: p, userId: userId })
@@ -166,7 +132,7 @@
         function startPolling(id) {
             const interval = setInterval(async () => {
                 try {
-                    const r = await fetch(`${RENDER_URL}/project/${id}`);
+                    const r = await fetch(RENDER_URL + "/project/" + id);
                     const d = await r.json();
                     if (d.code !== "GENERATING") {
                         clearInterval(interval);
@@ -181,20 +147,14 @@
         }
 
         async function selectProject(id) {
-            const r = await fetch(`${RENDER_URL}/project/${id}`);
+            const r = await fetch(RENDER_URL + "/project/" + id);
             const d = await r.json();
             document.getElementById("preview").srcdoc = d.code;
             currentCode = d.code;
         }
 
-        function newProject() {
-            location.reload();
-        }
-
-        function copyCode() {
-            navigator.clipboard.writeText(currentCode);
-            alert("Gekopieerd!");
-        }
+        function newProject() { location.reload(); }
+        function copyCode() { navigator.clipboard.writeText(currentCode); alert("Gekopieerd!"); }
     </script>
 </body>
 </html>
