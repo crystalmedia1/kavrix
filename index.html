@@ -3,25 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KAVRIX | AI App Builder Pro</title>
+    <title>KAVRIX | Ultimate AI OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; overflow: hidden; margin: 0; height: 100vh; }
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); }
-        .sidebar { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 40; background: #0f172a; border-right: 1px solid rgba(255,255,255,0.05); }
-        .project-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; cursor: pointer; padding: 14px; border-radius: 14px; margin-bottom: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
-        .project-card:hover { background: rgba(99, 102, 241, 0.1); border-color: #6366f1; color: white; transform: translateX(5px); }
-        iframe { background: #f8fafc; border-radius: 24px; width: 100%; height: 100%; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.4); }
+        .sidebar { transition: transform 0.4s ease; z-index: 40; background: #0f172a; border-right: 1px solid rgba(255,255,255,0.05); }
         
-        /* Code Panel */
-        #codePanel { position: fixed; right: -100%; top: 0; width: 45%; height: 100%; background: #020617; z-index: 50; transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); border-left: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+        /* Quick Launch Buttons */
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; transition: 0.2s; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; }
+        .nav-item:hover { background: rgba(255,255,255,0.03); color: white; border-color: rgba(255,255,255,0.05); }
+        .nav-item i { width: 20px; text-align: center; font-size: 14px; color: #6366f1; }
+        
+        .project-card { background: rgba(99, 102, 241, 0.05); border: 1px solid rgba(99, 102, 241, 0.1); padding: 12px; border-radius: 12px; margin-bottom: 8px; font-size: 10px; font-weight: 700; color: #818cf8; cursor: pointer; transition: 0.2s; }
+        .project-card:hover { background: rgba(99, 102, 241, 0.15); transform: translateX(4px); }
+
+        iframe { background: #f8fafc; border-radius: 24px; width: 100%; height: 100%; border: none; }
+        #codePanel { position: fixed; right: -100%; top: 0; width: 45%; height: 100%; background: #020617; z-index: 50; transition: 0.4s; border-left: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
         #codePanel.open { right: 0; }
-        .tab { padding: 12px 20px; cursor: pointer; font-size: 10px; font-weight: 800; text-transform: uppercase; border-bottom: 2px solid transparent; color: #64748b; transition: 0.3s; }
+        .tab { padding: 12px 20px; cursor: pointer; font-size: 10px; font-weight: 800; text-transform: uppercase; border-bottom: 2px solid transparent; color: #64748b; }
         .tab.active { color: #6366f1; border-color: #6366f1; background: rgba(99,102,241,0.05); }
-        pre { font-family: 'Fira Code', monospace; font-size: 11px; color: #818cf8; overflow: auto; flex: 1; padding: 20px; background: rgba(0,0,0,0.3); line-height: 1.6; }
-        
+        pre { font-family: monospace; font-size: 11px; color: #818cf8; overflow: auto; flex: 1; padding: 20px; background: rgba(0,0,0,0.3); }
         .hidden-sidebar { transform: translateX(-100%); }
         @media (min-width: 768px) { .hidden-sidebar { transform: translateX(0); } }
     </style>
@@ -31,48 +34,52 @@
     <!-- CODE INSPECTOR -->
     <div id="codePanel">
         <div class="flex bg-[#0f172a] border-b border-white/5">
-            <div onclick="showTab('html')" id="tab-html" class="tab active">index.html</div>
-            <div onclick="showTab('css')" id="tab-css" class="tab">style.css</div>
-            <div onclick="showTab('js')" id="tab-js" class="tab">script.js</div>
-            <button onclick="toggleCode()" class="ml-auto p-4 text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
+            <div onclick="showTab('html')" id="tab-html" class="tab active">HTML</div>
+            <div onclick="showTab('css')" id="tab-css" class="tab">CSS</div>
+            <div onclick="showTab('js')" id="tab-js" class="tab">JS</div>
+            <button onclick="toggleCode()" class="ml-auto p-4 text-slate-500"><i class="fas fa-times"></i></button>
         </div>
-        <pre id="codeDisplay">Selecteer een project...</pre>
-        <button onclick="copyCode()" class="m-4 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition">Copy Current File</button>
+        <pre id="codeDisplay"></pre>
+        <button onclick="copyCode()" class="m-4 py-3 bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest">Copy Code</button>
     </div>
 
     <header class="h-20 glass flex items-center justify-between px-8 shrink-0 z-10">
         <div class="flex items-center gap-6">
             <button onclick="toggleSidebar()" class="p-3 hover:bg-white/10 rounded-2xl md:hidden transition"><i class="fas fa-align-left"></i></button>
-            <h1 class="font-black tracking-tighter text-3xl italic">KAVRIX <span class="text-indigo-500 not-italic text-[10px] bg-indigo-500/20 border border-indigo-500/30 px-2.5 py-1 rounded-full ml-2 uppercase tracking-widest">Multi-File</span></h1>
+            <h1 class="font-black tracking-tighter text-3xl italic">KAVRIX <span id="modeTag" class="text-indigo-500 not-italic text-[10px] bg-indigo-500/20 border border-indigo-500/30 px-2.5 py-1 rounded-full ml-2 uppercase tracking-widest">Pro</span></h1>
         </div>
         <div class="flex gap-4">
             <button onclick="toggleCode()" class="px-6 py-3 glass rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition">Inspect</button>
-            <button onclick="location.reload()" class="px-6 py-3 bg-indigo-600 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-500 transition">New App</button>
+            <button onclick="location.reload()" class="px-6 py-3 bg-indigo-600 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-500 transition">New</button>
         </div>
     </header>
 
     <div class="flex flex-1 overflow-hidden relative">
-        <!-- SIDEBAR IS TERUG -->
-        <aside id="sidebar" class="sidebar absolute md:relative w-80 h-full hidden-sidebar flex flex-col shadow-2xl">
-            <div class="p-8 font-black text-[11px] uppercase tracking-[0.3em] text-slate-500 flex justify-between items-center">
-                <span>Library</span>
-                <i class="fas fa-layer-group opacity-20"></i>
+        <!-- SIDEBAR MET ALLE FUNCTIES TERUG -->
+        <aside id="sidebar" class="sidebar absolute md:relative w-80 h-full hidden-sidebar flex flex-col shadow-2xl overflow-y-auto">
+            <div class="p-6">
+                <div class="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4">Quick Launch</div>
+                <div onclick="quickLaunch('Maak een professionele Webshop met product grid en winkelwagen')" class="nav-item"><i class="fas fa-shopping-cart"></i> Webshop</div>
+                <div onclick="quickLaunch('Maak een iOS stijl Dashboard met widgets en blur effecten')" class="nav-item"><i class="fas fa-mobile-alt"></i> iOS App</div>
+                <div onclick="quickLaunch('Maak een verslavend Arcade spelletje met score systeem')" class="nav-item"><i class="fas fa-gamepad"></i> Game Dev</div>
+                <div onclick="quickLaunch('Maak een Crypto Portfolio tracker met live koersen')" class="nav-item"><i class="fas fa-chart-line"></i> Crypto App</div>
+                <div onclick="quickLaunch('Maak een professionele IPTV Player met zenderlijst')" class="nav-item"><i class="fas fa-tv"></i> IPTV Player</div>
+                
+                <div class="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 mt-8 mb-4">Your Library</div>
+                <div id="projectList"></div>
             </div>
-            <div id="projectList" class="flex-1 overflow-y-auto px-6"></div>
         </aside>
 
         <main class="flex-1 flex flex-col p-4 md:p-8 gap-6 relative bg-[#0f172a]">
-            <div id="loaderLine" class="absolute top-0 left-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-1000" style="width: 0%"></div>
-            
-            <div class="flex-1 glass rounded-[32px] overflow-hidden relative p-1.5 bg-white/5 shadow-inner">
+            <div id="loaderLine" class="absolute top-0 left-0 h-1 bg-indigo-500 transition-all duration-1000" style="width: 0%"></div>
+            <div class="flex-1 glass rounded-[32px] overflow-hidden relative p-1.5 bg-white/5">
                 <iframe id="preview"></iframe>
             </div>
-
             <div class="max-w-4xl mx-auto w-full glass p-3 rounded-[24px] flex items-center gap-3 shadow-2xl border-white/10 mb-2">
                 <div class="pl-4 text-indigo-500 animate-pulse"><i class="fas fa-wand-sparkles"></i></div>
                 <input id="prompt" type="text" placeholder="Wat gaan we vandaag creëren?" class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm font-semibold text-white">
-                <button onclick="run()" class="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center hover:bg-indigo-500 transition shadow-xl shadow-indigo-600/30 group">
-                    <i class="fas fa-bolt group-hover:scale-110 transition-transform"></i>
+                <button onclick="run()" class="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center hover:bg-indigo-500 transition">
+                    <i class="fas fa-bolt"></i>
                 </button>
             </div>
         </main>
@@ -92,12 +99,16 @@
 
         function toggleSidebar() { document.getElementById("sidebar").classList.toggle("hidden-sidebar"); }
         function toggleCode() { document.getElementById("codePanel").classList.toggle("open"); }
-
         function showTab(type) {
             activeTab = type;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + type).classList.add('active');
-            document.getElementById('codeDisplay').innerText = currentFiles[type] || "Geen code beschikbaar";
+            document.getElementById('codeDisplay').innerText = currentFiles[type];
+        }
+
+        function quickLaunch(prompt) {
+            document.getElementById("prompt").value = prompt;
+            run();
         }
 
         function loadProjects() {
@@ -118,15 +129,11 @@
             var p = document.getElementById("prompt").value;
             if (!p) return;
             document.getElementById("loaderLine").style.width = "40%";
-            
             fetch(RENDER_URL + "/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: p, userId: userId })
-            }).then(r => r.json()).then(d => {
-                startPolling(d.projectId);
-                document.getElementById("prompt").value = "";
-            });
+                body: JSON.stringify({ prompt: p, userId: userId, existingFiles: currentFiles })
+            }).then(r => r.json()).then(d => startPolling(d.projectId));
         }
 
         function startPolling(id) {
@@ -146,11 +153,7 @@
         }
 
         function renderPreview() {
-            var fullCode = `
-                ${currentFiles.html}
-                <style>${currentFiles.css}</style>
-                <script>${currentFiles.js}<\/script>
-            `;
+            var fullCode = `${currentFiles.html}<style>${currentFiles.css}</style><script>${currentFiles.js}<\/script>`;
             document.getElementById("preview").srcdoc = fullCode;
         }
 
@@ -164,7 +167,7 @@
 
         function copyCode() { 
             navigator.clipboard.writeText(currentFiles[activeTab]);
-            alert(activeTab.toUpperCase() + " gekopieerd!"); 
+            alert("Gekopieerd!"); 
         }
     </script>
 </body>
