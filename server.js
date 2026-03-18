@@ -34,47 +34,50 @@ app.get("/api/proxy", async (req, res) => {
     }
 });
 
-// --- MULTI-AGENT LOGICA v16.2 ---
-async function callDeepEngine(prompt, previousCode = "") {
+// --- DEEP ENGINE ASYNC LOGICA ---
+async function processAIRequest(prompt, previousCode, projectId) {
     try {
-        // STAP 1: ARCHITECT (90 sec timeout)
+        console.log(`Start AI proces voor project: ${projectId}`);
+        
+        // STAP 1: ARCHITECT
         const architectResponse = await axios.post(AI_API_URL, {
             model: AI_MODEL,
             messages: [
-                { 
-                    role: "system", 
-                    content: `Je bent de KAVRIX ARCHITECT. Bouw een luxe HTML5 app. Gebruik Tailwind CSS flexbox voor een perfecte layout. Geef ALLEEN de ruwe HTML code terug.` 
-                },
+                { role: "system", content: "Je bent de KAVRIX ARCHITECT. Bouw een luxe HTML5 app met Tailwind CSS. Geef ALLEEN de ruwe HTML code terug." },
                 { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ]
-        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 120000 });
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 180000 });
 
         let rawCode = architectResponse.data.choices[0].message.content;
 
-        // STAP 2: REVIEWER (Snelle opschoning)
+        // STAP 2: REVIEWER
         const reviewerResponse = await axios.post(AI_API_URL, {
             model: "llama-3.1-8b-instant",
             messages: [
-                { 
-                    role: "system", 
-                    content: `Je bent de KAVRIX REVIEWER. Verwijder alle tekst die geen code is. Begin met <!DOCTYPE html> en eindig met </html>.` 
-                },
+                { role: "system", content: "Je bent de KAVRIX REVIEWER. Verwijder alle tekst die geen code is. Begin met <!DOCTYPE html> en eindig met </html>." },
                 { role: "user", content: rawCode }
             ]
-        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 60000 });
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
 
         let finalCode = reviewerResponse.data.choices[0].message.content;
+        if (finalCode.includes("<​/html>")) finalCode = finalCode.split("<​/html>")[0] + "<​/html>";
+        finalCode = finalCode.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
+
+        // STAP 3: NAAM GENEREREN
+        const nameResponse = await axios.post(AI_API_URL, {
+            model: "llama-3.1-8b-instant",
+            messages: [{ role: "user", content: `Korte naam (max 2 woorden) voor: ${prompt}. Alleen de naam.` }]
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => ({ data: { choices: [{ message: { content: "Nieuw Project" } }] } }));
         
-        if (finalCode.includes("<​/html>")) {
-            finalCode = finalCode.split("<​/html>")[0] + "<​/html>";
-        }
-        
-        return finalCode.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
+        const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
+
+        // STAP 4: DATABASE UPDATEN
+        await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", projectId);
+        console.log(`Project ${projectId} succesvol voltooid.`);
 
     } catch (error) {
-        console.error("Timeout of Error:", error.message);
-        // Fallback: als de dubbele agent te lang duurt, pakken we de directe output
-        return "FOUT: De AI deed er te lang over. Probeer een kortere opdracht of ververs de pagina.";
+        console.error("AI Fout:", error.message);
+        await supabase.from("projects").update({ code: "FOUT: De AI is momenteel te druk. Probeer het over een minuutje opnieuw." }).eq("id", projectId);
     }
 }
 
@@ -90,35 +93,26 @@ app.post("/generate", async (req, res) => {
             previousCode = data ? data.code : "";
         }
 
+        // Maak of update project naar 'GENERATING' status
         if (!id) {
-            const { data, error } = await supabase.from("projects").insert([{ name: "DeepEngine analyseert...", code: "GENERATING", prompt: prompt }]).select();
+            const { data, error } = await supabase.from("projects").insert([{ name: "DeepEngine denkt na...", code: "GENERATING", prompt: prompt }]).select();
             if (error) throw error;
             id = data[0].id;
         } else {
             await supabase.from("projects").update({ code: "GENERATING", prompt: prompt }).eq("id", id);
         }
 
+        // STUUR DIRECT ANTWOORD NAAR BROWSER (Geen timeout meer!)
         res.json({ projectId: id });
 
-        // We voeren de AI call uit, maar we wachten er niet op voor de response naar de browser
-        callDeepEngine(prompt, previousCode).then(async (finalCode) => {
-            const nameResponse = await axios.post(AI_API_URL, {
-                model: "llama-3.1-8b-instant",
-                messages: [{ role: "user", content: `Korte naam (max 2 woorden) voor: ${prompt}. Alleen de naam.` }]
-            }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => ({ data: { choices: [{ message: { content: "Nieuw Project" } }] } }));
-            
-            const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
-            await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", id);
-        }).catch(async (err) => {
-            await supabase.from("projects").update({ code: "FOUT: " + err.message }).eq("id", id);
-        });
+        // Start het AI proces op de achtergrond
+        processAIRequest(prompt, previousCode, id);
 
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Rest van de routes (projects, project/:id, delete) blijven hetzelfde...
 app.get("/projects", async (req, res) => {
     try {
         const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
@@ -141,4 +135,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Turbo Engine v16.2 Online`));
+app.listen(PORT, () => console.log(`Kavrix Async Engine v16.3 Online`));
