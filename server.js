@@ -16,40 +16,39 @@ app.post('/generate', async (req, res) => {
     projects[projectId] = { files: { html: "GENERATING" }, name: prompt.substring(0, 20), userId: userId };
     res.json({ projectId });
 
-    const generateAI = async (retryCount = 0) => {
+    const generateAI = async () => {
         try {
-            // EXTREEM KORTE INSTRUCTIES VOOR MAXIMALE SNELHEID
-            const systemPrompt = `Senior Dev. Maak moderne app. 
-            GEBRUIK: Tailwind, Lucide Icons. 
-            LIVE DATA: Gebruik fetch() voor crypto/weer API's. 
-            FOTO'S: <img src="https://loremflickr.com/800/600/[TOPIC]">.
-            OUTPUT: JSON {"html": "...", "css": "...", "js": "..."}`;
-
-            let userContent = prompt;
-            if (existingFiles && existingFiles.html && existingFiles.html !== "GENERATING") {
-                userContent = `UPDATE CODE:\nHTML: ${existingFiles.html}\nWIJZIGING: ${prompt}`;
-            }
+            // EXTREEM COMPACTE PROMPT OM RATE LIMITS TE VOORKOMEN
+            const systemPrompt = `Senior Dev. Maak moderne app. Tailwind, Lucide. Live data via fetch(). JSON: {"html": "...", "css": "...", "js": "..."}`;
 
             const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-                model: "llama3-8b-8192", // We gaan terug naar het allersnelste model
+                model: "llama3-8b-8192",
                 messages: [
                     { role: "system", content: systemPrompt },
-                    { role: "user", content: userContent }
+                    { role: "user", content: prompt }
                 ],
-                temperature: 0.3, // Zeer laag voor directe, stabiele code
+                temperature: 0.2, // ZEER LAAG VOOR MINIMAAL TOKEN VERBRUIK
                 response_format: { type: "json_object" }
             }, {
                 headers: { 'Authorization': `Bearer ${process.env.API_KEY}` },
-                timeout: 20000 // Snelle timeout van 20 seconden
+                timeout: 15000
             });
 
             projects[projectId].files = JSON.parse(response.data.choices[0].message.content);
         } catch (error) {
-            if (retryCount < 1) {
-                await generateAI(retryCount + 1);
-            } else {
-                projects[projectId].files = { html: "<div style='color:white;text-align:center;padding:50px;'><h1>AI is even druk...</h1><p>Wacht 5 seconden en druk nogmaals op de Bolt-knop.</p></div>" };
+            console.error("FOUTMELDING:", error.response ? error.response.data : error.message);
+            
+            let errorMsg = "AI is even overbelast.";
+            if (error.response && error.response.status === 429) {
+                errorMsg = "Je Groq API limiet is bereikt voor vandaag. Maak een nieuwe gratis sleutel aan op console.groq.com.";
             }
+
+            projects[projectId].files = { 
+                html: `<div style='color:white;text-align:center;padding:50px;font-family:sans-serif;'>
+                        <h1>${errorMsg}</h1>
+                        <p>Wacht een paar minuten of vervang je API_KEY in Render.</p>
+                       </div>` 
+            };
         }
     };
 
