@@ -3,257 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KAVRIX | Ultimate App OS</title>
+    <title>KAVRIX | AI App Builder</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Fira+Code:wght@400;500&display=swap');
-        body { background: #020617; color: white; font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; height: 100vh; margin: 0; }
-        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
-        iframe { width: 100%; height: 100%; border: none; background: white; border-radius: 24px; }
-        .loader-line { height: 3px; width: 0%; background: linear-gradient(to right, #6366f1, #a855f7); transition: 0.5s; position: fixed; top: 0; left: 0; z-index: 1000; }
-        #sidebar, #rightPanel { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 50; }
-        .sidebar-closed { transform: translateX(-100%); }
-        .panel-closed { transform: translateX(100%); }
-        .command-center { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 700px; z-index: 40; }
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; overflow: hidden; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .sidebar { transition: transform 0.3s ease; z-index: 50; }
+        .project-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; cursor: pointer; padding: 12px; border-radius: 8px; margin-bottom: 8px; }
+        .project-card:hover { background: rgba(255,255,255,0.08); border-color: #6366f1; }
+        .project-card.active { background: #6366f1; border-color: #818cf8; }
+        iframe { background: white; border-radius: 12px; width: 100%; height: 100%; border: none; }
         
-        /* Project Card Styling */
-        .project-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 12px; transition: 0.3s; cursor: pointer; margin-bottom: 12px; }
-        .project-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(99, 102, 241, 0.4); transform: translateY(-2px); }
-        .project-card.active { background: rgba(99, 102, 241, 0.15); border-color: #6366f1; }
-        .video-preview { width: 100%; height: 80px; object-fit: cover; border-radius: 8px; margin-top: 8px; background: #000; pointer-events: none; }
+        /* Splash Screen */
+        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
+        .logo-anim { font-size: 3rem; font-weight: 900; letter-spacing: -2px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.95); } }
         
-        .nav-item { transition: 0.2s; cursor: pointer; border-radius: 12px; padding: 10px; display: flex; align-items: center; gap: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; }
-        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.05); color: white; }
+        .hidden-sidebar { transform: translateX(-100%); }
+        @media (min-width: 768px) { .hidden-sidebar { transform: translateX(0); } }
     </style>
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="h-screen flex flex-col">
 
-    <div id="loaderLine" class="loader-line"></div>
+    <!-- SPLASH SCREEN -->
+    <div id="splash">
+        <div class="logo-anim text-indigo-500">KAVRIX</div>
+        <div class="mt-4 text-slate-500 text-xs tracking-[0.3em] uppercase">Initializing AI Engine...</div>
+    </div>
 
-    <!-- Sidebar -->
-    <aside id="sidebar" class="fixed md:relative w-72 h-full glass border-r border-white/5 flex flex-col p-5 sidebar-closed md:sidebar-open shrink-0">
-        <div class="flex items-center gap-3 mb-8">
-            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <i class="fas fa-bolt text-white"></i>
-            </div>
-            <h1 class="text-lg font-black tracking-tighter">KAVRIX</h1>
+    <!-- HEADER -->
+    <header class="h-16 glass flex items-center justify-between px-4 shrink-0">
+        <div class="flex items-center gap-3">
+            <button onclick="toggleSidebar()" class="p-2 hover:bg-white/10 rounded-lg"><i class="fas fa-bars"></i></button>
+            <h1 class="font-black tracking-tighter text-xl">KAVRIX <span class="text-indigo-500 text-xs ml-1">PRO</span></h1>
         </div>
-
-        <nav class="space-y-1 mb-8">
-            <div onclick="showView('projects')" class="nav-item active" id="nav-projects"><i class="fas fa-folder"></i> Projecten</div>
-            <div onclick="showView('store')" class="nav-item" id="nav-store"><i class="fas fa-shopping-bag"></i> App Store</div>
-            <div onclick="showView('settings')" class="nav-item" id="nav-settings"><i class="fas fa-cog"></i> Instellingen</div>
-        </nav>
-
-        <!-- Project List View -->
-        <div id="view-projects" class="flex-1 overflow-y-auto pr-1">
-            <button onclick="newProject()" class="w-full bg-white text-black py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest mb-6 hover:scale-[1.02] transition-all shadow-lg">+ Nieuw Project</button>
-            <div id="projectList">
-                <!-- Projecten komen hier -->
-            </div>
+        <div class="flex gap-2">
+            <button onclick="copyCode()" class="px-4 py-2 glass rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-white/10">Copy</button>
+            <button onclick="newProject()" class="px-4 py-2 bg-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-500">New</button>
         </div>
+    </header>
 
-        <!-- App Store View -->
-        <div id="view-store" class="hidden flex-1 overflow-y-auto space-y-3 pr-1">
-            <h3 class="text-[10px] font-black text-indigo-400 uppercase mb-4">Templates</h3>
-            <div onclick="useTemplate('Bouw een luxe E-commerce webshop')" class="glass p-4 rounded-xl cursor-pointer hover:border-indigo-500 transition-all">
-                <i class="fas fa-shopping-cart text-blue-400 mb-2"></i>
-                <div class="text-[10px] font-bold">Webshop Pro</div>
-            </div>
-            <div onclick="useTemplate('Bouw een Retro Space Shooter game')" class="glass p-4 rounded-xl cursor-pointer hover:border-orange-500 transition-all">
-                <i class="fas fa-gamepad text-orange-400 mb-2"></i>
-                <div class="text-[10px] font-bold">Space Game</div>
-            </div>
-        </div>
-
-        <!-- Settings View -->
-        <div id="view-settings" class="hidden flex-1 space-y-6">
-            <div class="p-4 rounded-xl bg-indigo-600/10 border border-indigo-500/20">
-                <div class="text-[10px] font-bold text-indigo-400 mb-1">Systeem Status</div>
-                <div class="text-[11px]">Kavrix Engine v17.0 Online</div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col relative p-4">
-        <div class="flex justify-between items-center mb-4 z-20">
-            <button onclick="toggleSidebar()" class="md:hidden glass w-10 h-10 rounded-xl flex items-center justify-center"><i class="fas fa-bars"></i></button>
-            <div class="flex gap-2">
-                <button onclick="togglePanel()" class="glass px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest"><i class="fas fa-code"></i> Code</button>
-                <button onclick="copyCode()" class="bg-white text-black px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg">Copy</button>
-            </div>
-        </div>
-
-        <div class="flex-1 relative z-10">
-            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center bg-[#020617]">
-                <div class="w-16 h-16 bg-indigo-600/20 rounded-2xl flex items-center justify-center mb-4">
-                    <i class="fas fa-rocket text-indigo-500 text-2xl"></i>
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="sidebar absolute md:relative w-72 h-full glass border-t-0 border-l-0 hidden-sidebar flex flex-col">
+            <div class="p-4 font-bold text-[10px] uppercase tracking-widest text-slate-500">Mijn Projecten</div>
+            <div id="projectList" class="flex-1 overflow-y-auto px-3 custom-scrollbar"></div>
+            
+            <div class="p-4 border-t border-white/5">
+                <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">App Store Templates</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="useTemplate('Webshop')" class="p-2 glass rounded text-[9px] font-bold hover:bg-indigo-600 transition">WEBSHOP</button>
+                    <button onclick="useTemplate('Dashboard')" class="p-2 glass rounded text-[9px] font-bold hover:bg-indigo-600 transition">DASHBOARD</button>
                 </div>
-                <h2 class="text-lg font-black tracking-tight uppercase">Kavrix DeepEngine</h2>
-                <p class="text-slate-500 text-[10px] mt-1 uppercase tracking-widest">Selecteer een project of begin te typen</p>
             </div>
-            <iframe id="preview" class="hidden shadow-2xl"></iframe>
-        </div>
+        </aside>
 
-        <!-- Right Panel (Code) -->
-        <div id="rightPanel" class="fixed right-0 top-0 w-full md:w-[500px] h-full glass border-l border-white/10 p-6 panel-closed overflow-y-auto z-[70]">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xs font-black uppercase tracking-widest text-indigo-400">Source Code</h3>
-                <button onclick="togglePanel()" class="text-slate-500"><i class="fas fa-times"></i></button>
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 flex flex-col p-4 gap-4 relative">
+            <div id="loaderLine" class="absolute top-0 left-0 h-1 bg-indigo-500 transition-all duration-500" style="width: 0%"></div>
+            
+            <div class="flex-1 glass rounded-xl overflow-hidden relative">
+                <iframe id="preview" srcdoc="<body style='background:#0f172a; display:flex; align-items:center; justify-content:center; color:white; font-family:sans-serif;'><h1>KAVRIX READY</h1></body>"></iframe>
             </div>
-            <pre id="codeDisplay" class="text-[10px] text-slate-300 whitespace-pre-wrap font-mono"></pre>
-        </div>
 
-        <!-- Command Center -->
-        <div class="command-center">
-            <div class="glass rounded-[24px] p-1.5 flex items-center shadow-2xl border border-white/10">
-                <input id="prompt" type="text" class="flex-1 bg-transparent border-none outline-none px-4 py-3 text-sm font-medium text-white" placeholder="Wat gaan we bouwen?">
-                <button id="go" class="bg-indigo-600 w-12 h-12 rounded-[18px] flex items-center justify-center hover:bg-indigo-500 transition-all active:scale-95 shrink-0">
-                    <i class="fas fa-paper-plane text-white text-xs"></i>
+            <!-- INPUT AREA -->
+            <div class="glass p-2 rounded-2xl flex items-center gap-2">
+                <input id="prompt" type="text" placeholder="Wat gaan we bouwen?" class="flex-1 bg-transparent border-none outline-none px-4 py-3 text-sm">
+                <button onclick="run()" class="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20">
+                    <i class="fas fa-paper-plane"></i>
                 </button>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
 
     <script>
         const RENDER_URL = "https://kavrix.onrender.com";
-        let currentId = localStorage.getItem('kavrix_id');
+        let currentId = null;
         let currentCode = "";
         let pollInterval = null;
 
-        function toggleSidebar() { document.getElementById("sidebar").classList.toggle("sidebar-closed"); }
-        function togglePanel() { document.getElementById("rightPanel").classList.toggle("panel-closed"); }
-        
-        function showView(view) {
-            ['projects', 'store', 'settings'].forEach(v => {
-                document.getElementById(`view-${v}`).classList.add('hidden');
-                document.getElementById(`nav-${v}`).classList.remove('active');
-            });
-            document.getElementById(`view-${view}`).classList.remove('hidden');
-            document.getElementById(`nav-${view}`).classList.add('active');
+        // USER SESSION LOGICA
+        let userId = localStorage.getItem('kavrix_user_id');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('kavrix_user_id', userId);
         }
 
-        function useTemplate(t) { 
-            showView('projects');
-            document.getElementById("prompt").value = t; 
-            run(); 
-        }
+        // SPLASH SCREEN LOGICA
+        window.onload = () => {
+            setTimeout(() => {
+                document.getElementById('splash').style.opacity = '0';
+                setTimeout(() => document.getElementById('splash').remove(), 800);
+                loadProjects();
+            }, 2000);
+        };
 
-        function copyCode() { navigator.clipboard.writeText(currentCode); alert("Code gekopieerd!"); }
-
-        // Hulpfunctie om video src uit HTML code te halen
-        function extractVideoSrc(htmlCode) {
-            if (!htmlCode) return null;
-            const videoTagMatch = htmlCode.match(/<video[^>]*src=["']([^"']+)["']/i);
-            if (videoTagMatch) return videoTagMatch[1];
-            const sourceTagMatch = htmlCode.match(/<source[^>]*src=["']([^"']+)["']/i);
-            return sourceTagMatch ? sourceTagMatch[1] : null;
+        function toggleSidebar() {
+            document.getElementById("sidebar").classList.toggle("hidden-sidebar");
         }
 
         async function loadProjects() {
             try {
-                const r = await fetch(`${RENDER_URL}/projects`);
+                const r = await fetch(`${RENDER_URL}/projects/${userId}`);
                 const data = await r.json();
                 const list = document.getElementById("projectList");
                 list.innerHTML = "";
-                
                 data.forEach(p => {
                     const card = document.createElement("div");
                     card.className = `project-card ${currentId === p.id ? 'active' : ''}`;
-                    
-                    let videoHtml = "";
-                    // We halen de volledige project data op voor de preview (optioneel, kan zwaar zijn)
-                    // Voor nu checken we of de naam 'SMARTHOME' of 'VIDEO' bevat als simpele check
-                    // Of we halen de code op bij selectie.
-                    
                     card.innerHTML = `
-                        <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-black uppercase tracking-wider truncate pr-4">${p.name || 'Project'}</span>
-                            <button onclick="deleteProject('${p.id}', event)" class="text-slate-600 hover:text-red-500"><i class="fas fa-trash text-[9px]"></i></button>
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-black uppercase tracking-wider truncate pr-2">${p.name || 'Project'}</span>
+                            <button onclick="deleteProject('${p.id}', event)" class="text-white/30 hover:text-white"><i class="fas fa-times text-[10px]"></i></button>
                         </div>
-                        <div id="preview-${p.id}"></div>
                     `;
-                    
                     card.onclick = () => { selectProject(p.id); if(window.innerWidth < 768) toggleSidebar(); };
                     list.appendChild(card);
                 });
             } catch(e) {}
         }
 
-        async function selectProject(id) {
-            currentId = id;
-            localStorage.setItem('kavrix_id', id);
-            document.getElementById("loaderLine").style.width = "30%";
-            try {
-                const r = await fetch(`${RENDER_URL}/project/${id}`);
-                const d = await r.json();
-                
-                if (d.code === "GENERATING") {
-                    startPolling(id);
-                } else {
-                    stopPolling();
-                    currentCode = d.code;
-                    const iframe = document.getElementById("preview");
-                    iframe.srcdoc = d.code;
-                    iframe.classList.remove("hidden");
-                    document.getElementById("codeDisplay").innerText = d.code;
-                    document.getElementById("emptyState").classList.add("hidden");
-                    loadProjects(); // Refresh list to show active state
-                }
-            } catch(e) {}
-        }
-
-        function startPolling(id) {
-            document.getElementById("loaderLine").style.width = "60%";
-            if (pollInterval) clearInterval(pollInterval);
-            pollInterval = setInterval(async () => {
-                const r = await fetch(`${RENDER_URL}/project/${id}`);
-                const d = await r.json();
-                if (d.code !== "GENERATING") selectProject(id);
-            }, 3000);
-        }
-
-        function stopPolling() {
-            if (pollInterval) clearInterval(pollInterval);
-            document.getElementById("loaderLine").style.width = "100%";
-            setTimeout(() => document.getElementById("loaderLine").style.width = "0%", 600);
-        }
-
         async function run() {
             const p = document.getElementById("prompt").value;
             if (!p) return;
-            document.getElementById("loaderLine").style.width = "20%";
+            document.getElementById("loaderLine").style.width = "30%";
             try {
                 const r = await fetch(`${RENDER_URL}/generate`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ prompt: p, projectId: currentId })
+                    body: JSON.stringify({ prompt: p, projectId: currentId, userId: userId })
                 });
                 const d = await r.json();
+                currentId = d.projectId;
                 startPolling(d.projectId);
                 document.getElementById("prompt").value = "";
             } catch(e) { alert("Fout bij genereren"); }
         }
 
-        async function deleteProject(id, e) {
-            e.stopPropagation();
-            if(!confirm("Project verwijderen?")) return;
-            await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
-            if(currentId === id) newProject(); else loadProjects();
+        function startPolling(id) {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(async () => {
+                const r = await fetch(`${RENDER_URL}/project/${id}`);
+                const d = await r.json();
+                if (d.code !== "GENERATING") {
+                    clearInterval(pollInterval);
+                    currentCode = d.code;
+                    document.getElementById("preview").srcdoc = d.code;
+                    document.getElementById("loaderLine").style.width = "100%";
+                    setTimeout(() => document.getElementById("loaderLine").style.width = "0%", 1000);
+                    loadProjects();
+                }
+            }, 3000);
+        }
+
+        async function selectProject(id) {
+            currentId = id;
+            const r = await fetch(`${RENDER_URL}/project/${id}`);
+            const d = await r.json();
+            currentCode = d.code;
+            document.getElementById("preview").srcdoc = d.code;
+            loadProjects();
         }
 
         function newProject() {
             currentId = null;
-            localStorage.removeItem('kavrix_id');
-            location.reload();
+            currentCode = "";
+            document.getElementById("preview").srcdoc = "<body style='background:#0f172a; display:flex; align-items:center; justify-content:center; color:white; font-family:sans-serif;'><h1>NIEUW PROJECT</h1></body>";
+            loadProjects();
         }
 
-        document.getElementById("go").onclick = run;
-        document.getElementById("prompt").onkeydown = (e) => { if(e.key === 'Enter') run(); };
-        if(currentId) selectProject(currentId);
-        loadProjects();
+        async function deleteProject(id, e) {
+            e.stopPropagation();
+            if (!confirm("Verwijderen?")) return;
+            await fetch(`${RENDER_URL}/delete-project/${id}`, { method: "DELETE" });
+            if (currentId === id) newProject();
+            loadProjects();
+        }
+
+        function useTemplate(type) {
+            document.getElementById("prompt").value = `Maak een luxe ${type} app met dummy data en iconen.`;
+            run();
+        }
+
+        function copyCode() {
+            navigator.clipboard.writeText(currentCode);
+            alert("Code gekopieerd!");
+        }
     </script>
 </body>
 </html>
