@@ -18,44 +18,37 @@ app.post('/generate', async (req, res) => {
 
     const generateAI = async (retryCount = 0) => {
         try {
-            const systemPrompt = `Je bent een Senior Full-Stack Developer. Maak een moderne, FUNCTIONELE app.
-            
-            LIVE DATA REGELS:
-            1. Gebruik 'fetch()' in de JavaScript om echte data op te halen.
-            2. Gebruik GRATIS API's zonder key, zoals:
-               - Crypto: https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=eur
-               - Weer: https://api.open-meteo.com/v1/forecast?latitude=52.37&longitude=4.89&current_weather=true
-               - Nieuws: https://ok.surf/api/v1/cors/news-feed
-            
-            DESIGN: Tailwind CSS, Lucide Icons, Google Fonts.
-            FOTO'S: <img src="https://loremflickr.com/800/600/[TOPIC]" alt="img">.
-            
-            STUUR ALTIJD DIT JSON OBJECT: {"html": "...", "css": "...", "js": "..."}`;
+            const systemPrompt = `Senior Dev. Maak moderne app. 
+            GEBRUIK: Tailwind, Lucide Icons, Google Fonts. 
+            LIVE DATA: Gebruik fetch() voor gratis API's (Crypto/Weer). 
+            FOTO'S: <img src="https://loremflickr.com/800/600/[TOPIC]">.
+            OUTPUT: JSON {"html": "...", "css": "...", "js": "..."}`;
 
             let userContent = prompt;
             if (existingFiles && existingFiles.html && existingFiles.html !== "GENERATING") {
-                userContent = `PAS DEZE CODE AAN EN VOEG LIVE DATA TOE:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nNIEUWE OPDRACHT: ${prompt}`;
+                userContent = `UPDATE CODE:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nWIJZIGING: ${prompt}`;
             }
 
             const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-                model: "llama3-8b-8192",
+                model: "mixtral-8x7b-32768", // KRACHTIGER EN STABIELER VOOR CODE
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userContent }
                 ],
-                temperature: 0.5,
+                temperature: 0.4, // Lager voor maximale stabiliteit
                 response_format: { type: "json_object" }
             }, {
                 headers: { 'Authorization': `Bearer ${process.env.API_KEY}` },
-                timeout: 25000
+                timeout: 45000 // We geven hem 45 seconden de tijd
             });
 
             projects[projectId].files = JSON.parse(response.data.choices[0].message.content);
         } catch (error) {
             if (retryCount < 2) {
+                console.log("Retry...");
                 await generateAI(retryCount + 1);
             } else {
-                projects[projectId].files = { html: "<div style='color:white;text-align:center;padding:50px;'><h1>AI is even druk...</h1><p>Probeer het opnieuw.</p></div>" };
+                projects[projectId].files = { html: "<div style='color:white;text-align:center;padding:50px;font-family:sans-serif;'><h1>KAVRIX is even aan het herstellen...</h1><p>Druk nogmaals op de Bolt-knop. De AI is momenteel erg druk.</p></div>" };
             }
         }
     };
