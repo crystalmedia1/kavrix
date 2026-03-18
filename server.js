@@ -14,7 +14,7 @@ const API_KEY = process.env.API_KEY;
 
 // --- AI ENGINE CONFIG ---
 let AI_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-let AI_MODEL = "llama-3.3-70b-versatile"; // Het slimste model voor maximale kwaliteit
+let AI_MODEL = "llama-3.3-70b-versatile"; 
 
 if (API_KEY && !API_KEY.startsWith("gsk_")) {
     AI_API_URL = "https://routellm.abacus.ai/v1/chat/completions";
@@ -22,7 +22,6 @@ if (API_KEY && !API_KEY.startsWith("gsk_")) {
 }
 
 // --- LIVE DATA PROXY ---
-// Hiermee kan jouw AI live data ophalen van externe API's zonder CORS-fouten
 app.get("/api/proxy", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).json({ error: "URL is verplicht" });
@@ -45,30 +44,24 @@ async function callDeepEngine(prompt, previousCode = "") {
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v14.0. Je bent een elite Full-Stack Developer en UI/UX Designer.
+                    content: `Je bent KAVRIX DEEP-ENGINE v14.1. Je bouwt luxe, moderne web-apps die Abacus.ai overtreffen.
                     
-                    JOUW OPDRACHT:
-                    Bouw een applicatie die visueel verbluffend is en technisch superieur aan Abacus.ai.
+                    BELANGRIJK VOOR LIVE DATA:
+                    Als je data nodig hebt (zoals Bitcoin prijzen), gebruik ALTIJD deze proxy structuur in je JavaScript:
+                    fetch('https://kavrix.onrender.com/api/proxy?url=' + encodeURIComponent('https://api.coindesk.com/v1/bpi/currentprice.json'))
                     
-                    DESIGN SYSTEEM (STRIKT VOLGEN):
-                    - Kleurenpalet: Deep Space (#020617), Indigo Glow (#6366f1), en Emerald Accent voor succes.
-                    - UI: Gebruik 'Glassmorphism' (bg-white/5, backdrop-blur-xl, border-white/10).
-                    - Animatie: Voeg subtiele CSS-animaties toe (@keyframes) voor het laden van elementen.
-                    - Layout: Gebruik CSS Grid voor complexe dashboards en Flexbox voor navigatie.
-                    - Fonts: Gebruik 'Plus Jakarta Sans' via Google Fonts.
-                    
-                    FUNCTIONALITEIT:
-                    - Gebruik Lucide Icons (https://unpkg.com/lucide@latest) voor een moderne look.
-                    - Gebruik Chart.js voor alle data-visualisaties en grafieken.
-                    - Als de gebruiker vraagt om live data (weer, crypto, nieuws, films), gebruik dan fetch() naar onze proxy: 
-                      'https://kavrix.onrender.com/api/proxy?url=[DOEL_URL]'
+                    DESIGN SYSTEEM:
+                    - UI: Deep Space (#020617), Glassmorphism (bg-white/5, backdrop-blur-xl, border-white/10).
+                    - Fonts: 'Plus Jakarta Sans'.
+                    - Icons: Lucide Icons (https://unpkg.com/lucide@latest).
+                    - Charts: Gebruik Chart.js voor alle grafieken.
                     
                     OUTPUT:
-                    Geef ALLEEN de volledige HTML code terug, inclusief CSS en JS in één bestand. Geen praatjes. Begin direct met <!DOCTYPE html>.` 
+                    Geef ALLEEN de volledige HTML code terug. Geen uitleg. Begin direct met <!DOCTYPE html>.` 
                 },
-                { role: "user", content: `PROJECT CONTEXT (Vorige Code):\n${previousCode}\n\nNIEUWE OPDRACHT: ${prompt}\n\nMaak er een meesterwerk van.` }
+                { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nOPDRACHT: ${prompt}\n\nMaak een meesterwerk met werkende live data.` }
             ],
-            temperature: 0.3
+            temperature: 0.2
         }, { 
             headers: { "Authorization": `Bearer ${API_KEY}` },
             timeout: 150000 
@@ -77,13 +70,12 @@ async function callDeepEngine(prompt, previousCode = "") {
         let code = response.data.choices[0].message.content;
         return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
     } catch (error) {
-        console.error("AI Error, switching to Fallback Mode...");
-        // FALLBACK naar het snellere 8b model als het grote model te traag is of een fout geeft
+        console.error("AI Error, switching to Fallback...");
         try {
             const fallback = await axios.post(AI_API_URL, {
                 model: "llama-3.1-8b-instant",
                 messages: [
-                    { role: "system", content: "Bouw een luxe, moderne HTML app met Tailwind CSS. Geef alleen de code." },
+                    { role: "system", content: "Bouw een luxe HTML app met Tailwind CSS en werkende live data via de proxy. Geef alleen de code." },
                     { role: "user", content: prompt }
                 ]
             }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
@@ -118,12 +110,10 @@ app.post("/generate", async (req, res) => {
 
         res.json({ projectId: id });
 
-        // Achtergrond proces voor generatie
         callDeepEngine(prompt, previousCode).then(async (finalCode) => {
-            // Genereer een korte naam voor het project
             const nameResponse = await axios.post(AI_API_URL, {
                 model: "llama-3.1-8b-instant",
-                messages: [{ role: "user", content: `Geef een korte, krachtige naam (max 2 woorden) voor deze app: ${prompt}. Geef alleen de naam.` }]
+                messages: [{ role: "user", content: `Korte naam (max 2 woorden) voor: ${prompt}. Alleen de naam.` }]
             }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => ({ data: { choices: [{ message: { content: "Nieuw Project" } }] } }));
             
             const newName = nameResponse.data.choices[0].message.content.replace(/"/g, "").trim();
@@ -159,6 +149,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v14.0 Online`));
-
-process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
+app.listen(PORT, () => console.log(`Kavrix Engine v14.1 Online`));
