@@ -1,176 +1,76 @@
-<!DOCTYPE html>
-<html lang="nl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KAVRIX | AI App Builder Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; overflow: hidden; margin: 0; height: 100vh; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); }
-        .sidebar { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 40; background: #0f172a; border-right: 1px solid rgba(255,255,255,0.05); }
-        .project-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; cursor: pointer; padding: 14px; border-radius: 14px; margin-bottom: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
-        .project-card:hover { background: rgba(99, 102, 241, 0.1); border-color: #6366f1; color: white; transform: translateX(5px); }
-        iframe { background: #f8fafc; border-radius: 24px; width: 100%; height: 100%; border: none; box-shadow: 0 25px 60px rgba(0,0,0,0.4); }
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+require('dotenv').config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const projects = {};
+
+app.post('/generate', async (req, res) => {
+    const { prompt, userId, existingCode } = req.body;
+    const projectId = 'proj_' + Math.random().toString(36).substr(2, 9);
+    
+    projects[projectId] = { 
+        code: "GENERATING", 
+        name: prompt.length > 25 ? prompt.substring(0, 25) + "..." : prompt, 
+        userId: userId 
+    };
+    res.json({ projectId });
+
+    try {
+        const systemPrompt = existingCode 
+            ? "Je bent een expert developer. Pas de BESTAANDE code aan op basis van de vraag van de gebruiker. Geef ALLEEN de volledige nieuwe HTML code terug. Geen tekst, geen uitleg. Geen markdown code blocks."
+            : "Je bent een expert developer. Genereer een volledige HTML/CSS/JS app in één bestand. Gebruik Tailwind CSS. Geen tekst, alleen code. Geen markdown code blocks.";
+
+        const userContent = existingCode 
+            ? `BESTAANDE CODE:\n${existingCode}\n\nAANPASSING: ${prompt}`
+            : `Maak deze app: ${prompt}`;
+
+        const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+            model: "llama-3.3-70b-versatile",
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userContent }
+            ],
+            temperature: 0.6
+        }, {
+            headers: { 
+                'Authorization': `Bearer ${process.env.API_KEY}`, 
+                'Content-Type': 'application/json' 
+            }
+        });
+
+        let code = response.data.choices[0].message.content;
         
-        /* Code Panel */
-        #codePanel { position: fixed; right: -100%; top: 0; width: 40%; height: 100%; background: #020617; z-index: 50; transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); border-left: 1px solid rgba(255,255,255,0.1); padding: 20px; display: flex; flex-direction: column; }
-        #codePanel.open { right: 0; }
-        pre { font-family: 'Fira Code', monospace; font-size: 12px; color: #94a3b8; overflow: auto; flex: 1; padding: 20px; background: rgba(0,0,0,0.3); border-radius: 12px; }
-        
-        #splash { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; cursor: pointer; }
-        .logo-anim { font-size: 4rem; font-weight: 900; letter-spacing: -4px; animation: pulse 2s infinite; background: linear-gradient(135deg, #6366f1, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .hidden-sidebar { transform: translateX(-100%); }
-        @media (min-width: 768px) { .hidden-sidebar { transform: translateX(0); } }
-    </style>
-</head>
-<body class="flex flex-col">
-
-    <div id="splash" onclick="hideSplash()">
-        <div class="logo-anim">KAVRIX</div>
-        <div class="mt-6 text-slate-500 text-[9px] font-black tracking-[0.5em] uppercase">Neural Engine</div>
-    </div>
-
-    <!-- CODE PANEL -->
-    <div id="codePanel">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="font-black text-xs uppercase tracking-widest text-indigo-500">Source Code</h2>
-            <button onclick="toggleCode()" class="text-slate-500 hover:text-white"><i class="fas fa-times"></i></button>
-        </div>
-        <pre id="codeDisplay"></pre>
-        <button onclick="copyCode()" class="mt-4 w-full py-3 bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest">Copy Full Code</button>
-    </div>
-
-    <header class="h-20 glass flex items-center justify-between px-8 shrink-0 z-10">
-        <div class="flex items-center gap-6">
-            <button onclick="toggleSidebar()" class="p-3 hover:bg-white/10 rounded-2xl md:hidden transition"><i class="fas fa-align-left"></i></button>
-            <h1 class="font-black tracking-tighter text-3xl italic">KAVRIX <span id="modeTag" class="text-indigo-500 not-italic text-[10px] bg-indigo-500/20 border border-indigo-500/30 px-2.5 py-1 rounded-full ml-2 uppercase tracking-widest">New</span></h1>
-        </div>
-        <div class="flex gap-4">
-            <button onclick="toggleCode()" class="px-6 py-3 glass rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition">Inspect</button>
-            <button onclick="newProject()" class="px-6 py-3 bg-indigo-600 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-500 transition">New App</button>
-        </div>
-    </header>
-
-    <div class="flex flex-1 overflow-hidden relative">
-        <aside id="sidebar" class="sidebar absolute md:relative w-80 h-full hidden-sidebar flex flex-col shadow-2xl">
-            <div class="p-8 font-black text-[11px] uppercase tracking-[0.3em] text-slate-500">Library</div>
-            <div id="projectList" class="flex-1 overflow-y-auto px-6"></div>
-        </aside>
-
-        <main class="flex-1 flex flex-col p-4 md:p-8 gap-6 relative bg-[#0f172a]">
-            <div id="loaderLine" class="absolute top-0 left-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-1000" style="width: 0%"></div>
-            
-            <div id="statusText" class="absolute top-10 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500/50 pointer-events-none"></div>
-
-            <div class="flex-1 glass rounded-[32px] overflow-hidden relative p-1.5 bg-white/5">
-                <iframe id="preview"></iframe>
-            </div>
-
-            <div class="max-w-4xl mx-auto w-full glass p-3 rounded-[24px] flex items-center gap-3 shadow-2xl border-white/10 mb-2">
-                <div class="pl-4 text-indigo-500"><i class="fas fa-wand-sparkles"></i></div>
-                <input id="prompt" type="text" placeholder="Wat gaan we vandaag creëren?" class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm font-semibold text-white">
-                <button onclick="run()" class="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center hover:bg-indigo-500 transition">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
-        </main>
-    </div>
-
-    <script>
-        var RENDER_URL = "https://kavrix.onrender.com";
-        var currentCode = "";
-        var userId = localStorage.getItem('kavrix_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('kavrix_user_id', userId);
-
-        function hideSplash() {
-            var s = document.getElementById('splash');
-            if(s) { s.style.opacity = '0'; setTimeout(() => s.remove(), 800); }
+        // Schoon de code op (verwijder markdown en tekst)
+        code = code.replace(/```html/g, "").replace(/```/g, "").trim();
+        if (code.includes("<​!DOCTYPE html>")) {
+            code = code.substring(code.indexOf("<​!DOCTYPE html>"));
         }
-        setTimeout(hideSplash, 4000);
-
-        window.onload = function() {
-            document.getElementById("preview").srcdoc = "<html><body style='background:#0f172a; color:white; display:flex; align-items:center; justify-content:center; height:100vh; font-family:sans-serif;'><h1>KAVRIX READY</h1></body></html>";
-            loadProjects();
-        };
-
-        function toggleSidebar() { document.getElementById("sidebar").classList.toggle("hidden-sidebar"); }
-        function toggleCode() { document.getElementById("codePanel").classList.toggle("open"); }
-
-        function updateStatus(text) {
-            document.getElementById("statusText").innerText = text;
+        if (code.includes("<​/html>")) {
+            code = code.substring(0, code.indexOf("<​/html>") + 7);
         }
 
-        function loadProjects() {
-            fetch(RENDER_URL + "/projects/" + userId).then(r => r.json()).then(data => {
-                var list = document.getElementById("projectList");
-                list.innerHTML = "";
-                data.forEach(p => {
-                    var card = document.createElement("div");
-                    card.className = "project-card";
-                    card.innerText = p.name;
-                    card.onclick = () => selectProject(p.id);
-                    list.appendChild(card);
-                });
-            });
-        }
+        projects[projectId].code = code;
+    } catch (error) {
+        console.error("AI Error:", error);
+        projects[projectId].code = "<h1>Fout bij genereren. Controleer je API key op Render.</h1>";
+    }
+});
 
-        function run() {
-            var p = document.getElementById("prompt").value;
-            if (!p) return;
-            document.getElementById("loaderLine").style.width = "40%";
-            updateStatus("Analyzing Request...");
-            
-            fetch(RENDER_URL + "/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: p, userId: userId, existingCode: currentCode })
-            }).then(r => r.json()).then(d => {
-                updateStatus("Neural Engine Processing...");
-                startPolling(d.projectId);
-                document.getElementById("prompt").value = "";
-            });
-        }
+app.get('/project/:id', (req, res) => {
+    res.json(projects[req.params.id] || { code: "NOT_FOUND" });
+});
 
-        function startPolling(id) {
-            var interval = setInterval(() => {
-                fetch(RENDER_URL + "/project/" + id).then(r => r.json()).then(d => {
-                    if (d.code !== "GENERATING") {
-                        clearInterval(interval);
-                        document.getElementById("preview").srcdoc = d.code;
-                        currentCode = d.code;
-                        document.getElementById("codeDisplay").innerText = d.code;
-                        updateStatus("");
-                        document.getElementById("modeTag").innerText = "Edit Mode";
-                        document.getElementById("modeTag").className = "text-green-500 not-italic text-[10px] bg-green-500/20 border border-green-500/30 px-2.5 py-1 rounded-full ml-2 uppercase tracking-widest";
-                        document.getElementById("loaderLine").style.width = "100%";
-                        setTimeout(() => document.getElementById("loaderLine").style.width = "0%", 1000);
-                        loadProjects();
-                    } else {
-                        updateStatus("Writing Code Structure...");
-                    }
-                });
-            }, 3000);
-        }
+app.get('/projects/:userId', (req, res) => {
+    const userProjects = Object.keys(projects)
+        .filter(id => projects[id].userId === req.params.userId)
+        .map(id => ({ id, name: projects[id].name }));
+    res.json(userProjects);
+});
 
-        function selectProject(id) {
-            updateStatus("Loading Project...");
-            fetch(RENDER_URL + "/project/" + id).then(r => r.json()).then(d => {
-                document.getElementById("preview").srcdoc = d.code;
-                currentCode = d.code;
-                document.getElementById("codeDisplay").innerText = d.code;
-                document.getElementById("modeTag").innerText = "Edit Mode";
-                updateStatus("");
-            });
-        }
-
-        function newProject() { location.reload(); }
-        function copyCode() { 
-            navigator.clipboard.writeText(currentCode);
-            alert("Code gekopieerd naar klembord!"); 
-        }
-    </script>
-</body>
-</html>
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Kavrix Smart Engine live op poort ${PORT}`));
