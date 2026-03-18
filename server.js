@@ -13,18 +13,14 @@ app.post('/generate', async (req, res) => {
     const { prompt, userId, existingFiles } = req.body;
     const projectId = 'proj_' + Math.random().toString(36).substr(2, 9);
     
-    projects[projectId] = { 
-        files: { html: "GENERATING", css: "", js: "" }, 
-        name: prompt.substring(0, 25), 
-        userId: userId 
-    };
+    projects[projectId] = { files: { html: "GENERATING" }, name: prompt.substring(0, 20), userId: userId };
     res.json({ projectId });
 
     try {
-        let systemPrompt = `Je bent een senior developer. Genereer een moderne app. 
+        const systemPrompt = `Je bent een senior developer. Genereer een moderne app. 
         BELANGRIJK VOOR AFBEELDINGEN: Gebruik ALTIJD deze URL structuur voor <img> tags: 
-        https://image.pollinations.ai/prompt/[KORTE_ENGELSE_BESCHRIJVING]?width=800&height=600&nologo=true
-        Vervang [KORTE_ENGELSE_BESCHRIJVING] door een relevante beschrijving van de afbeelding (bijv. "luxury_watch_gold" of "cyberpunk_cityscape").
+        https://image.pollinations.ai/prompt/[BESCHRIJVING]?width=800&height=600&nologo=true
+        Vervang [BESCHRIJVING] door een korte Engelse omschrijving.
         
         STUUR ALTIJD EEN JSON OBJECT TERUG:
         {
@@ -33,18 +29,11 @@ app.post('/generate', async (req, res) => {
             "js": "alle javascript logica"
         }`;
 
-        let userContent = `Maak deze app: ${prompt}`;
-        
-        if (existingFiles && existingFiles.html) {
-            systemPrompt += `\nPas de BESTAANDE code aan op basis van de vraag. Behoud de AI image URL structuur.`;
-            userContent = `BESTAANDE HTML: ${existingFiles.html}\nBESTAANDE CSS: ${existingFiles.css}\nBESTAANDE JS: ${existingFiles.js}\n\nAANPASSING: ${prompt}`;
-        }
-
         const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
             model: "llama-3.3-70b-versatile",
             messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: userContent }
+                { role: "user", content: prompt }
             ],
             response_format: { type: "json_object" }
         }, {
@@ -53,6 +42,7 @@ app.post('/generate', async (req, res) => {
 
         projects[projectId].files = JSON.parse(response.data.choices[0].message.content);
     } catch (error) {
+        console.error("AI FOUT:", error.message);
         projects[projectId].files = { html: "<h1>Fout bij genereren</h1>", css: "", js: "" };
     }
 });
