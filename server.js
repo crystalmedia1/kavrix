@@ -12,11 +12,12 @@ const supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABA
 const API_KEY = process.env.API_KEY;
 
 let AI_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-let AI_MODEL = "llama-3.3-70b-versatile"; 
+let PRIMARY_MODEL = "llama-3.3-70b-versatile"; 
+let FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 if (API_KEY && !API_KEY.startsWith("gsk_")) {
     AI_API_URL = "https://routellm.abacus.ai/v1/chat/completions";
-    AI_MODEL = "route-llm";
+    PRIMARY_MODEL = "route-llm";
 }
 
 let queue = [];
@@ -26,27 +27,21 @@ async function processQueue() {
     if (isProcessing || queue.length === 0) return;
     isProcessing = true;
     const task = queue.shift();
-    try { await processAIRequest(task.prompt, task.previousCode, task.projectId); } catch (e) {}
+    try { await smartAIRequest(task.prompt, task.previousCode, task.projectId); } catch (e) {}
     isProcessing = false;
-    setTimeout(processQueue, 1500);
+    setTimeout(processQueue, 2000);
 }
 
-async function processAIRequest(prompt, previousCode, projectId) {
+// Slimme functie met Retry en Fallback
+async function smartAIRequest(prompt, previousCode, projectId, attempt = 1) {
     try {
+        const model = attempt > 1 ? FALLBACK_MODEL : PRIMARY_MODEL;
+        console.log(`Poging ${attempt} met model: ${model}`);
+
         const architectResponse = await axios.post(AI_API_URL, {
-            model: AI_MODEL,
+            model: model,
             messages: [
-                { 
-                    role: "system", 
-                    content: `Je bent de KAVRIX MASTER ARCHITECT. 
-                    Bouw apps die eruitzien als Apple of Stripe design.
-                    - Gebruik Tailwind CSS en FontAwesome 6.
-                    - Maak ALLES responsive (mobile-first).
-                    - Als de gebruiker een 'Webshop' vraagt: Maak een luxe product-grid en een werkende winkelwagen-popup.
-                    - Als de gebruiker een 'Social Feed' vraagt: Maak een Instagram-stijl feed met werkende hartjes (likes).
-                    - Als de gebruiker een 'Game' vraagt: Maak een interactieve game met JavaScript.
-                    Geef ALLEEN de ruwe HTML code terug.` 
-                },
+                { role: "system", content: "Je bent de KAVRIX MASTER ARCHITECT. Bouw luxe HTML5 apps met Tailwind CSS. Geef ALLEEN de ruwe HTML code terug." },
                 { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 180000 });
@@ -54,19 +49,19 @@ async function processAIRequest(prompt, previousCode, projectId) {
         let rawCode = architectResponse.data.choices[0].message.content;
 
         const reviewerResponse = await axios.post(AI_API_URL, {
-            model: "llama-3.1-8b-instant",
+            model: FALLBACK_MODEL,
             messages: [
-                { role: "system", content: "Schoon de code op. Verwijder alle tekst buiten de HTML tags. Begin met <!DOCTYPE html>." },
+                { role: "system", content: "Schoon de code op. Begin met <!DOCTYPE html>." },
                 { role: "user", content: rawCode }
             ]
-        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 60000 });
 
         let finalCode = reviewerResponse.data.choices[0].message.content;
         if (finalCode.includes("<​/html>")) finalCode = finalCode.split("<​/html>")[0] + "<​/html>";
         finalCode = finalCode.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
 
         const nameResponse = await axios.post(AI_API_URL, {
-            model: "llama-3.1-8b-instant",
+            model: FALLBACK_MODEL,
             messages: [{ role: "user", content: `Korte naam (max 10 tekens) voor: ${prompt}` }]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => ({ data: { choices: [{ message: { content: "APP" } }] } }));
         
@@ -75,7 +70,12 @@ async function processAIRequest(prompt, previousCode, projectId) {
         await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", projectId);
 
     } catch (error) {
-        await supabase.from("projects").update({ code: "FOUT: AI overbelast. Probeer opnieuw." }).eq("id", projectId);
+        if (attempt < 3) {
+            console.log("AI druk, even wachten en opnieuw proberen...");
+            await new Promise(r => setTimeout(r, 5000));
+            return smartAIRequest(prompt, previousCode, projectId, attempt + 1);
+        }
+        await supabase.from("projects").update({ code: "FOUT: De AI-servers zijn momenteel overbelast. Probeer het over 5 minuten nog eens." }).eq("id", projectId);
     }
 }
 
@@ -123,4 +123,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Master Engine v19.0 Online`));
+app.listen(PORT, () => console.log(`Kavrix Resilience Engine v20.0 Online`));
