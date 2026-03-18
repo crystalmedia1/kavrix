@@ -23,8 +23,10 @@ app.post('/generate', async (req, res) => {
     try {
         let systemPrompt = `Je bent een senior developer. Genereer een moderne app. 
         BELANGRIJK VOOR AFBEELDINGEN: Gebruik ALTIJD deze URL structuur voor <img> tags: 
-        https://image.pollinations.ai/prompt/[TOPIC]?width=1080&height=720&nologo=true
-        Vervang [TOPIC] door EEN ENKEL ENGELS WOORD (bijv. "car", "watch", "sneaker"). Gebruik GEEN spaties in de URL.
+        https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80
+        OF gebruik voor specifieke onderwerpen:
+        https://source.unsplash.com/featured/800x600?[TOPIC]
+        Vervang [TOPIC] door een Engels woord (bijv. "car", "watch").
         
         STUUR ALTIJD EEN JSON OBJECT TERUG:
         {
@@ -36,7 +38,7 @@ app.post('/generate', async (req, res) => {
         let userContent = `Maak deze app: ${prompt}`;
         
         if (existingFiles && existingFiles.html) {
-            systemPrompt += `\nPas de BESTAANDE code aan op basis van de vraag. Behoud de AI image URL structuur.`;
+            systemPrompt += `\nPas de BESTAANDE code aan op basis van de vraag.`;
             userContent = `BESTAANDE HTML: ${existingFiles.html}\nBESTAANDE CSS: ${existingFiles.css}\nBESTAANDE JS: ${existingFiles.js}\n\nAANPASSING: ${prompt}`;
         }
 
