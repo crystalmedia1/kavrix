@@ -11,9 +11,9 @@ app.use(express.json({ limit: "50mb" }));
 const supabase = createClient(process.env.SUPABASE_URL || "", process.env.SUPABASE_KEY || "");
 const API_KEY = process.env.API_KEY;
 
-// --- INTELLIGENCE CONFIG ---
+// --- HYBRID CONFIG ---
 let AI_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-let AI_MODEL = "llama-3.3-70b-versatile"; // We gaan terug naar het grote model voor maximale kwaliteit
+let AI_MODEL = "llama-3.3-70b-versatile"; 
 
 if (API_KEY && !API_KEY.startsWith("gsk_")) {
     AI_API_URL = "https://routellm.abacus.ai/v1/chat/completions";
@@ -25,49 +25,48 @@ app.get("/api/proxy", async (req, res) => {
     const targetUrl = req.query.url;
     if (!targetUrl) return res.status(400).json({ error: "URL is verplicht" });
     try {
-        const response = await axios.get(targetUrl, { timeout: 15000 });
+        const response = await axios.get(targetUrl, { timeout: 10000 });
         res.json(response.data);
     } catch (error) {
-        res.status(500).json({ error: "Proxy Error: " + error.message });
+        res.status(500).json({ error: "Proxy Error" });
     }
 });
 
 async function callDeepEngine(prompt, previousCode = "") {
     try {
+        // We proberen eerst het slimme model, als dat faalt schakelen we over
         const response = await axios.post(AI_API_URL, {
             model: AI_MODEL,
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent KAVRIX DEEP-ENGINE v13.0, de meest geavanceerde AI App Builder ter wereld. Je bent ontworpen om Abacus.ai te overtreffen in code-kwaliteit en design.
-
-                    JOUW WERKWIJZE:
-                    1. ANALYSE: Begrijp de diepere wens van de gebruiker.
-                    2. DESIGN: Gebruik een 'Apple-style' luxe interface. Donkere modus (#020617), Glassmorphism, en vloeiende Framer Motion-achtige animaties.
-                    3. CODE: Schrijf modulaire, foutloze JavaScript. Gebruik Tailwind CSS v3.4+.
-                    4. DATA: Gebruik de proxy voor live API-koppelingen.
-
-                    STIJL-ELEMENTEN:
-                    - Gebruik 'Plus Jakarta Sans' font.
-                    - Gebruik Lucide Icons (https://unpkg.com/lucide@latest).
-                    - Gebruik Chart.js voor alle data-visualisaties.
-                    - Containers moeten 'backdrop-blur-2xl bg-white/5 border border-white/10 rounded-[40px]' zijn.
-
-                    Geef ALLEEN de volledige HTML code terug. Geen praatjes, alleen pure code.` 
+                    content: `Je bent KAVRIX DEEP-ENGINE v13.1. Bouw een pixel-perfecte, luxe web-app.
+                    STIJL: Donker thema (#020617), Glassmorphism, Tailwind CSS, Lucide Icons.
+                    Geef ALLEEN de volledige HTML code terug.` 
                 },
-                { role: "user", content: `CONTEXT (Vorige Code):\n${previousCode}\n\nOPDRACHT: ${prompt}\n\nBouw een meesterwerk.` }
+                { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ],
-            temperature: 0.3
+            temperature: 0.2
         }, { 
             headers: { "Authorization": `Bearer ${API_KEY}` },
-            timeout: 150000 
+            timeout: 50000 // Kortere timeout om 'hangen' te voorkomen
         });
         
         let code = response.data.choices[0].message.content;
         return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
     } catch (error) {
-        console.error("AI Error:", error.message);
-        throw new Error("DeepEngine is aan het nadenken. Probeer het over 10 seconden opnieuw.");
+        console.error("Switching to Fast Mode...");
+        // FALLBACK naar het snellere model als het grote model te traag is
+        const fallbackResponse = await axios.post(AI_API_URL, {
+            model: "llama-3.1-8b-instant",
+            messages: [
+                { role: "system", content: "Bouw een luxe web-app met Tailwind CSS. Geef alleen HTML." },
+                { role: "user", content: prompt }
+            ]
+        }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
+        
+        let code = fallbackResponse.data.choices[0].message.content;
+        return code.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
     }
 }
 
@@ -83,7 +82,7 @@ app.post("/generate", async (req, res) => {
         }
 
         if (!id) {
-            const { data, error } = await supabase.from("projects").insert([{ name: "DeepEngine denkt na...", code: "GENERATING", prompt: prompt }]).select();
+            const { data, error } = await supabase.from("projects").insert([{ name: "Nadenken...", code: "GENERATING", prompt: prompt }]).select();
             if (error) throw error;
             id = data[0].id;
         } else {
@@ -92,16 +91,8 @@ app.post("/generate", async (req, res) => {
 
         res.json({ projectId: id });
 
-        // Achtergrond proces
         callDeepEngine(prompt, previousCode).then(async (finalCode) => {
-            // Naam verzinnen
-            const nameResponse = await axios.post(AI_API_URL, {
-                model: "llama-3.1-8b-instant",
-                messages: [{ role: "user", content: `Geef een korte, krachtige naam voor deze app: ${prompt}. Max 2 woorden.` }]
-            }, { headers: { "Authorization": `Bearer ${API_KEY}` } }).catch(() => null);
-            
-            const newName = nameResponse ? nameResponse.data.choices[0].message.content.replace(/"/g, "").trim() : "Kavrix App";
-            await supabase.from("projects").update({ code: finalCode, name: newName }).eq("id", id);
+            await supabase.from("projects").update({ code: finalCode, name: prompt.substring(0, 20) }).eq("id", id);
         }).catch(async (err) => {
             await supabase.from("projects").update({ code: "FOUT: " + err.message }).eq("id", id);
         });
@@ -111,27 +102,20 @@ app.post("/generate", async (req, res) => {
     }
 });
 
-// Overige routes...
 app.get("/projects", async (req, res) => {
-    try {
-        const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
-        res.json(data || []);
-    } catch (e) { res.json([]); }
+    const { data } = await supabase.from("projects").select("id, name, created_at").order("created_at", { ascending: false });
+    res.json(data || []);
 });
 
 app.get("/project/:id", async (req, res) => {
-    try {
-        const { data } = await supabase.from("projects").select("*").eq("id", req.params.id).single();
-        res.json(data);
-    } catch (e) { res.status(404).json({ error: "Niet gevonden" }); }
+    const { data } = await supabase.from("projects").select("*").eq("id", req.params.id).single();
+    res.json(data);
 });
 
 app.delete("/delete-project/:id", async (req, res) => {
-    try {
-        await supabase.from("projects").delete().eq("id", req.params.id);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    await supabase.from("projects").delete().eq("id", req.params.id);
+    res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Engine v13.0 Online`));
+app.listen(PORT, () => console.log(`Kavrix Engine v13.1 Online`));
