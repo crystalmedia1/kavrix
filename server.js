@@ -17,28 +17,20 @@ app.post('/generate', async (req, res) => {
     res.json({ projectId });
 
     try {
-        let systemPrompt = `Je bent een UI/UX Designer en Senior Developer. 
-        Jouw doel: Maak visueel verbluffende apps met moderne effecten.
-        
-        GEREEDSCHAPSKIST:
-        1. Framework: Tailwind CSS (CDN).
-        2. Icons: Lucide Icons (CDN: https://unpkg.com/lucide@latest). Gebruik <i data-lucide="icon-name"></i>.
-        3. Fonts: Gebruik Google Fonts (bijv. Inter of Poppins).
-        4. Foto's: <img src="https://loremflickr.com/800/600/[TOPIC]" alt="img">.
-        5. Effecten: Glassmorphism, Neon Glow, Smooth Transitions.
+        const systemPrompt = `Je bent een Senior Designer. Maak een moderne app.
+        GEBRUIK: Tailwind CSS, Lucide Icons, Google Fonts.
+        FOTO'S: <img src="https://loremflickr.com/800/600/[TOPIC]" alt="img">.
         
         STUUR ALTIJD DIT JSON OBJECT:
         {
-            "html": "volledige html (inclusief alle CDN links en lucide.createIcons() script onderaan)",
-            "css": "custom css voor animaties en glow",
+            "html": "volledige html (inclusief Tailwind & Lucide CDN)",
+            "css": "custom styling voor glow/effecten",
             "js": "javascript logica"
         }`;
 
-        let userContent = `ONTWERP DIT: ${prompt}`;
-        
+        let userContent = prompt;
         if (existingFiles && existingFiles.html && existingFiles.html !== "GENERATING") {
-            systemPrompt += `\n\nPAS DE BESTAANDE CODE AAN. Behoud de stijl en de nieuwe gereedschappen.`;
-            userContent = `BESTAANDE CODE:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nNIEUWE OPDRACHT: ${prompt}`;
+            userContent = `PAS DEZE CODE AAN:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nNIEUWE OPDRACHT: ${prompt}`;
         }
 
         const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
@@ -47,15 +39,17 @@ app.post('/generate', async (req, res) => {
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userContent }
             ],
-            temperature: 0.7,
+            temperature: 0.6, // Iets lager voor meer stabiliteit
             response_format: { type: "json_object" }
         }, {
-            headers: { 'Authorization': `Bearer ${process.env.API_KEY}` }
+            headers: { 'Authorization': `Bearer ${process.env.API_KEY}` },
+            timeout: 30000 // 30 seconden wachttijd
         });
 
         projects[projectId].files = JSON.parse(response.data.choices[0].message.content);
     } catch (error) {
-        projects[projectId].files = { html: "<h1>Creatieve fout... probeer het opnieuw!</h1>" };
+        console.error("AI FOUT:", error.message);
+        projects[projectId].files = { html: "<h1 style='color:white;text-align:center;margin-top:50px;'>AI is even druk... probeer het nog een keer!</h1>" };
     }
 });
 
