@@ -34,56 +34,52 @@ app.get("/api/proxy", async (req, res) => {
     }
 });
 
-// --- MULTI-AGENT LOGICA v16.0 ---
+// --- MULTI-AGENT LOGICA v16.1 ---
 async function callDeepEngine(prompt, previousCode = "") {
     try {
-        // STAP 1: DE ARCHITECT BOUWT DE BASIS
-        console.log("Agent 1 (Architect) start met bouwen...");
+        // STAP 1: ARCHITECT
         const architectResponse = await axios.post(AI_API_URL, {
             model: AI_MODEL,
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent de KAVRIX ARCHITECT. Bouw een luxe HTML5 app/game met Tailwind CSS. 
-                    Gebruik de proxy voor data: fetch('https://kavrix.onrender.com/api/proxy?url=' + encodeURIComponent(URL))
+                    content: `Je bent de KAVRIX ARCHITECT. Bouw een luxe HTML5 app. 
+                    BELANGRIJK: Gebruik Tailwind CSS 'flex' en 'items-center' om alles PERFECT gecentreerd en passend te maken op mobiel en desktop. Geen chaos.
                     Geef ALLEEN de ruwe HTML code terug.` 
                 },
                 { role: "user", content: `CONTEXT:\n${previousCode}\n\nOPDRACHT: ${prompt}` }
             ]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
 
-        let rawCode = architectResponse.data.choices[0].message.content.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
+        let rawCode = architectResponse.data.choices[0].message.content;
 
-        // STAP 2: DE REVIEWER CONTROLEERT EN VERBETERT
-        console.log("Agent 2 (Reviewer) controleert de code...");
+        // STAP 2: REVIEWER (DE "CLEANER")
         const reviewerResponse = await axios.post(AI_API_URL, {
-            model: "llama-3.1-8b-instant", // Snellere model voor review
+            model: "llama-3.1-8b-instant",
             messages: [
                 { 
                     role: "system", 
-                    content: `Je bent de KAVRIX REVIEWER. Je krijgt HTML code van de Architect. 
-                    Jouw taak:
-                    1. Verwijder alle tekst die GEEN code is (uitleg, intro's).
-                    2. Controleer of Tailwind CSS en FontAwesome links aanwezig zijn.
-                    3. Zorg dat de UI 'Apple-style' luxe is.
-                    4. Fix eventuele JavaScript fouten.
-                    
-                    OUTPUT: Geef ALLEEN de verbeterde, volledige HTML code terug. Begin direct met <!DOCTYPE html>.` 
+                    content: `Je bent de KAVRIX REVIEWER. 
+                    TAAK: 
+                    1. Zorg dat de code PERFECT PASSEND is (gebruik h-screen, overflow-hidden, en flex-col).
+                    2. Verwijder ELKE letter die geen code is. 
+                    3. Begin met <!DOCTYPE html> en eindig met </html>. Niets anders.` 
                 },
-                { role: "user", content: `Controleer deze code:\n\n${rawCode}` }
+                { role: "user", content: `Maak deze code perfect passend en verwijder alle uitleg:\n\n${rawCode}` }
             ]
         }, { headers: { "Authorization": `Bearer ${API_KEY}` }, timeout: 90000 });
 
-        let finalCode = reviewerResponse.data.choices[0].message.content.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
-        return finalCode;
+        let finalCode = reviewerResponse.data.choices[0].message.content;
+        
+        // EXTRA BEVEILIGING: Snij alles af na </html>
+        if (finalCode.includes("<​/html>")) {
+            finalCode = finalCode.split("<​/html>")[0] + "<​/html>";
+        }
+        
+        return finalCode.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
 
     } catch (error) {
-        console.error("Multi-Agent Error, switching to Fallback...");
-        const fallback = await axios.post(AI_API_URL, {
-            model: "llama-3.1-8b-instant",
-            messages: [{ role: "user", content: "Bouw een luxe HTML app voor: " + prompt }]
-        }, { headers: { "Authorization": `Bearer ${API_KEY}` } });
-        return fallback.data.choices[0].message.content.replace(/```(?:html)?/gi, "").replace(/```/g, "").trim();
+        return "FOUT: DeepEngine kon de code niet opschonen. Probeer het opnieuw.";
     }
 }
 
@@ -148,4 +144,4 @@ app.delete("/delete-project/:id", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Kavrix Multi-Agent Engine v16.0 Online`));
+app.listen(PORT, () => console.log(`Kavrix Perfect-Fit Engine v16.1 Online`));
