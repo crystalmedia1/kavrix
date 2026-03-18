@@ -12,24 +12,28 @@ const projects = {};
 app.post('/generate', async (req, res) => {
     const { prompt, userId } = req.body;
     const projectId = 'proj_' + Math.random().toString(36).substr(2, 9);
-    projects[projectId] = { files: { html: "GENERATING" }, name: "Test", userId: userId };
+    
+    projects[projectId] = { files: { html: "GENERATING" }, name: prompt.substring(0, 20), userId: userId };
     res.json({ projectId });
 
     try {
         const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
             model: "llama3-8b-8192",
-            messages: [{ role: "user", content: "Maak een simpele HTML pagina: " + prompt }],
+            messages: [
+                { role: "system", content: "Je bent een web developer. Stuur ALTIJD een JSON object terug met de velden 'html', 'css' en 'js'." },
+                { role: "user", content: "Maak deze app: " + prompt }
+            ],
+            response_format: { type: "json_object" }, // DIT VOORKOMT DE 400 FOUT
             temperature: 0.5
         }, {
             headers: { 'Authorization': `Bearer ${process.env.API_KEY}` },
-            timeout: 10000
+            timeout: 20000
         });
 
-        const content = response.data.choices[0].message.content;
-        projects[projectId].files = { html: content, css: "", js: "" };
+        projects[projectId].files = JSON.parse(response.data.choices[0].message.content);
     } catch (error) {
         console.error("FOUT:", error.message);
-        projects[projectId].files = { html: "<h1>AI Verbindingsfout: " + error.message + "<​/h1>" };
+        projects[projectId].files = { html: "<h1 style='color:white;text-align:center;padding:50px;'>Verbindingsfout: " + error.message + "<​/h1>", css: "", js: "" };
     }
 });
 
