@@ -19,7 +19,7 @@
         #splash { 
             position: fixed; inset: 0; background: #0f172a; z-index: 9999; 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            transition: opacity 0.8s ease, visibility 0.8s; 
+            transition: opacity 0.6s ease; 
         }
         .logo-anim { 
             font-size: 3.5rem; font-weight: 900; letter-spacing: -3px; 
@@ -35,8 +35,8 @@
 </head>
 <body class="flex flex-col">
 
-    <!-- LUXE SPLASH SCREEN -->
-    <div id="splash">
+    <!-- LUXE SPLASH SCREEN (Tik om direct te starten) -->
+    <div id="splash" onclick="this.style.opacity='0'; setTimeout(()=>this.remove(),600)">
         <div class="logo-anim">KAVRIX</div>
         <div class="mt-6 flex items-center gap-3">
             <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
@@ -59,21 +59,16 @@
     </header>
 
     <div class="flex flex-1 overflow-hidden relative">
-        <!-- SIDEBAR -->
         <aside id="sidebar" class="sidebar absolute md:relative w-72 h-full hidden-sidebar flex flex-col shadow-2xl">
             <div class="p-6 font-black text-[11px] uppercase tracking-[0.2em] text-slate-500">Projecten</div>
             <div id="projectList" class="flex-1 overflow-y-auto px-4"></div>
         </aside>
 
-        <!-- MAIN CONTENT -->
         <main class="flex-1 flex flex-col p-4 md:p-6 gap-4 relative bg-[#0f172a]">
             <div id="loaderLine" class="absolute top-0 left-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-700" style="width: 0%"></div>
-            
             <div class="flex-1 glass rounded-2xl overflow-hidden relative p-1 bg-white/5">
                 <iframe id="preview"></iframe>
             </div>
-
-            <!-- INPUT AREA -->
             <div class="max-w-4xl mx-auto w-full glass p-2 rounded-2xl flex items-center gap-2 shadow-2xl border-white/10">
                 <div class="pl-4 text-indigo-500"><i class="fas fa-sparkles"></i></div>
                 <input id="prompt" type="text" placeholder="Beschrijf je droom app..." class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm font-medium placeholder:text-slate-500">
@@ -85,11 +80,22 @@
     </div>
 
     <script>
+        // 1. DEFINIEER EERST DE FUNCTIE
+        function hideSplash() {
+            const s = document.getElementById('splash');
+            if(s) {
+                s.style.opacity = '0';
+                setTimeout(() => { s.remove(); }, 700);
+            }
+        }
+
+        // 2. START DE TIMER PAS DAARNA
+        setTimeout(hideSplash, 3000);
+
         const RENDER_URL = "https://kavrix.onrender.com";
         let currentId = null;
         let currentCode = "";
 
-        // LUXE DASHBOARD PREVIEW
         const WELCOME_HTML = `
         <!DOCTYPE html>
         <html>
@@ -107,25 +113,13 @@
             <div class='card'>
                 <div class='icon'><i class='fas fa-wand-magic-sparkles'></i></div>
                 <h1 style='font-size: 24px; font-weight: 900; margin-bottom: 8px;'>KAVRIX READY</h1>
-                <p style='color: #94a3b8; font-size: 14px;'>Je AI-engine staat stand-by. Typ hieronder wat je wilt bouwen.</p>
+                <p style='color: #94a3b8; font-size: 14px;'>Je AI-engine staat stand-by.</p>
             </div>
         </body>
         </html>`;
 
         let userId = localStorage.getItem('kavrix_user_id') || 'user_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('kavrix_user_id', userId);
-
-        // DE BELANGRIJKSTE FIX: FORCEER HET WEGHALEN VAN HET LAADSCHERM
-        function hideSplash() {
-            const s = document.getElementById('splash');
-            if(s) {
-                s.style.opacity = '0';
-                setTimeout(() => { s.style.display = 'none'; }, 800);
-            }
-        }
-
-        // Start de timer direct bij het laden
-        setTimeout(hideSplash, 3500);
 
         window.onload = () => {
             document.getElementById("preview").srcdoc = WELCOME_HTML;
@@ -149,7 +143,7 @@
                     card.onclick = () => selectProject(p.id);
                     list.appendChild(card);
                 });
-                hideSplash(); // Als de server reageert, mag het scherm ook weg
+                hideSplash();
             } catch(e) {}
         }
 
