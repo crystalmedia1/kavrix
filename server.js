@@ -8,19 +8,13 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// 1. DATABASE VERBINDING (Met extra error handling voor Render)
 const MONGODB_URI = process.env.MONGODB_URI;
 const API_KEY = process.env.API_KEY;
-
-if (!MONGODB_URI) {
-    console.error("FOUT: MONGODB_URI ontbreekt in Environment Variables!");
-}
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log("KAVRIX Database Verbonden!"))
     .catch(err => console.error("Database Verbindingsfout:", err));
 
-// 2. DATABASE SCHEMA
 const ProjectSchema = new mongoose.Schema({
     name: { type: String, default: 'Nieuw Project' },
     userId: { type: String, default: 'user_123' },
@@ -38,7 +32,6 @@ const ProjectSchema = new mongoose.Schema({
 });
 const Project = mongoose.model('Project', ProjectSchema);
 
-// 3. AI GENERATIE ENGINE
 app.post('/generate', async (req, res) => {
     const { prompt, userId, existingFiles, projectId } = req.body;
     
@@ -59,21 +52,21 @@ app.post('/generate', async (req, res) => {
         
         res.json({ projectId: project._id });
 
-        // Achtergrond proces
         (async () => {
             try {
                 const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
                 
                 const systemPrompt = `Je bent KAVRIX PRO AI, een Senior Full-Stack Developer.
-                STIJL: Modern, strak, Tailwind CSS, Lucide Icons.
+                STIJL: Modern, strak, Tailwind CSS, Lucide Icons. Gebruik vette gradients en animaties.
+                UX: Zorg dat apps responsive zijn (werken op mobiel en desktop).
                 OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.
-                ${isUpdate ? "Pas de bestaande code aan." : "Maak een nieuwe app."}`;
+                ${isUpdate ? "BELANGRIJK: Behoud de bestaande functies en pas ENKEL aan wat gevraagd wordt. Lever de VOLLEDIGE nieuwe code terug." : "Maak een volledig nieuwe app vanaf nul."}`;
 
                 const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
                     model: "llama-3.3-70b-versatile",
                     messages: [
                         { role: "system", content: systemPrompt },
-                        { role: "user", content: isUpdate ? `CODE: ${existingFiles.html}\n\nUPDATE: ${prompt}` : prompt }
+                        { role: "user", content: isUpdate ? `HUIDIGE CODE:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nGEWENSTE WIJZIGING: ${prompt}` : prompt }
                     ],
                     response_format: { type: "json_object" }
                 }, {
@@ -96,7 +89,6 @@ app.post('/generate', async (req, res) => {
     }
 });
 
-// 4. PROJECT ROUTES (Ophalen, Lijst, Verwijderen, Hernoemen)
 app.get('/project/:id', async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
@@ -126,12 +118,12 @@ app.patch('/project/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Fout" }); }
 });
 
-// 5. EXPORT ROUTE
 app.get('/export/:id', async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
-        const fullHtml = `<!DOCTYPE html><html><head><style>${project.files.css}</style></head><body>${project.files.html}<script>${project.files.js}<\/script></body></html>`;
-        res.setHeader('Content-Disposition', `attachment; filename="export.html"`);
+        const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${project.name}</title><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>${project.files.css}</style></head><body class="bg-slate-900 text-white">${project.files.html}<script>lucide.createIcons(); ${project.files.js}<\/script></body></html>`;
+        res.setHeader('Content-Disposition', `attachment; filename="${project.name.replace(/\s+/g, '_')}.html"`);
+        res.setHeader('Content-Type', 'text/html');
         res.send(fullHtml);
     } catch (e) { res.status(500).send("Fout"); }
 });
