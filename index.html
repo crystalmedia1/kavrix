@@ -179,32 +179,31 @@
         function renderApp(files) {
             const frame = document.getElementById('previewFrame');
             
-            // IMAGE FIX: We dwingen de achtergrondfoto om te laden en voegen een overlay toe
+            // FORCE RENDER SCRIPT: Dwingt afbeeldingen en Tailwind om te laden
             let finalHtml = files.html;
             finalHtml += `<script>
-                const fixImages = () => {
-                    const bg = document.querySelector('img');
-                    if(bg) {
-                        bg.style.position = 'fixed';
-                        bg.style.inset = '0';
-                        bg.style.width = '100%';
-                        bg.style.height = '100%';
-                        bg.style.objectFit = 'cover';
-                        bg.style.zIndex = '-10';
-                        
-                        if(!document.getElementById('kavrix-overlay')) {
-                            const overlay = document.createElement('div');
-                            overlay.id = 'kavrix-overlay';
-                            overlay.style.position = 'fixed';
-                            overlay.style.inset = '0';
-                            overlay.style.background = 'rgba(0,0,0,0.6)';
-                            overlay.style.zIndex = '-9';
-                            document.body.appendChild(overlay);
+                const fix = () => {
+                    const img = document.querySelector('img');
+                    if(img) {
+                        img.style.position = 'fixed';
+                        img.style.inset = '0';
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.objectFit = 'cover';
+                        img.style.zIndex = '-10';
+                        if(!document.getElementById('k-overlay')){
+                            const o = document.createElement('div');
+                            o.id = 'k-overlay';
+                            o.style.position = 'fixed';
+                            o.style.inset = '0';
+                            o.style.background = 'rgba(0,0,0,0.6)';
+                            o.style.zIndex = '-9';
+                            document.body.appendChild(o);
                         }
                     }
                 };
-                window.onload = fixImages;
-                setTimeout(fixImages, 500);
+                window.onload = fix;
+                setTimeout(fix, 1000);
             <\/script>`;
 
             frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>body { margin: 0; padding: 0; min-height: 100vh; background-color: #161b2a; color: white; position: relative; overflow-x: hidden; } ${files.css}</style></head><body>${finalHtml}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
