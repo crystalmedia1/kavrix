@@ -179,12 +179,11 @@
         function renderApp(files) {
             const frame = document.getElementById('previewFrame');
             
-            // DE ULTIEME IMAGE FIX: We dwingen de achtergrondfoto om te laden
+            // IMAGE FIX: We dwingen de achtergrondfoto om te laden en voegen een overlay toe
             let finalHtml = files.html;
-            if (finalHtml.includes('image.pollinations.ai')) {
-                // We voegen een script toe aan de iframe die de afbeelding forceert
-                finalHtml += `<script>
-                    const bg = document.querySelector('img[src*="pollinations"]');
+            finalHtml += `<script>
+                const fixImages = () => {
+                    const bg = document.querySelector('img');
                     if(bg) {
                         bg.style.position = 'fixed';
                         bg.style.inset = '0';
@@ -192,9 +191,21 @@
                         bg.style.height = '100%';
                         bg.style.objectFit = 'cover';
                         bg.style.zIndex = '-10';
+                        
+                        if(!document.getElementById('kavrix-overlay')) {
+                            const overlay = document.createElement('div');
+                            overlay.id = 'kavrix-overlay';
+                            overlay.style.position = 'fixed';
+                            overlay.style.inset = '0';
+                            overlay.style.background = 'rgba(0,0,0,0.6)';
+                            overlay.style.zIndex = '-9';
+                            document.body.appendChild(overlay);
+                        }
                     }
-                <\/script>`;
-            }
+                };
+                window.onload = fixImages;
+                setTimeout(fixImages, 500);
+            <\/script>`;
 
             frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>body { margin: 0; padding: 0; min-height: 100vh; background-color: #161b2a; color: white; position: relative; overflow-x: hidden; } ${files.css}</style></head><body>${finalHtml}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
         }
@@ -219,7 +230,7 @@
 
         async function renameProject(newName) {
             if(!currentProjectId) return;
-            await fetch(`${API_URL}/currentProjectId`, {
+            await fetch(`${API_URL}/project/${currentProjectId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName })
