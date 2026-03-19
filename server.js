@@ -51,10 +51,9 @@ app.post('/generate', async (req, res) => {
                 const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
                 const systemPrompt = `Je bent KAVRIX PRO AI. 
                 STIJL: Modern, Luxe, Tailwind CSS.
-                AFBEELDINGEN: Als de gebruiker om een foto vraagt, gebruik dan ALTIJD een <img> tag met deze bron:
+                AFBEELDINGEN: Als de gebruiker om een foto vraagt, gebruik dan ALTIJD een <img> tag met id="kavrix-bg" en deze bron:
                 https://image.pollinations.ai/prompt/[BESCHRIJVING]?width=1080&height=1920&nologo=true
-                Vervang [BESCHRIJVING] door Engelse woorden met underscores.
-                Zorg dat de afbeelding ALTIJD de class 'w-full h-full object-cover fixed inset-0 -z-10' krijgt.
+                Vervang [BESCHRIJVING] door Engelse woorden.
                 OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.`;
 
                 const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
@@ -103,24 +102,6 @@ app.delete('/project/:id', async (req, res) => {
         await Project.findByIdAndDelete(req.params.id);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fout" }); }
-});
-
-app.patch('/project/:id', async (req, res) => {
-    try {
-        const { name } = req.body;
-        await Project.findByIdAndUpdate(req.params.id, { name, updatedAt: new Date() });
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Fout" }); }
-});
-
-app.get('/export/:id', async (req, res) => {
-    try {
-        const project = await Project.findById(req.params.id);
-        const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${project.name}</title><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>${project.files.css}</style></head><body class="bg-slate-900 text-white">${project.files.html}<script>lucide.createIcons(); ${project.files.js}<\/script></body></html>`;
-        res.setHeader('Content-Disposition', `attachment; filename="${project.name.replace(/\s+/g, '_')}.html"`);
-        res.setHeader('Content-Type', 'text/html');
-        res.send(fullHtml);
-    } catch (e) { res.status(500).send("Fout"); }
 });
 
 app.get('/', (req, res) => res.send('KAVRIX Online'));
