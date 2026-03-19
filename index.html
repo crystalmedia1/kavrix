@@ -11,20 +11,15 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b0f1a; color: white; overflow: hidden; margin: 0; transition: background 0.5s ease; }
         .glass { background: rgba(23, 28, 41, 0.8); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); }
         .sidebar { width: 280px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid rgba(255,255,255,0.05); }
-        
-        /* Device Simulator Styles */
         .preview-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; background: #080b14; overflow: hidden; }
         .preview-container { height: 100%; width: 100%; border-radius: 32px; overflow: hidden; background: #161b2a; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .preview-container.mobile { width: 375px; height: 667px; border: 12px solid #1e293b; border-radius: 40px; }
         .preview-container.tablet { width: 768px; height: 1024px; border: 12px solid #1e293b; border-radius: 30px; }
-        
         iframe { width: 100%; height: 100%; border: none; background: white; }
         .loader { border: 3px solid rgba(99, 102, 241, 0.1); border-left-color: #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         #splash { position: fixed; inset: 0; background: #0b0f1a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
         .btn-glow:hover { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
-        
-        /* Themes */
         body.theme-cyberpunk { background-color: #050505; }
         body.theme-cyberpunk .glass { background: rgba(20, 0, 40, 0.8); border-color: #ff00ff33; }
         body.theme-cyberpunk .bg-indigo-600 { background-color: #ff00ff; }
