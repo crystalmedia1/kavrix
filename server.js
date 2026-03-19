@@ -1,135 +1,286 @@
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const mongoose = require('mongoose');
-require('dotenv').config();
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAVRIX PRO | AI App Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b0f1a; color: white; overflow: hidden; margin: 0; transition: background 0.5s ease; }
+        .glass { background: rgba(23, 28, 41, 0.8); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); }
+        .sidebar { width: 280px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid rgba(255,255,255,0.05); }
+        .preview-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; background: #080b14; overflow: hidden; }
+        .preview-container { height: 100%; width: 100%; border-radius: 32px; overflow: hidden; background: #161b2a; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .preview-container.mobile { width: 375px; height: 667px; border: 12px solid #1e293b; border-radius: 40px; }
+        .preview-container.tablet { width: 768px; height: 1024px; border: 12px solid #1e293b; border-radius: 30px; }
+        iframe { width: 100%; height: 100%; border: none; background: white; }
+        .loader { border: 3px solid rgba(99, 102, 241, 0.1); border-left-color: #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #splash { position: fixed; inset: 0; background: #0b0f1a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
+        .btn-glow:hover { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
+        body.theme-cyberpunk { background-color: #050505; }
+        body.theme-cyberpunk .glass { background: rgba(20, 0, 40, 0.8); border-color: #ff00ff33; }
+        body.theme-cyberpunk .bg-indigo-600 { background-color: #ff00ff; }
+        body.theme-emerald { background-color: #022c22; }
+        body.theme-emerald .glass { background: rgba(6, 78, 59, 0.8); border-color: #10b98133; }
+        body.theme-emerald .bg-indigo-600 { background-color: #10b981; }
+    </style>
+</head>
+<body class="flex h-screen">
 
-const app = express();
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+    <!-- SPLASH SCREEN -->
+    <div id="splash">
+        <div class="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-indigo-500/40 animate-bounce">
+            <i data-lucide="zap" class="text-white w-10 h-10"></i>
+        </div>
+        <h1 class="text-3xl font-bold tracking-tighter">KAVRIX <span class="text-indigo-500">PRO</span></h1>
+        <p class="text-slate-500 mt-2 animate-pulse tracking-widest text-xs uppercase">Systeem Laden...</p>
+    </div>
 
-const MONGODB_URI = process.env.MONGODB_URI;
-const API_KEY = process.env.API_KEY;
+    <!-- SIDEBAR -->
+    <aside id="mainSidebar" class="sidebar glass h-full flex flex-col p-6 z-50">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <i data-lucide="zap" class="text-white w-6 h-6"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">KAVRIX <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full ml-1">PRO</span></h1>
+        </div>
 
-mongoose.connect(MONGODB_URI)
-    .then(() => console.log("KAVRIX Database Verbonden!"))
-    .catch(err => console.error("Database Verbindingsfout:", err));
+        <div class="flex-1 overflow-y-auto space-y-2 custom-scrollbar" id="projectList">
+            <p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>
+        </div>
 
-const ProjectSchema = new mongoose.Schema({
-    name: { type: String, default: 'Nieuw Project' },
-    userId: { type: String, default: 'user_123' },
-    files: {
-        html: { type: String, default: '' },
-        css: { type: String, default: '' },
-        js: { type: String, default: '' }
-    },
-    images: [{ url: String, prompt: String }], // NIEUW: Opslag voor gegenereerde beelden
-    history: [{
-        prompt: String,
-        timestamp: { type: Date, default: Date.now }
-    }],
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now }
-});
-const Project = mongoose.model('Project', ProjectSchema);
+        <div class="mt-4 p-3 glass rounded-xl flex justify-around">
+            <button onclick="setTheme('midnight')" title="Midnight" class="w-6 h-6 rounded-full bg-slate-800 border border-white/20"></button>
+            <button onclick="setTheme('cyberpunk')" title="Cyberpunk" class="w-6 h-6 rounded-full bg-fuchsia-600 border border-white/20"></button>
+            <button onclick="setTheme('emerald')" title="Emerald" class="w-6 h-6 rounded-full bg-emerald-600 border border-white/20"></button>
+        </div>
 
-app.post('/generate', async (req, res) => {
-    const { prompt, userId, existingFiles, projectId } = req.body;
-    
-    try {
-        let project;
-        if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
-            project = await Project.findById(projectId);
-        }
+        <div class="mt-auto pt-6 border-t border-white/5">
+            <button onclick="newProject()" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition text-slate-400 hover:text-white">
+                <i data-lucide="plus-circle" class="w-5 h-5"></i> <span>Nieuw Project</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col relative">
         
-        if (!project) {
-            project = new Project({
-                name: prompt.substring(0, 30),
-                userId: userId || "user_123",
-                files: { html: "GENERATING", css: "", js: "" }
-            });
-            await project.save();
-        }
-        
-        res.json({ projectId: project._id });
+        <!-- TOP NAV -->
+        <header class="flex items-center justify-between p-6 border-b border-white/5">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="p-2 hover:bg-white/5 rounded-lg transition text-slate-400 hover:text-white">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="h-6 w-[1px] bg-white/10"></div>
+                <div class="flex flex-col">
+                    <input type="text" id="currentProjectName" value="Nieuw Project" onchange="renameProject(this.value)"
+                           class="bg-transparent border-none outline-none text-sm text-slate-400 font-medium focus:text-white transition w-48">
+                    <span id="saveStatus" class="text-[9px] text-emerald-500 opacity-0 transition-opacity">Opgeslagen in Cloud</span>
+                </div>
+            </div>
 
-        (async () => {
+            <!-- DEVICE TOGGLE -->
+            <div class="flex items-center glass rounded-xl p-1 gap-1">
+                <button onclick="setDevice('desktop')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition" title="Desktop View"><i data-lucide="monitor" class="w-4 h-4"></i></button>
+                <button onclick="setDevice('tablet')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition" title="Tablet View"><i data-lucide="tablet" class="w-4 h-4"></i></button>
+                <button onclick="setDevice('mobile')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition" title="Mobile View"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button onclick="inspectCode()" class="px-4 py-2 glass rounded-xl text-sm font-medium hover:bg-white/5 transition">Inspect</button>
+                <button onclick="exportCode()" class="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-bold btn-glow transition">Export</button>
+            </div>
+        </header>
+
+        <!-- PREVIEW AREA -->
+        <div class="preview-wrapper">
+            <div id="previewContainer" class="preview-container glass">
+                <div id="loadingOverlay" class="absolute inset-0 bg-[#0b0f1a]/90 flex flex-col items-center justify-center z-10 hidden">
+                    <div class="loader mb-6"></div>
+                    <p class="text-indigo-400 font-semibold animate-pulse uppercase tracking-widest">KAVRIX BOUWT JE APP...</p>
+                </div>
+                <iframe id="previewFrame" srcdoc="<body style='background:#161b2a; display:flex; align-items:center; justify-content:center; color:#475569; font-family:sans-serif; height:100vh; margin:0;'><h1>Beschrijf je idee om te beginnen</h1></body>"></iframe>
+            </div>
+        </div>
+
+        <!-- INPUT AREA -->
+        <div class="p-6 border-t border-white/5">
+            <div class="max-w-3xl mx-auto w-full">
+                <div class="glass p-2 rounded-2xl flex items-center gap-2 shadow-2xl border-white/5 focus-within:border-indigo-500/50 transition-all">
+                    <div class="pl-4 text-indigo-500"><i data-lucide="wand-2" class="w-5 h-5"></i></div>
+                    <input type="text" id="promptInput" placeholder="Vraag KAVRIX om iets te bouwen of aan te passen..." 
+                           class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm placeholder:text-slate-600"
+                           onkeydown="if(event.key==='Enter') generateApp()">
+                    <button onclick="generateApp()" id="genBtn" class="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-xl transition shadow-lg shadow-indigo-600/20">
+                        <i data-lucide="zap" class="w-5 h-5 fill-current"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = "https://kavrix.onrender.com"; 
+        const USER_ID = "user_123";
+        let currentProjectId = null;
+        let currentFiles = null;
+        let sidebarOpen = true;
+        let pollInterval = null;
+
+        lucide.createIcons();
+
+        window.onload = () => {
+            setTimeout(() => {
+                const splash = document.getElementById('splash');
+                splash.style.opacity = '0';
+                setTimeout(() => splash.style.display = 'none', 800);
+            }, 2500);
+            loadProjects();
+        };
+
+        async function loadProjects() {
             try {
-                const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
+                const res = await fetch(`${API_URL}/projects/${USER_ID}`);
+                const projects = await res.json();
+                const list = document.getElementById('projectList');
+                list.innerHTML = '<p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>';
+                projects.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = "group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition cursor-pointer";
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3 flex-1 overflow-hidden" onclick="openProject('${p.id}')">
+                            <i data-lucide="layout" class="text-slate-500 w-4 h-4"></i>
+                            <span class="text-xs font-medium truncate text-slate-400 group-hover:text-white">${p.name}</span>
+                        </div>
+                        <button onclick="deleteProject('${p.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    `;
+                    list.appendChild(div);
+                });
+                lucide.createIcons();
+            } catch (e) { console.error("Laden mislukt"); }
+        }
+
+        async function generateApp() {
+            const prompt = document.getElementById('promptInput').value;
+            if (!prompt) return;
+            
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('genBtn').disabled = true;
+            
+            try {
+                const res = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, userId: USER_ID, existingFiles: currentFiles, projectId: currentProjectId })
+                });
+                const data = await res.json();
+                currentProjectId = data.projectId;
                 
-                const systemPrompt = `Je bent KAVRIX PRO AI. 
-                STIJL: Modern, Tailwind CSS.
-                AFBEELDINGEN: Als de gebruiker om een afbeelding vraagt, gebruik dan een <img> tag met src="https://image.pollinations.ai/prompt/[PROMPT]" waarbij [PROMPT] een korte Engelse beschrijving is van wat er op de foto moet staan.
-                OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.
-                ${isUpdate ? "Pas de bestaande code aan." : "Maak een nieuwe app."}`;
-
-                const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-                    model: "llama-3.3-70b-versatile",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: isUpdate ? `HUIDIGE CODE:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nGEWENSTE WIJZIGING: ${prompt}` : prompt }
-                    ],
-                    response_format: { type: "json_object" }
-                }, {
-                    headers: { 'Authorization': `Bearer ${API_KEY}` },
-                    timeout: 60000
-                });
-
-                const aiResponse = JSON.parse(response.data.choices[0].message.content);
-                await Project.findByIdAndUpdate(project._id, { 
-                    files: aiResponse,
-                    $push: { history: { prompt: prompt } },
-                    updatedAt: new Date()
-                });
-            } catch (err) {
-                console.error("AI Fout:", err.message);
+                if(pollInterval) clearInterval(pollInterval);
+                pollInterval = setInterval(checkStatus, 3000);
+            } catch (e) { 
+                alert("Fout bij verbinden met server");
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                document.getElementById('genBtn').disabled = false;
             }
-        })();
-    } catch (e) {
-        res.status(500).json({ error: "Server Fout" });
-    }
-});
+        }
 
-app.get('/project/:id', async (req, res) => {
-    try {
-        const project = await Project.findById(req.params.id);
-        res.json(project);
-    } catch (e) { res.status(404).json({ error: "Niet gevonden" }); }
-});
+        async function checkStatus() {
+            try {
+                const res = await fetch(`${API_URL}/project/${currentProjectId}`);
+                const data = await res.json();
+                
+                if (data.files && data.files.html !== "GENERATING") {
+                    clearInterval(pollInterval);
+                    currentFiles = data.files;
+                    renderApp(data.files);
+                    document.getElementById('currentProjectName').value = data.name;
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('genBtn').disabled = false;
+                    document.getElementById('promptInput').value = "";
+                    showSaveStatus();
+                    loadProjects();
+                }
+            } catch (e) { console.error("Polling fout"); }
+        }
 
-app.get('/projects/:userId', async (req, res) => {
-    try {
-        const projects = await Project.find({ userId: req.params.userId }).sort({ updatedAt: -1 });
-        res.json(projects.map(p => ({ id: p._id, name: p.name })));
-    } catch (e) { res.json([]); }
-});
+        function renderApp(files) {
+            const frame = document.getElementById('previewFrame');
+            frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>${files.css}</style></head><body>${files.html}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
+        }
 
-app.delete('/project/:id', async (req, res) => {
-    try {
-        await Project.findByIdAndDelete(req.params.id);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Fout" }); }
-});
+        async function openProject(id) {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            const res = await fetch(`${API_URL}/project/${id}`);
+            const data = await res.json();
+            currentFiles = data.files;
+            renderApp(data.files);
+            document.getElementById('currentProjectName').value = data.name;
+            currentProjectId = id;
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
 
-app.patch('/project/:id', async (req, res) => {
-    try {
-        const { name } = req.body;
-        await Project.findByIdAndUpdate(req.params.id, { name, updatedAt: new Date() });
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Fout" }); }
-});
+        async function deleteProject(id) {
+            if(!confirm("Verwijderen?")) return;
+            await fetch(`${API_URL}/project/${id}`, { method: 'DELETE' });
+            loadProjects();
+            if(currentProjectId === id) newProject();
+        }
 
-app.get('/export/:id', async (req, res) => {
-    try {
-        const project = await Project.findById(req.params.id);
-        const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${project.name}</title><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>${project.files.css}</style></head><body class="bg-slate-900 text-white">${project.files.html}<script>lucide.createIcons(); ${project.files.js}<\/script></body></html>`;
-        res.setHeader('Content-Disposition', `attachment; filename="${project.name.replace(/\s+/g, '_')}.html"`);
-        res.setHeader('Content-Type', 'text/html');
-        res.send(fullHtml);
-    } catch (e) { res.status(500).send("Fout"); }
-});
+        async function renameProject(newName) {
+            if(!currentProjectId) return;
+            await fetch(`${API_URL}/project/${currentProjectId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName })
+            });
+            showSaveStatus();
+            loadProjects();
+        }
 
-app.get('/', (req, res) => res.send('KAVRIX Online'));
+        function showSaveStatus() {
+            const status = document.getElementById('saveStatus');
+            status.style.opacity = '1';
+            setTimeout(() => status.style.opacity = '0', 3000);
+        }
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server draait op ${PORT}`));
+        function setDevice(device) {
+            const container = document.getElementById('previewContainer');
+            container.className = 'preview-container glass ' + device;
+        }
+
+        function setTheme(theme) {
+            document.body.className = 'flex h-screen theme-' + theme;
+        }
+
+        function toggleSidebar() {
+            const sb = document.getElementById('mainSidebar');
+            sidebarOpen = !sidebarOpen;
+            sb.style.width = sidebarOpen ? "280px" : "0";
+            sb.style.padding = sidebarOpen ? "1.5rem" : "0";
+            sb.style.opacity = sidebarOpen ? "1" : "0";
+        }
+
+        function newProject() {
+            currentFiles = null;
+            currentProjectId = null;
+            document.getElementById('previewFrame').srcdoc = "<body></body>";
+            document.getElementById('currentProjectName').value = "Nieuw Project";
+        }
+
+        function inspectCode() {
+            if(!currentFiles) return;
+            console.log(currentFiles);
+            alert("Code staat in de console (F12)!");
+        }
+
+        function exportCode() {
+            if(!currentProjectId) return;
+            window.open(`${API_URL}/export/${currentProjectId}`, '_blank');
+        }
+    </script>
+</body>
+</html>
