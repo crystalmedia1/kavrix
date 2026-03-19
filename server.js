@@ -53,11 +53,14 @@ app.post('/generate', async (req, res) => {
             try {
                 const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
                 
+                // VERBETERDE AI INSTRUCTIE VOOR ACHTERGRONDEN
                 const systemPrompt = `Je bent KAVRIX PRO AI. 
-                STIJL: Modern, Tailwind CSS.
-                AFBEELDINGEN: Gebruik <img> tags met src="https://image.pollinations.ai/prompt/[PROMPT]" voor unieke beelden.
-                OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.
-                ${isUpdate ? "Pas de bestaande code aan." : "Maak een nieuwe app."}`;
+                STIJL: Modern, Luxe, Tailwind CSS.
+                AFBEELDINGEN: Als de gebruiker om een achtergrondfoto vraagt (zoals een biefstuk), MOET je dit in de CSS zetten bij de body of een hero-sectie:
+                background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://image.pollinations.ai/prompt/[PROMPT]');
+                Vervang [PROMPT] door een gedetailleerde Engelse beschrijving (bijv: juicy_steak_on_plate_fine_dining).
+                Zorg dat de achtergrond 'cover' is en gecentreerd.
+                OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.`;
 
                 const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
                     model: "llama-3.3-70b-versatile",
@@ -68,7 +71,7 @@ app.post('/generate', async (req, res) => {
                     response_format: { type: "json_object" }
                 }, {
                     headers: { 'Authorization': `Bearer ${API_KEY}` },
-                    timeout: 55000 // Iets korter dan de Render timeout
+                    timeout: 55000
                 });
 
                 const aiResponse = JSON.parse(response.data.choices[0].message.content);
@@ -80,7 +83,7 @@ app.post('/generate', async (req, res) => {
             } catch (err) {
                 console.error("AI Fout:", err.message);
                 await Project.findByIdAndUpdate(project._id, { 
-                    files: { html: "<div class='p-10 text-white'>AI reageert niet. Probeer een kortere prompt.</div>", css: "", js: "" } 
+                    files: { html: "<div class='p-10 text-white'>AI Error. Probeer opnieuw.</div>", css: "", js: "" } 
                 });
             }
         })();
