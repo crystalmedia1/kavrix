@@ -52,7 +52,7 @@ app.post('/generate', async (req, res) => {
                 const systemPrompt = `Je bent KAVRIX PRO AI. 
                 STIJL: Modern, Luxe, Tailwind CSS.
                 AFBEELDINGEN: Gebruik ALTIJD Unsplash voor foto's.
-                Gebruik deze URL structuur: https://source.unsplash.com/featured/?steak,restaurant
+                Gebruik deze URL structuur: https://images.unsplash.com/photo-1546241072-48010ad28c2c?auto=format&fit=crop&w=1080&q=80
                 Zorg dat de <img> tag de class 'w-full h-full object-cover fixed inset-0 -z-10' heeft.
                 OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.`;
 
@@ -102,6 +102,16 @@ app.delete('/project/:id', async (req, res) => {
         await Project.findByIdAndDelete(req.params.id);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fout" }); }
+});
+
+app.get('/export/:id', async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id);
+        const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${project.name}</title><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>${project.files.css}</style></head><body class="bg-slate-900 text-white">${project.files.html}<script>lucide.createIcons(); ${project.files.js}<\/script></body></html>`;
+        res.setHeader('Content-Disposition', `attachment; filename="${project.name.replace(/\s+/g, '_')}.html"`);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(fullHtml);
+    } catch (e) { res.status(500).send("Fout"); }
 });
 
 app.get('/', (req, res) => res.send('KAVRIX Online'));
