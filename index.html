@@ -10,37 +10,38 @@
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b0f1a; color: white; overflow: hidden; margin: 0; }
         .glass { background: rgba(23, 28, 41, 0.8); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.08); }
-        .sidebar { width: 280px; transition: all 0.3s ease; border-right: 1px solid rgba(255,255,255,0.05); }
+        .sidebar { width: 280px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-right: 1px solid rgba(255,255,255,0.05); }
         .preview-container { height: calc(100vh - 160px); border-radius: 32px; overflow: hidden; background: #161b2a; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
         iframe { width: 100%; height: 100%; border: none; background: white; }
         .loader { border: 3px solid rgba(99, 102, 241, 0.1); border-left-color: #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        /* Splash Screen Style */
-        #splash { position: fixed; inset: 0; background: #0b0f1a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
+        /* Splash Screen */
+        #splash { position: fixed; inset: 0; background: #0b0f1a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
+        .btn-glow:hover { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
     </style>
 </head>
 <body class="flex h-screen">
 
-    <!-- SPLASH SCREEN -->
+    <!-- SPLASH SCREEN (BEHOUDEN) -->
     <div id="splash">
-        <div class="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-indigo-500/20 animate-bounce">
+        <div class="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-indigo-500/40 animate-bounce">
             <i data-lucide="zap" class="text-white w-10 h-10"></i>
         </div>
         <h1 class="text-3xl font-bold tracking-tighter">KAVRIX <span class="text-indigo-500">PRO</span></h1>
-        <p class="text-slate-500 mt-2 animate-pulse">Initialiseren...</p>
+        <p class="text-slate-500 mt-2 animate-pulse tracking-widest text-xs uppercase">Systeem Laden...</p>
     </div>
 
-    <!-- SIDEBAR -->
+    <!-- SIDEBAR (PROJECTEN BEHEER) -->
     <aside id="mainSidebar" class="sidebar glass h-full flex flex-col p-6 z-50">
         <div class="flex items-center gap-3 mb-10">
             <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
                 <i data-lucide="zap" class="text-white w-6 h-6"></i>
             </div>
-            <h1 class="text-xl font-bold tracking-tight">KAVRIX</h1>
+            <h1 class="text-xl font-bold tracking-tight">KAVRIX <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full ml-1">PRO</span></h1>
         </div>
 
-        <div class="flex-1 overflow-y-auto space-y-2" id="projectList">
+        <div class="flex-1 overflow-y-auto space-y-2 custom-scrollbar" id="projectList">
             <p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>
             <!-- Projecten laden hier -->
         </div>
@@ -55,16 +56,18 @@
     <!-- MAIN CONTENT -->
     <main class="flex-1 flex flex-col p-6 relative">
         
-        <!-- TOP NAV -->
+        <!-- TOP NAV (INSPECT & EXPORT BEHOUDEN) -->
         <header class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-4">
-                <button onclick="toggleSidebar()" class="p-2 hover:bg-white/5 rounded-lg transition"><i data-lucide="menu"></i></button>
+                <button onclick="toggleSidebar()" class="p-2 hover:bg-white/5 rounded-lg transition text-slate-400 hover:text-white">
+                    <i data-lucide="menu"></i>
+                </button>
                 <div class="h-6 w-[1px] bg-white/10"></div>
                 <span class="text-sm text-slate-400 font-medium" id="currentProjectName">Nieuw Project</span>
             </div>
             <div class="flex items-center gap-3">
                 <button onclick="inspectCode()" class="px-4 py-2 glass rounded-xl text-sm font-medium hover:bg-white/5 transition">Inspect</button>
-                <button onclick="exportCode()" class="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-bold transition hover:bg-indigo-500">Export</button>
+                <button onclick="exportCode()" class="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-bold btn-glow transition">Export</button>
             </div>
         </header>
 
@@ -72,18 +75,23 @@
         <div class="preview-container glass relative">
             <div id="loadingOverlay" class="absolute inset-0 bg-[#0b0f1a]/90 flex flex-col items-center justify-center z-10 hidden">
                 <div class="loader mb-6"></div>
-                <p class="text-indigo-400 font-semibold animate-pulse uppercase tracking-widest">KAVRIX BOUWT...</p>
+                <p class="text-indigo-400 font-semibold animate-pulse uppercase tracking-widest">KAVRIX BOUWT JE APP...</p>
+                <p class="text-slate-500 text-[10px] mt-2">Dit duurt ongeveer 20 seconden</p>
             </div>
-            <iframe id="previewFrame" srcdoc="<body style='background:#161b2a; display:flex; align-items:center; justify-content:center; color:#475569; font-family:sans-serif; height:100vh; margin:0;'><h1>Beschrijf je app om te beginnen</h1></body>"></iframe>
+            <iframe id="previewFrame" srcdoc="<body style='background:#161b2a; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#475569; font-family:sans-serif; height:100vh; margin:0;'>
+                <svg width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1' stroke-linecap='round' stroke-linejoin='round' style='margin-bottom:16px; opacity:0.3'><rect width='18' height='18' x='3' y='3' rx='2'/><path d='M3 9h18'/><path d='M9 21V9'/></svg>
+                <h1 style='font-weight:400; font-size:16px;'>Beschrijf je idee om te beginnen</h1>
+            </body>"></iframe>
         </div>
 
         <!-- INPUT AREA -->
         <div class="mt-6 max-w-3xl mx-auto w-full">
             <div class="glass p-2 rounded-2xl flex items-center gap-2 shadow-2xl border-white/5 focus-within:border-indigo-500/50 transition-all">
                 <div class="pl-4 text-indigo-500"><i data-lucide="wand-2" class="w-5 h-5"></i></div>
-                <input type="text" id="promptInput" placeholder="Vraag KAVRIX om iets te bouwen..." 
-                       class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm placeholder:text-slate-600">
-                <button onclick="generateApp()" id="genBtn" class="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-xl transition">
+                <input type="text" id="promptInput" placeholder="Vraag KAVRIX om iets te bouwen of aan te passen..." 
+                       class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm placeholder:text-slate-600"
+                       onkeydown="if(event.key==='Enter') generateApp()">
+                <button onclick="generateApp()" id="genBtn" class="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-xl transition shadow-lg shadow-indigo-600/20">
                     <i data-lucide="zap" class="w-5 h-5 fill-current"></i>
                 </button>
             </div>
@@ -91,7 +99,7 @@
     </main>
 
     <script>
-        const API_URL = "https://kavrix.onrender.com"; // VERVANG DOOR JOUW URL
+        const API_URL = "https://kavrix.onrender.com"; // JOUW RENDER URL
         const USER_ID = "user_123";
         let currentProjectId = null;
         let currentFiles = null;
@@ -99,12 +107,13 @@
 
         lucide.createIcons();
 
-        // Splash screen weghalen na 2 seconden
+        // Splash Screen Handler
         window.onload = () => {
             setTimeout(() => {
-                document.getElementById('splash').style.opacity = '0';
-                setTimeout(() => document.getElementById('splash').style.display = 'none', 500);
-            }, 2000);
+                const splash = document.getElementById('splash');
+                splash.style.opacity = '0';
+                setTimeout(() => splash.style.display = 'none', 800);
+            }, 2500);
             loadProjects();
         };
 
@@ -114,54 +123,80 @@
                 const projects = await res.json();
                 const list = document.getElementById('projectList');
                 list.innerHTML = '<p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>';
+                
                 projects.forEach(p => {
                     const div = document.createElement('div');
-                    div.className = "group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition cursor-pointer";
+                    div.className = "group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition cursor-pointer border border-transparent hover:border-white/5";
                     div.innerHTML = `
                         <div class="flex items-center gap-3 flex-1 overflow-hidden" onclick="openProject('${p.id}')">
-                            <i data-lucide="layout" class="text-slate-500 w-4 h-4"></i>
+                            <i data-lucide="layout" class="text-slate-500 w-4 h-4 group-hover:text-indigo-400"></i>
                             <span class="text-xs font-medium truncate text-slate-400 group-hover:text-white">${p.name}</span>
                         </div>
                         <button onclick="deleteProject('${p.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>`;
+                        </button>
+                    `;
                     list.appendChild(div);
                 });
                 lucide.createIcons();
-            } catch (e) { console.log("Laden mislukt"); }
+            } catch (e) { console.error("Laden mislukt"); }
         }
 
         async function generateApp() {
             const prompt = document.getElementById('promptInput').value;
             if (!prompt) return;
+
             document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('genBtn').disabled = true;
+
             try {
                 const res = await fetch(`${API_URL}/generate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, userId: USER_ID, existingFiles: currentFiles })
+                    body: JSON.stringify({ 
+                        prompt, 
+                        userId: USER_ID,
+                        existingFiles: currentFiles, // SMART ITERATION: AI ziet oude code
+                        projectId: currentProjectId
+                    })
                 });
                 const data = await res.json();
                 currentProjectId = data.projectId;
                 checkStatus();
-            } catch (e) { alert("Fout"); }
+            } catch (e) { alert("Server verbinding verbroken"); }
         }
 
         async function checkStatus() {
             const res = await fetch(`${API_URL}/project/${currentProjectId}`);
             const data = await res.json();
+
             if (data.files && data.files.html !== "GENERATING") {
                 currentFiles = data.files;
                 renderApp(data.files);
                 document.getElementById('currentProjectName').innerText = data.name;
                 document.getElementById('loadingOverlay').classList.add('hidden');
+                document.getElementById('genBtn').disabled = false;
+                document.getElementById('promptInput').value = "";
                 loadProjects();
-            } else { setTimeout(checkStatus, 3000); }
+            } else {
+                setTimeout(checkStatus, 3000);
+            }
         }
 
         function renderApp(files) {
             const frame = document.getElementById('previewFrame');
-            frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>${files.css}</style></head><body>${files.html}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
+            const fullCode = `
+                <!DOCTYPE html><html><head>
+                <script src="https://cdn.tailwindcss.com"><\/script>
+                <script src="https://unpkg.com/lucide@latest"><\/script>
+                <style>${files.css}</style></head>
+                <body class="bg-slate-900 text-white">${files.html}
+                <script>
+                    lucide.createIcons();
+                    ${files.js}
+                <\/script></body></html>
+            `;
+            frame.srcdoc = fullCode;
         }
 
         async function openProject(id) {
@@ -176,9 +211,10 @@
         }
 
         async function deleteProject(id) {
-            if(!confirm("Verwijderen?")) return;
+            if(!confirm("Project definitief verwijderen?")) return;
             await fetch(`${API_URL}/project/${id}`, { method: 'DELETE' });
             loadProjects();
+            if(currentProjectId === id) newProject();
         }
 
         function toggleSidebar() {
@@ -194,11 +230,14 @@
             currentProjectId = null;
             document.getElementById('previewFrame').srcdoc = "<body></body>";
             document.getElementById('currentProjectName').innerText = "Nieuw Project";
+            document.getElementById('promptInput').value = "";
         }
 
         function inspectCode() {
             if(!currentFiles) return;
-            console.log(currentFiles);
+            console.log("HTML:", currentFiles.html);
+            console.log("CSS:", currentFiles.css);
+            console.log("JS:", currentFiles.js);
             alert("Code staat in de console (F12)!");
         }
 
@@ -207,7 +246,7 @@
             const blob = new Blob([document.getElementById('previewFrame').srcdoc], {type: 'text/html'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'kavrix-app.html';
+            a.download = 'kavrix-export.html';
             a.click();
         }
     </script>
