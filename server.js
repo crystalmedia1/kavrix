@@ -51,8 +51,7 @@ app.post('/generate', async (req, res) => {
                 const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
                 const systemPrompt = `Je bent KAVRIX PRO AI. 
                 STIJL: Modern, Luxe, Tailwind CSS.
-                AFBEELDINGEN: Gebruik ALTIJD Unsplash voor foto's.
-                Gebruik deze URL structuur: https://images.unsplash.com/photo-1546241072-48010ad28c2c?auto=format&fit=crop&w=1080&q=80
+                AFBEELDINGEN: Gebruik ALTIJD Unsplash. URL: https://images.unsplash.com/photo-1546241072-48010ad28c2c?auto=format&fit=crop&w=1080&q=80
                 Zorg dat de <img> tag de class 'w-full h-full object-cover fixed inset-0 -z-10' heeft.
                 OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.`;
 
