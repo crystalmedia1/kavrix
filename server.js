@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -7,244 +6,174 @@ require('dotenv').config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' })); // Extra ruimte voor grote apps
 
-// Environment variables (zorg dat je deze in Render zet)
-const { MONGODB_URI, API_KEY, AI_API_URL } = process.env;
-const AI_URL = AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions'; // fallback
+// 1. DATABASE VERBINDING
+const { MONGODB_URI, API_KEY } = process.env;
 
-// Connect to MongoDB
-if (!MONGODB_URI) {
-  console.error('MONGODB_URI is not set. Stop.');
-  process.exit(1);
-}
-mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('KAVRIX Database Verbonden!'))
-  .catch(err => {
-    console.error('Database verbindingsfout:', err);
-    process.exit(1);
-  });
+mongoose.connect(MONGODB_URI)
+    .then(() => console.log("KAVRIX Database Verbonden!"))
+    .catch(err => {
+        console.error("Database Fout:", err);
+        process.exit(1);
+    });
 
-// Schema & Model
+// 2. DATABASE SCHEMA (Alles wordt onthouden)
 const ProjectSchema = new mongoose.Schema({
-  name: { type: String, default: 'Nieuw project' },
-  userId: { type: String, default: 'anon' },
-  files: {
-    html: { type: String, default: '' },
-    css: { type: String, default: '' },
-    js: { type: String, default: '' }
-  },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+    name: { type: String, default: 'Nieuw Project' },
+    userId: { type: String, default: 'user_123' },
+    files: {
+        html: { type: String, default: '' },
+        css: { type: String, default: '' },
+        js: { type: String, default: '' }
+    },
+    history: [{
+        prompt: String,
+        timestamp: { type: Date, default: Date.now }
+    }],
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
 });
 const Project = mongoose.model('Project', ProjectSchema);
 
-// Helpers
-function createSystemPrompt() {
-  return `Je bent een Senior Full-Stack Developer. Genereer moderne, functionele frontend code.
-Gebruik Tailwind CSS en lucide icons waar mogelijk. Lever output uitsluitend als JSON object met keys "html", "css", "js".
-Voorbeeld output JSON: {"html":"...","css":"...","js":"..."}.
-Wees zuiver en valideer dat de JSON correct geescaped wordt.`;
-}
-
-// ROUTES
-
-// Create a simple project placeholder (optionally not used directly)
-app.post('/project', async (req, res) => {
-  try {
-    const { name, userId } = req.body;
-    const p = new Project({ name: name || 'Nieuw project', userId: userId || 'anon' });
-    await p.save();
-    res.json(p);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: 'Fout bij aanmaken project' });
-  }
-});
-
-// Generate endpoint - creates DB entry immediately and returns id, then fills later
+// 3. AI GENERATIE ENGINE (Smart Iteration)
 app.post('/generate', async (req, res) => {
-  try {
-    const { prompt, userId, existingFiles } = req.body;
-    const project = new Project({
-      name: prompt ? prompt.substring(0, 40) : 'Nieuw project',
-      userId: userId || 'anon',
-      files: { html: 'GENERATING', css: '', js: '' }
-    });
-    await project.save();
-
-    // Return immediately with project id
-    res.json({ projectId: project._id });
-
-    // Start AI request in background
-    (async () => {
-      try {
-        const systemPrompt = createSystemPrompt();
-        let userContent;
-        if (existingFiles && existingFiles.html && existingFiles.html !== 'GENERATING') {
-          userContent = `UPDATE deze bestaande app met de volgende wijziging:\n${prompt}\n\nBESTAANDE CODE:\nHTML:\n${existingFiles.html}\n\nCSS:\n${existingFiles.css}\n\nJS:\n${existingFiles.js}`;
+    const { prompt, userId, existingFiles, projectId } = req.body;
+    
+    try {
+        let project;
+        if (projectId) {
+            project = await Project.findById(projectId);
         } else {
-          userContent = `MAAK deze app:\n${prompt}`;
+            project = new Project({
+                name: prompt.substring(0, 30),
+                userId: userId || "user_123",
+                files: { html: "GENERATING", css: "", js: "" }
+            });
+            await project.save();
         }
+        
+        // Stuur direct het ID terug zodat de frontend kan gaan pollen
+        res.json({ projectId: project._id });
 
-        const payload = {
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContent }
-          ],
-          response_format: { type: "json_object" }
-        };
+        // Start AI proces in de achtergrond
+        (async () => {
+            try {
+                const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
+                
+                const systemPrompt = `Je bent KAVRIX PRO AI, een Senior Full-Stack Developer.
+                STIJL: Modern, strak, donker thema (slate-900), Tailwind CSS, Lucide Icons.
+                LIVE DATA: Gebruik fetch() voor echte koersen (Crypto/Weer).
+                OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.
+                ${isUpdate ? "BELANGRIJK: Je krijgt de huidige code. Behoud de bestaande functies en pas ENKEL aan wat gevraagd wordt. Lever de VOLLEDIGE nieuwe code terug." : "Maak een volledig nieuwe app vanaf nul."}`;
 
-        const response = await axios.post(AI_URL, payload, {
-          headers: {
-            'Authorization': `Bearer ${API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 60000
-        });
+                const userContent = isUpdate 
+                    ? `HUIDIGE CODE:\nHTML: ${existingFiles.html}\nCSS: ${existingFiles.css}\nJS: ${existingFiles.js}\n\nGEWENSTE WIJZIGING: ${prompt}`
+                    : `MAAK NIEUWE APP: ${prompt}`;
 
-        // Expecting: response.data.choices[0].message.content is a JSON string
-        const raw = response.data?.choices?.[0]?.message?.content;
-        let aiJson;
-        try {
-          aiJson = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        } catch (err) {
-          // If parsing fails, try to extract JSON substring
-          const maybe = (raw || '').match(/\{[\s\S]*\}/);
-          aiJson = maybe ? JSON.parse(maybe[0]) : null;
-        }
+                const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+                    model: "llama-3.3-70b-versatile",
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userContent }
+                    ],
+                    response_format: { type: "json_object" }
+                }, {
+                    headers: { 'Authorization': `Bearer ${API_KEY}` },
+                    timeout: 60000
+                });
 
-        if (!aiJson || (!aiJson.html && !aiJson.css && !aiJson.js)) {
-          // fallback: store raw response for debugging
-          await Project.findByIdAndUpdate(project._id, {
-            files: {
-              html: `<pre style="color:white;background:#111;padding:16px;">AI response parsing error. Raw: ${String(raw).slice(0, 2000)}</pre>`,
-              css: '',
-              js: ''
-            },
-            updatedAt: new Date()
-          });
-          return;
-        }
+                const aiResponse = JSON.parse(response.data.choices[0].message.content);
+                
+                await Project.findByIdAndUpdate(project._id, { 
+                    files: aiResponse,
+                    $push: { history: { prompt: prompt } },
+                    updatedAt: new Date()
+                });
 
-        // Save AI result into database
-        await Project.findByIdAndUpdate(project._id, {
-          files: {
-            html: aiJson.html || '',
-            css: aiJson.css || '',
-            js: aiJson.js || ''
-          },
-          updatedAt: new Date()
-        });
-      } catch (err) {
-        console.error('AI generation error:', err?.message || err);
-        // Mark project failed but keep placeholder
-        await Project.findByIdAndUpdate(project._id, {
-          files: {
-            html: '<div style="color:white;padding:32px;text-align:center;"><h2>Generatie mislukt</h2><p>Probeer het nogmaals.</p></div>',
-            css: '',
-            js: ''
-          },
-          updatedAt: new Date()
-        });
-      }
-    })();
+            } catch (err) {
+                console.error("AI FOUT:", err.message);
+                await Project.findByIdAndUpdate(project._id, { 
+                    files: { html: "<div class='p-10 text-white'>AI is even druk. Probeer het opnieuw.</div>", css: "", js: "" } 
+                });
+            }
+        })();
 
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: 'Fout bij starten generatie' });
-  }
+    } catch (e) {
+        res.status(500).json({ error: "Server Fout" });
+    }
 });
 
-// Get single project
+// 4. PROJECT OPHALEN
 app.get('/project/:id', async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.id).lean();
-    if (!project) return res.status(404).json({ message: 'Niet gevonden' });
-    res.json(project);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: 'Fout bij ophalen project' });
-  }
+    try {
+        const project = await Project.findById(req.params.id).lean();
+        if (!project) return res.status(404).json({ error: "Niet gevonden" });
+        res.json(project);
+    } catch (e) { res.status(500).json({ error: "Fout bij ophalen" }); }
 });
 
-// List projects for a user
+// 5. LIJST MET PROJECTEN (Voor de Sidebar)
 app.get('/projects/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId || 'anon';
-    const projects = await Project.find({ userId }).sort({ updatedAt: -1 }).lean();
-    // return minimal info for list
-    const summary = projects.map(p => ({ id: p._id, name: p.name }));
-    res.json(summary);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: 'Fout bij ophalen projecten' });
-  }
+    try {
+        const projects = await Project.find({ userId: req.params.userId }).sort({ updatedAt: -1 }).lean();
+        res.json(projects.map(p => ({ id: p._id, name: p.name })));
+    } catch (e) { res.json([]); }
 });
 
-// Delete project
+// 6. PROJECT VERWIJDEREN
 app.delete('/project/:id', async (req, res) => {
-  try {
-    await Project.findByIdAndDelete(req.params.id);
-    return res.status(200).json({ message: 'Project verwijderd' });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ message: 'Fout bij verwijderen' });
-  }
+    try {
+        await Project.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Verwijderen mislukt" }); }
 });
 
-// Rename or update simple metadata (PATCH)
+// 7. PROJECT HERNOEMEN (PATCH)
 app.patch('/project/:id', async (req, res) => {
-  try {
-    const updates = {};
-    if (req.body.name) updates.name = req.body.name;
-    if (Object.keys(updates).length === 0) return res.status(400).json({ message: 'Niets om te updaten' });
-    updates.updatedAt = new Date();
-    const updated = await Project.findByIdAndUpdate(req.params.id, updates, { new: true }).lean();
-    res.json(updated);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ message: 'Fout bij bijwerken' });
-  }
+    try {
+        const { name } = req.body;
+        const updated = await Project.findByIdAndUpdate(req.params.id, { name, updatedAt: new Date() }, { new: true });
+        res.json(updated);
+    } catch (e) { res.status(500).json({ error: "Hernoemen mislukt" }); }
 });
 
-// Export project as downloadable HTML file
+// 8. EXPORT NAAR HTML (Download functie)
 app.get('/export/:id', async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.id).lean();
-    if (!project) return res.status(404).send('Niet gevonden');
+    try {
+        const project = await Project.findById(req.params.id).lean();
+        if (!project) return res.status(404).send("Niet gevonden");
 
-    const { html, css, js } = project.files || {};
-    const full = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${project.name || 'KAVRIX export'}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body>
-${html || ''}
-<style>${css || ''}</style>
-<script>${js || ''}<\/script>
-</body>
-</html>`;
+        const fullHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>${project.name}</title>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <script src="https://unpkg.com/lucide@latest"></script>
+                <style>${project.files.css}</style>
+            </head>
+            <body class="bg-slate-900 text-white">
+                ${project.files.html}
+                <script>
+                    lucide.createIcons();
+                    ${project.files.js}
+                </script>
+            </body>
+            </html>
+        `;
 
-    res.setHeader('Content-Disposition', `attachment; filename="kavrix-project-${project._id}.html"`);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(full);
-  } catch (e) {
-    console.error(e);
-    res.status(500).send('Fout bij exporteren');
-  }
+        res.setHeader('Content-Disposition', `attachment; filename="${project.name.replace(/\s+/g, '_')}.html"`);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(fullHtml);
+    } catch (e) { res.status(500).send("Export mislukt"); }
 });
 
-// Health & root
-app.get('/', (req, res) => res.send('KAVRIX Engine running'));
-app.get('/health', (req, res) => res.json({ ok: true }));
+// 9. ROOT & HEALTH CHECK
+app.get('/', (req, res) => res.send('KAVRIX Master Engine is Online'));
+app.get('/health', (req, res) => res.json({ status: "OK", database: mongoose.connection.readyState === 1 }));
 
-// Start
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`KAVRIX Engine draait op poort ${PORT}`));
+app.listen(PORT, () => console.log(`KAVRIX Master Engine draait op poort ${PORT}`));
