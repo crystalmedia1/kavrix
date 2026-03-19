@@ -20,6 +20,7 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         #splash { position: fixed; inset: 0; background: #0b0f1a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
         
+        /* THEMA'S */
         body.theme-cyberpunk { background-color: #050505; }
         body.theme-cyberpunk .glass { background: rgba(20, 0, 40, 0.8); border-color: #ff00ff33; }
         body.theme-cyberpunk .bg-indigo-600 { background-color: #ff00ff; }
@@ -34,7 +35,7 @@
         <div class="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mb-6 animate-bounce shadow-2xl shadow-indigo-500/50">
             <i data-lucide="zap" class="text-white w-10 h-10"></i>
         </div>
-        <h1 class="text-3xl font-bold tracking-tighter">KAVRIX <span class="text-indigo-500">PRO</span></h1>
+        <h1 class="text-3xl font-bold tracking-tighter text-white">KAVRIX <span class="text-indigo-500">PRO</span></h1>
     </div>
 
     <aside id="mainSidebar" class="sidebar glass h-full flex flex-col p-6 z-50">
@@ -42,7 +43,7 @@
             <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
                 <i data-lucide="zap" class="text-white w-6 h-6"></i>
             </div>
-            <h1 class="text-xl font-bold tracking-tight">KAVRIX <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full ml-1">PRO</span></h1>
+            <h1 class="text-xl font-bold tracking-tight text-white">KAVRIX <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full ml-1">PRO</span></h1>
         </div>
 
         <div class="flex-1 overflow-y-auto space-y-2" id="projectList">
@@ -76,7 +77,7 @@
                 <button onclick="setDevice('mobile')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
             </div>
 
-            <button onclick="exportCode()" class="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-bold transition shadow-lg shadow-indigo-600/20">Export</button>
+            <button onclick="exportCode()" class="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-bold transition shadow-lg shadow-indigo-600/20 text-white">Export</button>
         </header>
 
         <div class="preview-wrapper">
@@ -93,8 +94,8 @@
             <div class="max-w-3xl mx-auto w-full">
                 <div class="glass p-2 rounded-2xl flex items-center gap-2 shadow-2xl border-white/5 focus-within:border-indigo-500/50 transition-all">
                     <div class="pl-4 text-indigo-500"><i data-lucide="wand-2" class="w-5 h-5"></i></div>
-                    <input type="text" id="promptInput" placeholder="Vraag KAVRIX om iets te bouwen..." class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm placeholder:text-slate-600" onkeydown="if(event.key==='Enter') generateApp()">
-                    <button onclick="generateApp()" id="genBtn" class="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-xl transition shadow-lg shadow-indigo-600/20">
+                    <input type="text" id="promptInput" placeholder="Vraag KAVRIX om iets te bouwen..." class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm text-white placeholder:text-slate-600" onkeydown="if(event.key==='Enter') generateApp()">
+                    <button onclick="generateApp()" id="genBtn" class="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-xl transition shadow-lg shadow-indigo-600/20 text-white">
                         <i data-lucide="zap" class="w-5 h-5 fill-current"></i>
                     </button>
                 </div>
@@ -178,15 +179,7 @@
 
         function renderApp(files) {
             const frame = document.getElementById('previewFrame');
-            
-            // DE IMAGE-FIXER: We scannen de HTML op <img> tags en zorgen dat ze werken
-            let fixedHtml = files.html;
-            if (fixedHtml.includes('image.pollinations.ai')) {
-                // We zorgen dat de afbeeldingen altijd schermvullend en zichtbaar zijn
-                fixedHtml = fixedHtml.replace(/<img/g, '<img style="width:100%; height:100%; object-fit:cover; position:absolute; inset:0; z-index:-1;"');
-            }
-
-            frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>body { margin: 0; padding: 0; min-height: 100vh; background-color: #161b2a; color: white; position: relative; overflow-x: hidden; } ${files.css}</style></head><body>${fixedHtml}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
+            frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>body { margin: 0; padding: 0; min-height: 100vh; background-color: #161b2a; color: white; position: relative; overflow-x: hidden; } ${files.css}</style></head><body>${files.html}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
         }
 
         async function openProject(id) {
