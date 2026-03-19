@@ -51,10 +51,9 @@ app.post('/generate', async (req, res) => {
                 const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
                 const systemPrompt = `Je bent KAVRIX PRO AI. 
                 STIJL: Modern, Luxe, Tailwind CSS.
-                AFBEELDINGEN: Als de gebruiker om een foto vraagt (zoals een biefstuk), MOET je een <img> tag gebruiken of CSS background.
-                GEBRUIK DEZE URL: https://image.pollinations.ai/prompt/[BESCHRIJVING]?width=1080&height=1920&nologo=true
-                Vervang [BESCHRIJVING] door Engelse woorden met underscores.
-                BELANGRIJK: Zorg dat de afbeelding ALTIJD zichtbaar is. Gebruik 'object-cover' voor img tags.
+                AFBEELDINGEN: Gebruik ALTIJD <img> tags voor foto's. 
+                URL FORMAAT: https://image.pollinations.ai/prompt/[BESCHRIJVING]?width=1080&height=1920&nologo=true
+                Vervang [BESCHRIJVING] door Engelse woorden.
                 OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.`;
 
                 const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
