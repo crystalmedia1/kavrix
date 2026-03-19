@@ -15,17 +15,11 @@
         .preview-container { height: 100%; width: 100%; border-radius: 32px; overflow: hidden; background: #161b2a; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         .preview-container.mobile { width: 375px; height: 667px; border: 12px solid #1e293b; border-radius: 40px; }
         .preview-container.tablet { width: 768px; height: 1024px; border: 12px solid #1e293b; border-radius: 30px; }
-        iframe { width: 100%; height: 100%; border: none; background: white; }
+        iframe { width: 100%; height: 100%; border: none; background: transparent; }
         .loader { border: 3px solid rgba(99, 102, 241, 0.1); border-left-color: #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         #splash { position: fixed; inset: 0; background: #0b0f1a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
         .btn-glow:hover { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
-        body.theme-cyberpunk { background-color: #050505; }
-        body.theme-cyberpunk .glass { background: rgba(20, 0, 40, 0.8); border-color: #ff00ff33; }
-        body.theme-cyberpunk .bg-indigo-600 { background-color: #ff00ff; }
-        body.theme-emerald { background-color: #022c22; }
-        body.theme-emerald .glass { background: rgba(6, 78, 59, 0.8); border-color: #10b98133; }
-        body.theme-emerald .bg-indigo-600 { background-color: #10b981; }
     </style>
 </head>
 <body class="flex h-screen">
@@ -52,12 +46,6 @@
             <p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>
         </div>
 
-        <div class="mt-4 p-3 glass rounded-xl flex justify-around">
-            <button onclick="setTheme('midnight')" title="Midnight" class="w-6 h-6 rounded-full bg-slate-800 border border-white/20"></button>
-            <button onclick="setTheme('cyberpunk')" title="Cyberpunk" class="w-6 h-6 rounded-full bg-fuchsia-600 border border-white/20"></button>
-            <button onclick="setTheme('emerald')" title="Emerald" class="w-6 h-6 rounded-full bg-emerald-600 border border-white/20"></button>
-        </div>
-
         <div class="mt-auto pt-6 border-t border-white/5">
             <button onclick="newProject()" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition text-slate-400 hover:text-white">
                 <i data-lucide="plus-circle" class="w-5 h-5"></i> <span>Nieuw Project</span>
@@ -82,15 +70,13 @@
                 </div>
             </div>
 
-            <!-- DEVICE TOGGLE -->
             <div class="flex items-center glass rounded-xl p-1 gap-1">
-                <button onclick="setDevice('desktop')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition" title="Desktop View"><i data-lucide="monitor" class="w-4 h-4"></i></button>
-                <button onclick="setDevice('tablet')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition" title="Tablet View"><i data-lucide="tablet" class="w-4 h-4"></i></button>
-                <button onclick="setDevice('mobile')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition" title="Mobile View"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
+                <button onclick="setDevice('desktop')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="monitor" class="w-4 h-4"></i></button>
+                <button onclick="setDevice('tablet')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="tablet" class="w-4 h-4"></i></button>
+                <button onclick="setDevice('mobile')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
             </div>
 
             <div class="flex items-center gap-3">
-                <button onclick="inspectCode()" class="px-4 py-2 glass rounded-xl text-sm font-medium hover:bg-white/5 transition">Inspect</button>
                 <button onclick="exportCode()" class="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-bold btn-glow transition">Export</button>
             </div>
         </header>
@@ -111,7 +97,7 @@
             <div class="max-w-3xl mx-auto w-full">
                 <div class="glass p-2 rounded-2xl flex items-center gap-2 shadow-2xl border-white/5 focus-within:border-indigo-500/50 transition-all">
                     <div class="pl-4 text-indigo-500"><i data-lucide="wand-2" class="w-5 h-5"></i></div>
-                    <input type="text" id="promptInput" placeholder="Vraag KAVRIX om iets te bouwen of aan te passen..." 
+                    <input type="text" id="promptInput" placeholder="Vraag KAVRIX om iets te bouwen..." 
                            class="flex-1 bg-transparent border-none outline-none px-2 py-4 text-sm placeholder:text-slate-600"
                            onkeydown="if(event.key==='Enter') generateApp()">
                     <button onclick="generateApp()" id="genBtn" class="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-xl transition shadow-lg shadow-indigo-600/20">
@@ -166,10 +152,8 @@
         async function generateApp() {
             const prompt = document.getElementById('promptInput').value;
             if (!prompt) return;
-            
             document.getElementById('loadingOverlay').classList.remove('hidden');
             document.getElementById('genBtn').disabled = true;
-            
             try {
                 const res = await fetch(`${API_URL}/generate`, {
                     method: 'POST',
@@ -178,11 +162,9 @@
                 });
                 const data = await res.json();
                 currentProjectId = data.projectId;
-                
                 if(pollInterval) clearInterval(pollInterval);
                 pollInterval = setInterval(checkStatus, 3000);
             } catch (e) { 
-                alert("Fout bij verbinden met server");
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 document.getElementById('genBtn').disabled = false;
             }
@@ -192,7 +174,6 @@
             try {
                 const res = await fetch(`${API_URL}/project/${currentProjectId}`);
                 const data = await res.json();
-                
                 if (data.files && data.files.html !== "GENERATING") {
                     clearInterval(pollInterval);
                     currentFiles = data.files;
@@ -209,7 +190,8 @@
 
         function renderApp(files) {
             const frame = document.getElementById('previewFrame');
-            frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>${files.css}</style></head><body>${files.html}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
+            // WE HALEN DE WITTE ACHTERGROND UIT DE IFRAME BODY
+            frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>body { margin: 0; padding: 0; min-height: 100vh; background: transparent; } ${files.css}</style></head><body>${files.html}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
         }
 
         async function openProject(id) {
@@ -252,10 +234,6 @@
             container.className = 'preview-container glass ' + device;
         }
 
-        function setTheme(theme) {
-            document.body.className = 'flex h-screen theme-' + theme;
-        }
-
         function toggleSidebar() {
             const sb = document.getElementById('mainSidebar');
             sidebarOpen = !sidebarOpen;
@@ -269,12 +247,6 @@
             currentProjectId = null;
             document.getElementById('previewFrame').srcdoc = "<body></body>";
             document.getElementById('currentProjectName').value = "Nieuw Project";
-        }
-
-        function inspectCode() {
-            if(!currentFiles) return;
-            console.log(currentFiles);
-            alert("Code staat in de console (F12)!");
         }
 
         function exportCode() {
