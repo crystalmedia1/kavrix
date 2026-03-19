@@ -23,6 +23,7 @@ const ProjectSchema = new mongoose.Schema({
         css: { type: String, default: '' },
         js: { type: String, default: '' }
     },
+    images: [{ url: String, prompt: String }], // NIEUW: Opslag voor gegenereerde beelden
     history: [{
         prompt: String,
         timestamp: { type: Date, default: Date.now }
@@ -56,11 +57,11 @@ app.post('/generate', async (req, res) => {
             try {
                 const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
                 
-                const systemPrompt = `Je bent KAVRIX PRO AI, een Senior Full-Stack Developer.
-                STIJL: Modern, strak, Tailwind CSS, Lucide Icons. Gebruik vette gradients en animaties.
-                UX: Zorg dat apps responsive zijn (werken op mobiel en desktop).
+                const systemPrompt = `Je bent KAVRIX PRO AI. 
+                STIJL: Modern, Tailwind CSS.
+                AFBEELDINGEN: Als de gebruiker om een afbeelding vraagt, gebruik dan een <img> tag met src="https://image.pollinations.ai/prompt/[PROMPT]" waarbij [PROMPT] een korte Engelse beschrijving is van wat er op de foto moet staan.
                 OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.
-                ${isUpdate ? "BELANGRIJK: Behoud de bestaande functies en pas ENKEL aan wat gevraagd wordt. Lever de VOLLEDIGE nieuwe code terug." : "Maak een volledig nieuwe app vanaf nul."}`;
+                ${isUpdate ? "Pas de bestaande code aan." : "Maak een nieuwe app."}`;
 
                 const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
                     model: "llama-3.3-70b-versatile",
