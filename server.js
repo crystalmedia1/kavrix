@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
@@ -10,110 +12,90 @@ app.use(express.json({ limit: '10mb' }));
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const API_KEY = process.env.API_KEY;
+const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_super_secret_123';
 
-mongoose.connect(MONGODB_URI || 'mongodb://localhost/kavrix')
+mongoose.connect(MONGODB_URI)
     .then(() => console.log("KAVRIX Database Verbonden!"))
     .catch(err => console.error("Database Verbindingsfout:", err));
 
+// GEBRUIKER SCHEMA
+const UserSchema = new mongoose.Schema({
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+const User = mongoose.model('User', UserSchema);
+
+// PROJECT SCHEMA (Gekoppeld aan User)
 const ProjectSchema = new mongoose.Schema({
     name: { type: String, default: 'Nieuw Project' },
-    userId: { type: String, default: 'user_123' },
-    files: {
-        html: { type: String, default: '' },
-        css: { type: String, default: '' },
-        js: { type: String, default: '' }
-    },
-    history: [{ prompt: String, timestamp: { type: Date, default: Date.now } }],
-    createdAt: { type: Date, default: Date.now },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    files: { html: String, css: String, js: String },
     updatedAt: { type: Date, default: Date.now }
 });
 const Project = mongoose.model('Project', ProjectSchema);
 
+// --- AUTH ROUTES ---
+
+app.post('/register', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = new User({ email, password: hashedPassword });
+        await user.save();
+        const token = jwt.sign({ userId: user._id }, JWT_SECRET);
+        res.json({ token, userId: user._id });
+    } catch (e) { res.status(400).json({ error: "Email bestaat al" }); }
+});
+
+app.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+        if (!user || !await bcrypt.compare(password, user.password)) {
+            return res.status(401).json({ error: "Ongeldige gegevens" });
+        }
+        const token = jwt.sign({ userId: user._id }, JWT_SECRET);
+        res.json({ token, userId: user._id });
+    } catch (e) { res.status(500).json({ error: "Server fout" }); }
+});
+
+// --- APP ROUTES ---
+
 app.post('/generate', async (req, res) => {
-    const { prompt, userId, existingFiles, projectId } = req.body;
+    const { prompt, userId, projectId } = req.body;
     try {
         let project;
-        if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
-            project = await Project.findById(projectId);
-        }
+        if (projectId) project = await Project.findById(projectId);
         if (!project) {
-            project = new Project({
-                name: prompt.substring(0, 30),
-                userId: userId || "user_123",
-                files: { html: "GENERATING", css: "", js: "" }
-            });
+            project = new Project({ name: prompt.substring(0, 20), userId, files: { html: "GENERATING" } });
             await project.save();
         }
         res.json({ projectId: project._id });
 
         (async () => {
-            try {
-                const isUpdate = existingFiles && existingFiles.html && existingFiles.html !== "GENERATING";
-                const systemPrompt = `Je bent KAVRIX PRO AI. 
-                STIJL: Modern, Luxe, Tailwind CSS.
-                AFBEELDINGEN: Gebruik ALTIJD Unsplash. URL: https://images.unsplash.com/photo-1546241072-48010ad28c2c?auto=format&fit=crop&w=1080&q=80
-                Zorg dat de <img> tag de class 'w-full h-full object-cover fixed inset-0 -z-10' heeft.
-                OUTPUT: Lever ALTIJD een JSON object: {"html": "...", "css": "...", "js": "..."}.`;
+            const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+                model: "llama-3.3-70b-versatile",
+                messages: [
+                    { role: "system", content: "Je bent KAVRIX AI. Output ALTIJD JSON: {\"html\": \"...\", \"css\": \"...\", \"js\": \"...\"}. Gebruik Tailwind CSS." },
+                    { role: "user", content: prompt }
+                ],
+                response_format: { type: "json_object" }
+            }, { headers: { 'Authorization': `Bearer ${API_KEY}` } });
 
-                const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-                    model: "llama-3.3-70b-versatile",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: isUpdate ? `WIJZIG DEZE CODE:\nHTML: ${existingFiles.html}\nPROMPT: ${prompt}` : prompt }
-                    ],
-                    response_format: { type: "json_object" }
-                }, {
-                    headers: { 'Authorization': `Bearer ${API_KEY}` },
-                    timeout: 50000
-                });
-
-                const aiResponse = JSON.parse(response.data.choices[0].message.content);
-                await Project.findByIdAndUpdate(project._id, { 
-                    files: aiResponse,
-                    $push: { history: { prompt: prompt } },
-                    updatedAt: new Date()
-                });
-            } catch (err) {
-                console.error("AI Fout:", err.message);
-            }
+            await Project.findByIdAndUpdate(project._id, { files: JSON.parse(response.data.choices[0].message.content) });
         })();
-    } catch (e) {
-        res.status(500).json({ error: "Server Fout" });
-    }
-});
-
-app.get('/project/:id', async (req, res) => {
-    try {
-        const project = await Project.findById(req.params.id);
-        res.json(project);
-    } catch (e) { res.status(404).json({ error: "Niet gevonden" }); }
-});
-
-app.get('/projects/:userId', async (req, res) => {
-    try {
-        const projects = await Project.find({ userId: req.params.userId }).sort({ updatedAt: -1 });
-        res.json(projects.map(p => ({ id: p._id, name: p.name })));
-    } catch (e) { res.json([]); }
-});
-
-app.delete('/project/:id', async (req, res) => {
-    try {
-        await Project.findByIdAndDelete(req.params.id);
-        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: "Fout" }); }
 });
 
-app.get('/export/:id', async (req, res) => {
-    try {
-        const project = await Project.findById(req.params.id);
-        const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${project.name}</title><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>${project.files.css}</style></head><body class="bg-slate-900 text-white">${project.files.html}<script>lucide.createIcons(); ${project.files.js}<\/script></body></html>`;
-        res.setHeader('Content-Disposition', `attachment; filename="${project.name.replace(/\s+/g, '_')}.html"`);
-        res.setHeader('Content-Type', 'text/html');
-        res.send(fullHtml);
-    } catch (e) { res.status(500).send("Fout"); }
+app.get('/projects/:userId', async (req, res) => {
+    const projects = await Project.find({ userId: req.params.userId }).sort({ updatedAt: -1 });
+    res.json(projects);
 });
 
-app.get('/', (req, res) => res.send('KAVRIX Online'));
+app.get('/project/:id', async (req, res) => {
+    const project = await Project.findById(req.params.id);
+    res.json(project);
+});
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server draait op ${PORT}`));
+app.listen(process.env.PORT || 3000);
