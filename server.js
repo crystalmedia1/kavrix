@@ -15,8 +15,8 @@ app.use(express.json({ limit: '10mb' }));
 
 // CONFIGURATIE
 const MONGODB_URI = process.env.MONGODB_URI;
-const API_KEY = process.env.API_KEY; // Je Groq of Abacus API Key
-const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_ultra_secret_2024';
+const API_KEY = process.env.API_KEY; 
+const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_master_key_2024';
 
 // DATABASE VERBINDING
 mongoose.connect(MONGODB_URI)
@@ -47,18 +47,19 @@ const Project = mongoose.model('Project', ProjectSchema);
 
 // --- AUTHENTICATIE ROUTES ---
 
-// 1. Registreren
+// 1. Registreren (Aangepast voor jouw Resend-testfase)
 app.post('/register', async (req, res) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) return res.status(400).json({ error: "Vul alle velden in." });
 
-        const existingUser = await User.findOne({ email: email.toLowerCase() });
+        const lowered = email.toLowerCase().trim();
+        const existingUser = await User.findOne({ email: lowered });
         if (existingUser) return res.status(400).json({ error: "Dit emailadres is al geregistreerd." });
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = new User({ 
-            email: email.toLowerCase(), 
+            email: lowered, 
             password: hashedPassword,
             isVerified: false 
         });
@@ -68,28 +69,34 @@ app.post('/register', async (req, res) => {
         const vToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1d' });
         const verifyUrl = `https://kavrix.onrender.com/verify-email?token=${vToken}`;
 
-        // Mail versturen via Resend
+        // TIJDELIJK: Altijd naar jouw geverifieerde adres sturen
+        const myVerifiedEmail = 'zakelijk90@hotmail.com';
+
+        console.log('[REGISTER] Nieuwe user:', lowered, 'Mail gaat naar:', myVerifiedEmail);
+
         const { error } = await resend.emails.send({
             from: 'KAVRIX <onboarding@resend.dev>',
-            to: email,
-            subject: 'Activeer je KAVRIX PRO Account',
+            to: myVerifiedEmail, 
+            subject: 'Activeer KAVRIX Account voor: ' + lowered,
             html: `
                 <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 16px;">
-                    <h1 style="color: #6366f1;">Welkom bij KAVRIX!</h1>
-                    <p>Bedankt voor je registratie. Klik op de knop hieronder om je account te activeren:</p>
+                    <h1 style="color: #6366f1;">Nieuwe Registratie!</h1>
+                    <p>Er is een account aangemaakt voor: <strong>${lowered}</strong></p>
+                    <p>Klik op de knop hieronder om dit account te activeren:</p>
                     <a href="${verifyUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px;">Account Activeren</a>
-                    <p style="margin-top: 30px; color: #64748b; font-size: 12px;">Werkt de knop niet? Kopieer deze link: <br> ${verifyUrl}</p>
+                    <p style="margin-top: 30px; color: #64748b; font-size: 12px;">Link: ${verifyUrl}</p>
                 </div>
             `
         });
 
         if (error) {
             console.error("Resend Error:", error);
-            return res.status(500).json({ error: "Fout bij versturen activatiemail." });
+            return res.status(500).json({ error: "Mail kon niet verzonden worden." });
         }
 
-        res.json({ message: "Check je inbox voor de activatielink!" });
+        res.json({ message: "Check je inbox (zakelijk90@hotmail.com) voor de activatielink!" });
     } catch (e) {
+        console.error("Registratie Fout:", e);
         res.status(500).json({ error: "Server fout bij registratie." });
     }
 });
@@ -104,7 +111,7 @@ app.get('/verify-email', async (req, res) => {
             <div style="font-family:sans-serif; text-align:center; padding:50px;">
                 <h1 style="color:#6366f1;">Account Geverifieerd!</h1>
                 <p>Je kunt nu teruggaan naar de website en inloggen.</p>
-                <a href="https://kavrix.github.io/" style="color:#6366f1;">Ga naar KAVRIX PRO</a>
+                <a href="https://kavrix.github.io/" style="color:#6366f1; font-weight:bold;">Ga naar KAVRIX PRO</a>
             </div>
         `);
     } catch (e) {
@@ -116,10 +123,10 @@ app.get('/verify-email', async (req, res) => {
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const user = await User.findOne({ email: email.toLowerCase() });
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
         
         if (!user) return res.status(401).json({ error: "Gebruiker niet gevonden." });
-        if (!user.isVerified) return res.status(401).json({ error: "Bevestig eerst je emailadres!" });
+        if (!user.isVerified) return res.status(401).json({ error: "Bevestig eerst je emailadres via de link in je inbox!" });
 
         const isValid = await bcrypt.compare(password, user.password);
         if (!isValid) return res.status(401).json({ error: "Wachtwoord onjuist." });
@@ -137,7 +144,6 @@ app.post('/login', async (req, res) => {
 app.post('/generate', async (req, res) => {
     const { prompt, userId, projectId, token } = req.body;
     try {
-        // Beveiliging: Check token
         const decoded = jwt.verify(token, JWT_SECRET);
         if (decoded.userId !== userId) return res.status(401).json({ error: "Niet geautoriseerd." });
 
@@ -157,7 +163,6 @@ app.post('/generate', async (req, res) => {
 
         res.json({ projectId: project._id });
 
-        // AI Generatie op de achtergrond
         (async () => {
             try {
                 const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
@@ -217,7 +222,6 @@ app.delete('/project/:id', async (req, res) => {
     }
 });
 
-// 8. Test Route
 app.get('/', (req, res) => res.send('KAVRIX PRO API is Online 🚀'));
 
 const PORT = process.env.PORT || 3000;
