@@ -39,9 +39,9 @@
             <h1 class="text-2xl font-bold mb-2">KAVRIX <span class="text-indigo-500">PRO</span></h1>
             <p class="text-slate-400 text-sm mb-8" id="authSubtitle">Log in om apps te bouwen</p>
             <div class="space-y-4">
-                <input type="email" id="email" placeholder="Email" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-indigo-500 transition">
-                <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-indigo-500 transition">
-                <button onclick="handleAuth()" id="authBtn" class="w-full bg-indigo-600 py-4 rounded-xl font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-600/20">Inloggen</button>
+                <input type="email" id="email" placeholder="Email" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-indigo-500 transition text-white">
+                <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-indigo-500 transition text-white">
+                <button onclick="handleAuth()" id="authBtn" class="w-full bg-indigo-600 py-4 rounded-xl font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-600/20 text-white">Inloggen</button>
                 <p class="text-xs text-slate-500">
                     Nog geen account? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400 hover:underline" id="toggleLink">Registreer hier</a>
                 </p>
@@ -49,7 +49,7 @@
         </div>
     </div>
 
-    <!-- MAIN APP -->
+    <!-- MAIN APP SIDEBAR -->
     <aside id="mainSidebar" class="sidebar glass h-full flex flex-col p-6 z-50">
         <div class="flex items-center gap-3 mb-10">
             <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -72,6 +72,7 @@
         </div>
     </aside>
 
+    <!-- MAIN APP CONTENT -->
     <main class="flex-1 flex flex-col relative">
         <header class="flex items-center justify-between p-6 border-b border-white/5">
             <div class="flex items-center gap-4">
@@ -133,17 +134,31 @@
         async function handleAuth() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const authBtn = document.getElementById('authBtn');
             const endpoint = isLogin ? '/login' : '/register';
-            const res = await fetch(API_URL + endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-            const data = await res.json();
-            if(data.userId) {
-                localStorage.setItem('kavrix_user_id', data.userId);
-                location.reload();
-            } else { alert(data.error); }
+
+            if(!email || !password) { alert("Vul alle velden in"); return; }
+
+            authBtn.innerText = "Bezig...";
+            authBtn.disabled = true;
+
+            try {
+                const res = await fetch(API_URL + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if(data.userId) {
+                    localStorage.setItem('kavrix_user_id', data.userId);
+                    location.reload();
+                } else { alert("Fout: " + (data.error || "Onbekende fout")); }
+            } catch (e) {
+                alert("Kan geen verbinding maken met de server. Controleer je Render URL.");
+            } finally {
+                authBtn.innerText = isLogin ? 'Inloggen' : 'Registreren';
+                authBtn.disabled = false;
+            }
         }
 
         function logout() {
@@ -152,44 +167,50 @@
         }
 
         async function loadProjects() {
-            const res = await fetch(`${API_URL}/projects/${userId}`);
-            const projects = await res.json();
-            const list = document.getElementById('projectList');
-            list.innerHTML = '<p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>';
-            projects.forEach(p => {
-                const div = document.createElement('div');
-                div.className = "group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition cursor-pointer";
-                div.innerHTML = `<div class="flex items-center gap-3 flex-1 overflow-hidden" onclick="openProject('${p._id}')"><i data-lucide="layout" class="text-slate-500 w-4 h-4"></i><span class="text-xs font-medium truncate text-slate-400 group-hover:text-white">${p.name}</span></div><button onclick="deleteProject('${p._id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
-                list.appendChild(div);
-            });
-            lucide.createIcons();
+            try {
+                const res = await fetch(`${API_URL}/projects/${userId}`);
+                const projects = await res.json();
+                const list = document.getElementById('projectList');
+                list.innerHTML = '<p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>';
+                projects.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = "group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition cursor-pointer";
+                    div.innerHTML = `<div class="flex items-center gap-3 flex-1 overflow-hidden" onclick="openProject('${p._id}')"><i data-lucide="layout" class="text-slate-500 w-4 h-4"></i><span class="text-xs font-medium truncate text-slate-400 group-hover:text-white">${p.name}</span></div><button onclick="deleteProject('${p._id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+                    list.appendChild(div);
+                });
+                lucide.createIcons();
+            } catch (e) { console.error("Laden mislukt"); }
         }
 
         async function generateApp() {
             const prompt = document.getElementById('promptInput').value;
             if (!prompt) return;
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            const res = await fetch(`${API_URL}/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, userId, projectId: currentProjectId })
-            });
-            const data = await res.json();
-            currentProjectId = data.projectId;
-            if(pollInterval) clearInterval(pollInterval);
-            pollInterval = setInterval(checkStatus, 3000);
+            try {
+                const res = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, userId, projectId: currentProjectId })
+                });
+                const data = await res.json();
+                currentProjectId = data.projectId;
+                if(pollInterval) clearInterval(pollInterval);
+                pollInterval = setInterval(checkStatus, 3000);
+            } catch (e) { document.getElementById('loadingOverlay').classList.add('hidden'); }
         }
 
         async function checkStatus() {
-            const res = await fetch(`${API_URL}/project/${currentProjectId}`);
-            const data = await res.json();
-            if (data.files && data.files.html !== "GENERATING") {
-                clearInterval(pollInterval);
-                renderApp(data.files);
-                document.getElementById('loadingOverlay').classList.add('hidden');
-                document.getElementById('promptInput').value = "";
-                loadProjects();
-            }
+            try {
+                const res = await fetch(`${API_URL}/project/${currentProjectId}`);
+                const data = await res.json();
+                if (data.files && data.files.html !== "GENERATING") {
+                    clearInterval(pollInterval);
+                    renderApp(data.files);
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('promptInput').value = "";
+                    loadProjects();
+                }
+            } catch (e) { console.error("Polling..."); }
         }
 
         function renderApp(files) {
