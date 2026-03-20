@@ -18,7 +18,7 @@
         iframe { width: 100%; height: 100%; border: none; background: transparent; }
         .loader { border: 3px solid rgba(99, 102, 241, 0.1); border-left-color: #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        #splash { position: fixed; inset: 0; background: #0b0f1a; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease; }
+        #authOverlay { position: fixed; inset: 0; z-index: 1000; background: #0b0f1a; display: flex; align-items: center; justify-content: center; }
         
         body.theme-cyberpunk { background-color: #050505; }
         body.theme-cyberpunk .glass { background: rgba(20, 0, 40, 0.8); border-color: #ff00ff33; }
@@ -30,34 +30,44 @@
 </head>
 <body class="flex h-screen">
 
-    <div id="splash">
-        <div class="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mb-6 animate-bounce shadow-2xl shadow-indigo-500/50">
-            <i data-lucide="zap" class="text-white w-10 h-10"></i>
+    <!-- AUTH SCHERM -->
+    <div id="authOverlay">
+        <div class="glass p-8 rounded-3xl w-full max-w-md shadow-2xl border-indigo-500/20 text-center">
+            <div class="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-500/40">
+                <i data-lucide="zap" class="text-white w-8 h-8"></i>
+            </div>
+            <h1 class="text-2xl font-bold mb-2">KAVRIX <span class="text-indigo-500">PRO</span></h1>
+            <p class="text-slate-400 text-sm mb-8" id="authSubtitle">Log in om apps te bouwen</p>
+            <div class="space-y-4">
+                <input type="email" id="email" placeholder="Email" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-indigo-500 transition">
+                <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-indigo-500 transition">
+                <button onclick="handleAuth()" id="authBtn" class="w-full bg-indigo-600 py-4 rounded-xl font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-600/20">Inloggen</button>
+                <p class="text-xs text-slate-500">
+                    Nog geen account? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400 hover:underline" id="toggleLink">Registreer hier</a>
+                </p>
+            </div>
         </div>
-        <h1 class="text-3xl font-bold tracking-tighter text-white">KAVRIX <span class="text-indigo-500">PRO</span></h1>
     </div>
 
+    <!-- MAIN APP -->
     <aside id="mainSidebar" class="sidebar glass h-full flex flex-col p-6 z-50">
         <div class="flex items-center gap-3 mb-10">
             <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
                 <i data-lucide="zap" class="text-white w-6 h-6"></i>
             </div>
-            <h1 class="text-xl font-bold tracking-tight text-white">KAVRIX <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full ml-1">PRO</span></h1>
+            <h1 class="text-xl font-bold tracking-tight text-white">KAVRIX <span class="text-indigo-500">PRO</span></h1>
         </div>
-
         <div class="flex-1 overflow-y-auto space-y-2" id="projectList">
             <p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>
         </div>
-
         <div class="mt-4 p-3 glass rounded-xl flex justify-around">
             <button onclick="setTheme('midnight')" class="w-6 h-6 rounded-full bg-slate-800 border border-white/20"></button>
             <button onclick="setTheme('cyberpunk')" class="w-6 h-6 rounded-full bg-fuchsia-600 border border-white/20"></button>
             <button onclick="setTheme('emerald')" class="w-6 h-6 rounded-full bg-emerald-600 border border-white/20"></button>
         </div>
-
         <div class="mt-auto pt-6 border-t border-white/5">
-            <button onclick="newProject()" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition text-slate-400 hover:text-white">
-                <i data-lucide="plus-circle" class="w-5 h-5"></i> <span>Nieuw Project</span>
+            <button onclick="logout()" class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition text-slate-400 hover:text-white">
+                <i data-lucide="log-out" class="w-5 h-5"></i> <span>Uitloggen</span>
             </button>
         </div>
     </aside>
@@ -66,17 +76,14 @@
         <header class="flex items-center justify-between p-6 border-b border-white/5">
             <div class="flex items-center gap-4">
                 <button onclick="toggleSidebar()" class="p-2 hover:bg-white/5 rounded-lg transition text-slate-400 hover:text-white"><i data-lucide="menu"></i></button>
-                <input type="text" id="currentProjectName" value="Nieuw Project" onchange="renameProject(this.value)" class="bg-transparent border-none outline-none text-sm text-slate-400 font-medium focus:text-white transition w-48">
-                <span id="saveStatus" class="text-[9px] text-emerald-500 opacity-0 transition-opacity">Opgeslagen</span>
+                <input type="text" id="currentProjectName" value="Nieuw Project" class="bg-transparent border-none outline-none text-sm text-slate-400 font-medium focus:text-white transition w-48">
             </div>
-
             <div class="flex items-center glass rounded-xl p-1 gap-1">
                 <button onclick="setDevice('desktop')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="monitor" class="w-4 h-4"></i></button>
                 <button onclick="setDevice('tablet')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="tablet" class="w-4 h-4"></i></button>
                 <button onclick="setDevice('mobile')" class="p-2 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white transition"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
             </div>
-
-            <button onclick="exportCode()" class="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-bold transition shadow-lg shadow-indigo-600/20 text-white">Export</button>
+            <button onclick="newProject()" class="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-bold transition shadow-lg shadow-indigo-600/20 text-white">Nieuw</button>
         </header>
 
         <div class="preview-wrapper">
@@ -104,116 +111,96 @@
 
     <script>
         const API_URL = "https://kavrix.onrender.com"; 
-        const USER_ID = "user_123";
+        let userId = localStorage.getItem('kavrix_user_id');
         let currentProjectId = null;
-        let currentFiles = null;
-        let sidebarOpen = true;
+        let isLogin = true;
         let pollInterval = null;
 
         lucide.createIcons();
 
-        window.onload = () => {
-            setTimeout(() => {
-                const splash = document.getElementById('splash');
-                splash.style.opacity = '0';
-                setTimeout(() => splash.style.display = 'none', 800);
-            }, 2500);
+        if(userId) {
+            document.getElementById('authOverlay').classList.add('hidden');
             loadProjects();
-        };
+        }
+
+        function toggleAuthMode() {
+            isLogin = !isLogin;
+            document.getElementById('authBtn').innerText = isLogin ? 'Inloggen' : 'Registreren';
+            document.getElementById('authSubtitle').innerText = isLogin ? 'Log in om apps te bouwen' : 'Maak een gratis account aan';
+            document.getElementById('toggleLink').innerText = isLogin ? 'Registreer hier' : 'Log hier in';
+        }
+
+        async function handleAuth() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const endpoint = isLogin ? '/login' : '/register';
+            const res = await fetch(API_URL + endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            if(data.userId) {
+                localStorage.setItem('kavrix_user_id', data.userId);
+                location.reload();
+            } else { alert(data.error); }
+        }
+
+        function logout() {
+            localStorage.removeItem('kavrix_user_id');
+            location.reload();
+        }
 
         async function loadProjects() {
-            try {
-                const res = await fetch(`${API_URL}/projects/${USER_ID}`);
-                const projects = await res.json();
-                const list = document.getElementById('projectList');
-                list.innerHTML = '<p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>';
-                projects.forEach(p => {
-                    const div = document.createElement('div');
-                    div.className = "group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition cursor-pointer";
-                    div.innerHTML = `<div class="flex items-center gap-3 flex-1 overflow-hidden" onclick="openProject('${p.id}')"><i data-lucide="layout" class="text-slate-500 w-4 h-4"></i><span class="text-xs font-medium truncate text-slate-400 group-hover:text-white">${p.name}</span></div><button onclick="deleteProject('${p.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
-                    list.appendChild(div);
-                });
-                lucide.createIcons();
-            } catch (e) { console.error("Laden mislukt"); }
+            const res = await fetch(`${API_URL}/projects/${userId}`);
+            const projects = await res.json();
+            const list = document.getElementById('projectList');
+            list.innerHTML = '<p class="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-bold mb-4">Mijn Projecten</p>';
+            projects.forEach(p => {
+                const div = document.createElement('div');
+                div.className = "group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition cursor-pointer";
+                div.innerHTML = `<div class="flex items-center gap-3 flex-1 overflow-hidden" onclick="openProject('${p._id}')"><i data-lucide="layout" class="text-slate-500 w-4 h-4"></i><span class="text-xs font-medium truncate text-slate-400 group-hover:text-white">${p.name}</span></div><button onclick="deleteProject('${p._id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>`;
+                list.appendChild(div);
+            });
+            lucide.createIcons();
         }
 
         async function generateApp() {
             const prompt = document.getElementById('promptInput').value;
             if (!prompt) return;
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            document.getElementById('genBtn').disabled = true;
-            try {
-                const res = await fetch(`${API_URL}/generate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt, userId: USER_ID, existingFiles: currentFiles, projectId: currentProjectId })
-                });
-                const data = await res.json();
-                currentProjectId = data.projectId;
-                if(pollInterval) clearInterval(pollInterval);
-                pollInterval = setInterval(checkStatus, 3000);
-            } catch (e) { 
-                document.getElementById('loadingOverlay').classList.add('hidden');
-                document.getElementById('genBtn').disabled = false;
-            }
+            const res = await fetch(`${API_URL}/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, userId, projectId: currentProjectId })
+            });
+            const data = await res.json();
+            currentProjectId = data.projectId;
+            if(pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(checkStatus, 3000);
         }
 
         async function checkStatus() {
-            try {
-                const res = await fetch(`${API_URL}/project/${currentProjectId}`);
-                const data = await res.json();
-                if (data.files && data.files.html !== "GENERATING") {
-                    clearInterval(pollInterval);
-                    currentFiles = data.files;
-                    renderApp(data.files);
-                    document.getElementById('currentProjectName').value = data.name;
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                    document.getElementById('genBtn').disabled = false;
-                    document.getElementById('promptInput').value = "";
-                    showSaveStatus();
-                    loadProjects();
-                }
-            } catch (e) { console.error("Polling fout"); }
+            const res = await fetch(`${API_URL}/project/${currentProjectId}`);
+            const data = await res.json();
+            if (data.files && data.files.html !== "GENERATING") {
+                clearInterval(pollInterval);
+                renderApp(data.files);
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                document.getElementById('promptInput').value = "";
+                loadProjects();
+            }
         }
 
         function renderApp(files) {
             const frame = document.getElementById('previewFrame');
-            
-            // FORCE RENDER SCRIPT: Dwingt afbeeldingen en Tailwind om te laden
-            let finalHtml = files.html;
-            finalHtml += `<script>
-                const fix = () => {
-                    const img = document.querySelector('img');
-                    if(img) {
-                        img.style.position = 'fixed';
-                        img.style.inset = '0';
-                        img.style.width = '100%';
-                        img.style.height = '100%';
-                        img.style.objectFit = 'cover';
-                        img.style.zIndex = '-10';
-                        if(!document.getElementById('k-overlay')){
-                            const o = document.createElement('div');
-                            o.id = 'k-overlay';
-                            o.style.position = 'fixed';
-                            o.style.inset = '0';
-                            o.style.background = 'rgba(0,0,0,0.6)';
-                            o.style.zIndex = '-9';
-                            document.body.appendChild(o);
-                        }
-                    }
-                };
-                window.onload = fix;
-                setTimeout(fix, 1000);
-            <\/script>`;
-
-            frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><script src="https://unpkg.com/lucide@latest"><\/script><style>body { margin: 0; padding: 0; min-height: 100vh; background-color: #161b2a; color: white; position: relative; overflow-x: hidden; } ${files.css}</style></head><body>${finalHtml}<script>lucide.createIcons(); ${files.js}<\/script></body></html>`;
+            frame.srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><style>${files.css}</style></head><body>${files.html}<script>${files.js}<\/script></body></html>`;
         }
 
         async function openProject(id) {
             document.getElementById('loadingOverlay').classList.remove('hidden');
             const res = await fetch(`${API_URL}/project/${id}`);
             const data = await res.json();
-            currentFiles = data.files;
             renderApp(data.files);
             document.getElementById('currentProjectName').value = data.name;
             currentProjectId = id;
@@ -227,26 +214,8 @@
             if(currentProjectId === id) newProject();
         }
 
-        async function renameProject(newName) {
-            if(!currentProjectId) return;
-            await fetch(`${API_URL}/project/${currentProjectId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newName })
-            });
-            showSaveStatus();
-            loadProjects();
-        }
-
-        function showSaveStatus() {
-            const status = document.getElementById('saveStatus');
-            status.style.opacity = '1';
-            setTimeout(() => status.style.opacity = '0', 3000);
-        }
-
         function setDevice(device) {
-            const container = document.getElementById('previewContainer');
-            container.className = 'preview-container glass ' + device;
+            document.getElementById('previewContainer').className = 'preview-container glass ' + device;
         }
 
         function setTheme(theme) {
@@ -255,22 +224,14 @@
 
         function toggleSidebar() {
             const sb = document.getElementById('mainSidebar');
-            sidebarOpen = !sidebarOpen;
-            sb.style.width = sidebarOpen ? "280px" : "0";
-            sb.style.padding = sidebarOpen ? "1.5rem" : "0";
-            sb.style.opacity = sidebarOpen ? "1" : "0";
+            sb.style.width = sb.style.width === "0px" ? "280px" : "0px";
+            sb.style.opacity = sb.style.opacity === "0" ? "1" : "0";
         }
 
         function newProject() {
-            currentFiles = null;
             currentProjectId = null;
             document.getElementById('previewFrame').srcdoc = "<body></body>";
             document.getElementById('currentProjectName').value = "Nieuw Project";
-        }
-
-        function exportCode() {
-            if(!currentProjectId) return;
-            window.open(`${API_URL}/export/${currentProjectId}`, '_blank');
         }
     </script>
 </body>
