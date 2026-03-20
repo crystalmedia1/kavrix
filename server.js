@@ -28,7 +28,7 @@ mongoose.connect(MONGODB_URI)
 const UserSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true },
-    isVerified: { type: Boolean, default: false },
+    isVerified: { type: Boolean, default: true }, // TIJDELIJK: Iedereen direct geverifieerd
     createdAt: { type: Date, default: Date.now }
 });
 const User = mongoose.model('User', UserSchema);
@@ -47,7 +47,7 @@ const Project = mongoose.model('Project', ProjectSchema);
 
 // --- AUTHENTICATIE ROUTES ---
 
-// 1. Registreren (Aangepast voor jouw Resend-testfase)
+// 1. Registreren (Directe toegang zonder mail-verplichting)
 app.post('/register', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -61,72 +61,44 @@ app.post('/register', async (req, res) => {
         const user = new User({ 
             email: lowered, 
             password: hashedPassword,
-            isVerified: false 
+            isVerified: true // DIRECT ACTIEF
         });
         await user.save();
 
-        // Verificatie Token & Link
-        const vToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1d' });
-        const verifyUrl = `https://kavrix.onrender.com/verify-email?token=${vToken}`;
+        console.log('[REGISTER] Nieuwe gebruiker aangemaakt en direct geactiveerd:', lowered);
 
-        // TIJDELIJK: Altijd naar jouw geverifieerde adres sturen
-        const myVerifiedEmail = 'zakelijk90@hotmail.com';
-
-        console.log('[REGISTER] Nieuwe user:', lowered, 'Mail gaat naar:', myVerifiedEmail);
-
-        const { error } = await resend.emails.send({
-            from: 'KAVRIX <onboarding@resend.dev>',
-            to: myVerifiedEmail, 
-            subject: 'Activeer KAVRIX Account voor: ' + lowered,
-            html: `
-                <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; padding: 40px; border-radius: 16px;">
-                    <h1 style="color: #6366f1;">Nieuwe Registratie!</h1>
-                    <p>Er is een account aangemaakt voor: <strong>${lowered}</strong></p>
-                    <p>Klik op de knop hieronder om dit account te activeren:</p>
-                    <a href="${verifyUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px;">Account Activeren</a>
-                    <p style="margin-top: 30px; color: #64748b; font-size: 12px;">Link: ${verifyUrl}</p>
-                </div>
-            `
-        });
-
-        if (error) {
-            console.error("Resend Error:", error);
-            return res.status(500).json({ error: "Mail kon niet verzonden worden." });
+        // We proberen nog wel een notificatie naar jou te sturen, maar het blokkeert de user niet
+        try {
+            await resend.emails.send({
+                from: 'KAVRIX <onboarding@resend.dev>',
+                to: 'zakelijk90@hotmail.com', 
+                subject: 'Nieuwe KAVRIX Gebruiker: ' + lowered,
+                html: `<p>Gebruiker <b>${lowered}</b> heeft zich geregistreerd en kan direct inloggen.</p>`
+            });
+        } catch (mErr) { 
+            console.log("Notificatie mail kon niet verzonden worden, geen probleem."); 
         }
 
-        res.json({ message: "Check je inbox (zakelijk90@hotmail.com) voor de activatielink!" });
+        res.json({ message: "Registratie voltooid! Je kunt nu direct inloggen." });
     } catch (e) {
         console.error("Registratie Fout:", e);
         res.status(500).json({ error: "Server fout bij registratie." });
     }
 });
 
-// 2. Email Verifiëren
-app.get('/verify-email', async (req, res) => {
-    try {
-        const { token } = req.query;
-        const decoded = jwt.verify(token, JWT_SECRET);
-        await User.findByIdAndUpdate(decoded.userId, { isVerified: true });
-        res.send(`
-            <div style="font-family:sans-serif; text-align:center; padding:50px;">
-                <h1 style="color:#6366f1;">Account Geverifieerd!</h1>
-                <p>Je kunt nu teruggaan naar de website en inloggen.</p>
-                <a href="https://kavrix.github.io/" style="color:#6366f1; font-weight:bold;">Ga naar KAVRIX PRO</a>
-            </div>
-        `);
-    } catch (e) {
-        res.status(400).send("Link is ongeldig of verlopen.");
-    }
-});
-
-// 3. Inloggen
+// 2. Inloggen
 app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         const user = await User.findOne({ email: email.toLowerCase().trim() });
         
         if (!user) return res.status(401).json({ error: "Gebruiker niet gevonden." });
-        if (!user.isVerified) return res.status(401).json({ error: "Bevestig eerst je emailadres via de link in je inbox!" });
+        
+        // Forceer verificatie op true voor bestaande accounts die vastzaten
+        if (!user.isVerified) {
+            user.isVerified = true;
+            await user.save();
+        }
 
         const isValid = await bcrypt.compare(password, user.password);
         if (!isValid) return res.status(401).json({ error: "Wachtwoord onjuist." });
@@ -134,16 +106,18 @@ app.post('/login', async (req, res) => {
         const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, userId: user._id });
     } catch (e) {
+        console.error("Login Fout:", e);
         res.status(500).json({ error: "Server fout bij inloggen." });
     }
 });
 
 // --- APP FUNCTIONALITEIT ROUTES ---
 
-// 4. App Genereren (AI)
+// 3. App Genereren (AI)
 app.post('/generate', async (req, res) => {
     const { prompt, userId, projectId, token } = req.body;
     try {
+        // Beveiliging: Check token
         const decoded = jwt.verify(token, JWT_SECRET);
         if (decoded.userId !== userId) return res.status(401).json({ error: "Niet geautoriseerd." });
 
@@ -163,6 +137,7 @@ app.post('/generate', async (req, res) => {
 
         res.json({ projectId: project._id });
 
+        // AI Generatie op de achtergrond
         (async () => {
             try {
                 const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
@@ -192,7 +167,7 @@ app.post('/generate', async (req, res) => {
     }
 });
 
-// 5. Projecten ophalen
+// 4. Projecten ophalen
 app.get('/projects/:userId', async (req, res) => {
     try {
         const projects = await Project.find({ userId: req.params.userId }).sort({ updatedAt: -1 });
@@ -202,7 +177,7 @@ app.get('/projects/:userId', async (req, res) => {
     }
 });
 
-// 6. Specifiek project ophalen
+// 5. Specifiek project ophalen
 app.get('/project/:id', async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
@@ -212,7 +187,7 @@ app.get('/project/:id', async (req, res) => {
     }
 });
 
-// 7. Project verwijderen
+// 6. Project verwijderen
 app.delete('/project/:id', async (req, res) => {
     try {
         await Project.findByIdAndDelete(req.params.id);
@@ -222,6 +197,7 @@ app.delete('/project/:id', async (req, res) => {
     }
 });
 
+// 7. Test Route
 app.get('/', (req, res) => res.send('KAVRIX PRO API is Online 🚀'));
 
 const PORT = process.env.PORT || 3000;
