@@ -1,6 +1,6 @@
-// server.js (complete - vervang je huidige file met deze)
-// Noot: installeer dependencies indien nodig:
-// npm install express cors axios mongoose bcryptjs jsonwebtoken resend multer path fs dotenv uuid archiver
+// server.js (kopieer/plak dit volledig)
+// Dependencies:
+// npm install express cors axios mongoose bcryptjs jsonwebtoken resend multer dotenv uuid
 
 const express = require('express');
 const cors = require('cors');
@@ -16,23 +16,34 @@ const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 
 const app = express();
-const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Optional: initialize Resend if API key present
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  try { resend = new Resend(process.env.RESEND_API_KEY); } catch (e) { console.warn('Resend init failed:', e?.message || e); }
+}
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CONFIGURATIE
-const MONGODB_URI = process.env.MONGODB_URI;
-const API_KEY = process.env.API_KEY; // Abacus / Groq / andere
-const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_master_key_2024';
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null; // zet dit in Render/Vercel op jouw URL
+// CONFIG
+const MONGODB_URI = process.env.MONGODB_URI || '';
+const API_KEY = process.env.API_KEY || '';
+const AI_API_URL = process.env.AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions'; // override if needed
+const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_default_jwt_secret_change_me';
+const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null;
+const PORT = process.env.PORT || 3000;
 
-// DATABASE VERBINDING
+// Connect to MongoDB
+if (!MONGODB_URI) {
+  console.warn('MONGODB_URI not set. DB features will fail until provided.');
+}
 mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("KAVRIX Database Verbonden!"))
-  .catch(err => console.error("Database Fout:", err));
+  .then(() => console.log('MongoDB verbonden'))
+  .catch(err => console.error('MongoDB connect fout:', err?.message || err));
 
-// --- SCHEMAS ---
+// --- Schemas ---
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
@@ -49,31 +60,30 @@ const ProjectSchema = new mongoose.Schema({
     css: { type: String, default: '' },
     js: { type: String, default: '' }
   },
-  assets: [{ name: String, url: String }], // toegevoegde assets array
+  assets: [{ name: String, url: String }], // public asset URLs
   updatedAt: { type: Date, default: Date.now }
 });
 const Project = mongoose.model('Project', ProjectSchema);
 
-// --- UPLOAD SETUP ---
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+// --- Upload setup ---
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
+  destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
-    const safe = file.originalname.replace(/\s+/g, '_');
-    const unique = Date.now() + '-' + uuidv4() + '-' + safe;
+    const safe = file.originalname.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\.]/g, '');
+    const unique = `${Date.now()}-${uuidv4()}-${safe}`;
     cb(null, unique);
   }
 });
 const upload = multer({ storage });
 
-// Static serve uploads
-app.use('/uploads', express.static(uploadDir));
+// Serve uploads publicly
+app.use('/uploads', express.static(uploadsDir));
 
-// --- HELPERS ---
+// --- Helpers ---
 function extractToken(req) {
-  // Authorization: Bearer <token>
   const auth = req.headers['authorization'];
   if (auth && auth.startsWith('Bearer ')) return auth.split(' ')[1];
   if (req.body && req.body.token) return req.body.token;
@@ -82,7 +92,7 @@ function extractToken(req) {
 }
 
 async function sendAdminNotification(subject, html) {
-  if (!process.env.RESEND_API_KEY) return;
+  if (!resend) return;
   try {
     await resend.emails.send({
       from: 'KAVRIX <onboarding@resend.dev>',
@@ -97,44 +107,37 @@ async function sendAdminNotification(subject, html) {
 
 function safeJSONParse(text) {
   if (!text || typeof text !== 'string') return null;
-  // direct parse
+  // Direct JSON parse
   try { return JSON.parse(text); } catch (_) {}
-  // try extract {...}
-  const match = text.match(/\{[\s\S]*\}/);
-  if (match) {
-    try { return JSON.parse(match[0]); } catch (_) {}
+  // Try to extract first JSON object or array substring
+  const objMatch = text.match(/\{[\s\S]*\}/);
+  if (objMatch) {
+    try { return JSON.parse(objMatch[0]); } catch (_) {}
   }
+  const arrMatch = text.match(/\[[\s\S]*\]/);
+  if (arrMatch) {
+    try { return JSON.parse(arrMatch[0]); } catch (_) {}
+  }
+  // No parseable JSON found
   return null;
 }
 
-// --- AUTH ROUTES ---
-
+// --- Auth Routes ---
 app.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Vul alle velden in." });
-
-    const lowered = email.toLowerCase().trim();
-    const existingUser = await User.findOne({ email: lowered });
-    if (existingUser) return res.status(400).json({ error: "Dit emailadres is al geregistreerd." });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({
-      email: lowered,
-      password: hashedPassword,
-      isVerified: true
-    });
+    if (!email || !password) return res.status(400).json({ error: 'Vul alle velden in.' });
+    const normalized = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: normalized });
+    if (existing) return res.status(400).json({ error: 'Email bestaat al.' });
+    const hashed = await bcrypt.hash(password, 10);
+    const user = new User({ email: normalized, password: hashed, isVerified: true });
     await user.save();
-
-    console.log('[REGISTER] Nieuwe gebruiker aangemaakt:', lowered);
-
-    // Background notification (non-blocking)
-    sendAdminNotification('Nieuwe KAVRIX Gebruiker', `<p>Gebruiker <b>${lowered}</b> heeft zich geregistreerd.</p>`).catch(() => {});
-
-    res.json({ message: "Registratie voltooid! Je kunt nu direct inloggen." });
+    sendAdminNotification('Nieuwe gebruiker geregistreerd', `<p>${normalized}</p>`).catch(()=>{});
+    res.json({ message: 'Registratie gelukt. Je kunt nu inloggen.' });
   } catch (e) {
-    console.error("Registratie Fout:", e);
-    res.status(500).json({ error: "Server fout bij registratie." });
+    console.error('register error:', e?.message || e);
+    res.status(500).json({ error: 'Server fout bij registratie.' });
   }
 });
 
@@ -142,61 +145,48 @@ app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) return res.status(401).json({ error: "Gebruiker niet gevonden." });
-
-    if (!user.isVerified) {
-      user.isVerified = true;
-      await user.save();
-    }
-
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) return res.status(401).json({ error: "Wachtwoord onjuist." });
-
+    if (!user) return res.status(401).json({ error: 'Gebruiker niet gevonden.' });
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ error: 'Wachtwoord onjuist.' });
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, userId: user._id });
   } catch (e) {
-    console.error("Login Fout:", e);
-    res.status(500).json({ error: "Server fout bij inloggen." });
+    console.error('login error:', e?.message || e);
+    res.status(500).json({ error: 'Server fout bij inloggen.' });
   }
 });
 
-// --- UPLOAD ENDPOINT ---
+// --- Upload endpoint ---
 app.post('/upload', upload.single('file'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const base = BACKEND_ORIGIN || `${req.protocol}://${req.get('host')}`;
     const url = `${base}/uploads/${req.file.filename}`;
-    return res.json({ filename: req.file.originalname, storedName: req.file.filename, url });
+    res.json({ filename: req.file.originalname, storedName: req.file.filename, url });
   } catch (e) {
-    console.error('Upload fout:', e);
+    console.error('upload error:', e?.message || e);
     res.status(500).json({ error: 'Upload fout' });
   }
 });
 
-// --- AUTH MIDDLEWARE ---
+// --- Auth middleware ---
 async function authMiddleware(req, res, next) {
   try {
     const token = extractToken(req);
     if (!token) return res.status(401).json({ error: 'Token vereist' });
     let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch (e) {
-      return res.status(401).json({ error: 'Ongeldige token' });
-    }
+    try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ error: 'Ongeldige token' }); }
     const user = await User.findById(decoded.userId);
     if (!user) return res.status(401).json({ error: 'Gebruiker niet gevonden' });
     req.user = user;
     next();
   } catch (e) {
-    console.error('Auth middleware fout:', e);
+    console.error('authMiddleware error:', e?.message || e);
     res.status(500).json({ error: 'Auth fout' });
   }
 }
 
-// --- PROJECT & AI ROUTES ---
-
-// Create minimal project or return existing
+// --- Helper to create or get project ---
 async function ensureProject(userId, projectId, nameHint) {
   if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
     const p = await Project.findById(projectId);
@@ -205,108 +195,121 @@ async function ensureProject(userId, projectId, nameHint) {
   const p = new Project({
     name: (nameHint || 'Nieuw Project').substring(0, 60),
     userId,
-    files: { html: "GENERATING", css: "", js: "" },
+    files: { html: 'GENERATING', css: '', js: '' },
     assets: []
   });
   await p.save();
   return p;
 }
 
-// /generate: accepts body { prompt, userId, projectId, uploadedAssets (optional) }
-// requires Authorization Bearer <token> OR token in body
+// --- Generate endpoint (main) ---
+// Accepts: { prompt, projectId (optional), uploadedAssets (optional) }
+// Requires auth (Bearer token)
 app.post('/generate', authMiddleware, async (req, res) => {
   try {
     const { prompt, projectId, uploadedAssets } = req.body;
     const userId = req.user._id;
+    if (!prompt || typeof prompt !== 'string') return res.status(400).json({ error: 'Prompt vereist' });
 
+    // Ensure project exists and set placeholder
     const project = await ensureProject(userId, projectId, prompt);
-    // Save placeholder status quickly
     await Project.findByIdAndUpdate(project._id, { 'files.html': 'GENERATING', updatedAt: new Date() });
 
-    // respond immediately with projectId
+    // Immediate response with projectId so frontend can poll
     res.json({ projectId: project._id });
 
-    // Build asset context
-    const assets = Array.isArray(uploadedAssets) ? uploadedAssets : (project.assets || []);
-    // assets is expected to be array of { name, url } or strings -> normalize
-    const normAssets = assets.map(a => {
+    // Normalize assets
+    const normAssets = Array.isArray(uploadedAssets) ? uploadedAssets.map(a => {
       if (typeof a === 'string') return { name: path.basename(a), url: a };
       if (a && a.url) return { name: a.name || path.basename(a.url), url: a.url };
       return null;
-    }).filter(Boolean);
+    }).filter(Boolean) : [];
 
-    // Save assets in project (so preview later can use)
-    if (normAssets.length > 0) {
-      await Project.findByIdAndUpdate(project._id, { assets: normAssets, updatedAt: new Date() });
+    // Merge with existing project assets (avoid duplicates)
+    const mergedAssets = [...(project.assets || [])];
+    normAssets.forEach(a => {
+      if (!mergedAssets.find(x => x.url === a.url)) mergedAssets.push(a);
+    });
+    if (mergedAssets.length > 0) {
+      await Project.findByIdAndUpdate(project._id, { assets: mergedAssets, updatedAt: new Date() });
     }
 
-    // Compose AI prompt
-    let assetText = '';
-    if (normAssets.length) {
-      assetText = '\nBeschikbare assets (gebruik deze exacte URL\'s in <img src=\"...\"):\n' +
-        normAssets.map(a => `${a.name} -> ${a.url}`).join('\n') + '\n';
-    }
+    // Build assetText for prompt
+    const assetText = mergedAssets.length > 0
+      ? '\nBeschikbare assets (gebruik deze exacte URL\'s voor afbeeldingen):\n' + mergedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') + '\n'
+      : '';
 
-    const systemMessage = `Je bent KAVRIX PRO AI. OUTPUT ALTIJD EEN JSON OBJECT ALS VOLGT:
-{"html":"...","css":"...","js":"..."}.
-Gebruik bij voorkeur Tailwind CSS (via <script src="https://cdn.tailwindcss.com"></script> in het head).
-BELANGRIJK: Gebruik precise, absolute image URLs (zoals https://.../uploads/xxx.png). NIET: lokale bestandsnamen zoals "logo.png".`;
+    // --- IMPROVED AI PROMPT (allows Unsplash fallback) ---
+    const systemMessage = `Je bent KAVRIX PRO AI, een expert UI/UX & frontend developer.
+OUTPUT ALTIJD EEN GELDIG JSON OBJECT: {"html":"...","css":"...","js":"..."} (strings).
+BELANGRIJKE RICHTLIJNEN VOOR AFBEELDINGEN:
+1) Als "Beschikbare assets" gegeven zijn, gebruik bij voorkeur die exacte absolute URL(s) voor belangrijke content (hero, logos, etc).
+2) Als er GEEN geüploade assets zijn of als je meer foto's nodig hebt, gebruik mooie Unsplash/placeholder afbeeldingen (voorbeeld URL's):
+   https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80
+   https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80
+3) Gebruik NOOIT lokale bestandsnamen zoals "logo.png" zonder https://.
+4) Gebruik Tailwind CSS (voeg <script src=\"https://cdn.tailwindcss.com\"></script> in head) en maak het modern, dark-mode with spacing, gradients en duidelijk contrast.
+5) De HTML, CSS en JS moeten direct werkend zijn als de gebruiker het in een .html plakt. Geef geen aanvullende tekst buiten het JSON object.`;
 
-    const userMessage = `${prompt}\n\n${assetText}\nGenereer een volledige werkende single-page HTML (met inline <style> en <script> of met sections) en zet de HTML in "html", CSS in "css" en JS in "js" in het JSON-object.`;
+    const userMessage = `Opdracht: ${prompt}
+${assetText}
+Genereer een volledige single-page interface. Plaats de HTML in "html", de CSS in "css" (of inline styles), en eventuele scripts in "js". Als je afbeeldingen gebruikt, gebruik absolute https:// URL's.`;
 
-    // Background AI call
+    // Background AI call (asynchronous)
     (async () => {
       try {
-        const aiReqBody = {
-          model: "llama-3.3-70b-versatile",
+        // Build AI request body (OpenAI-like chat completion)
+        const aiReq = {
+          model: process.env.AI_MODEL || 'llama-3.3-70b-versatile',
           messages: [
-            { role: "system", content: systemMessage },
-            { role: "user", content: userMessage }
+            { role: 'system', content: systemMessage },
+            { role: 'user', content: userMessage }
           ],
-          // response_format not always supported; keep normal and parse
           max_tokens: 2000,
           temperature: 0.2
         };
 
-        const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
-        const aiResp = await axios.post(groqUrl, aiReqBody, {
-          headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-          timeout: 120000
-        });
+        // Choose URL and headers
+        const url = AI_API_URL;
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        };
 
-        // try to extract text content (depends on provider)
+        const aiResponse = await axios.post(url, aiReq, { headers, timeout: 120000 });
+
+        // Extract text depending on provider response shape
         let text = null;
-        if (aiResp.data) {
-          // common OpenAI-like shape: choices[0].message.content
-          if (aiResp.data.choices && aiResp.data.choices[0] && aiResp.data.choices[0].message) {
-            text = aiResp.data.choices[0].message.content;
-          } else if (typeof aiResp.data === 'string') {
-            text = aiResp.data;
+        if (aiResponse.data) {
+          // OpenAI-like: choices[0].message.content
+          if (aiResponse.data.choices && aiResponse.data.choices[0] && aiResponse.data.choices[0].message) {
+            text = aiResponse.data.choices[0].message.content;
+          } else if (aiResponse.data.choices && aiResponse.data.choices[0] && aiResponse.data.choices[0].text) {
+            text = aiResponse.data.choices[0].text;
+          } else if (typeof aiResponse.data === 'string') {
+            text = aiResponse.data;
           } else {
-            // fallback: stringify
-            text = JSON.stringify(aiResp.data);
+            text = JSON.stringify(aiResponse.data);
           }
         }
 
-        // robust parse
+        // Try to parse JSON out of the text
         let parsed = safeJSONParse(text);
+
+        // If parsing fails, attempt to salvage by asking the model to return only JSON (retry once),
+        // but to keep things simple we will fallback to a templated page.
         if (!parsed) {
-          // attempt to ask the model again? For now, try to salvage by building a basic template using assets.
-          console.warn('AI response could not be parsed as JSON. Storing fallback template.');
-          const fallbackHtmlParts = [];
-          if (normAssets.length) {
-            const img = normAssets[0];
-            fallbackHtmlParts.push(`<div style="padding:24px;text-align:center"><img src="${img.url}" style="max-width:90%;height:auto;border-radius:12px;margin-bottom:12px" alt="${img.name}"/></div>`);
-          }
-          fallbackHtmlParts.push(`<h1 style="text-align:center;color:#fff">Gegenereerde App</h1><p style="text-align:center;color:#9aa3b2">${prompt}</p>`);
+          console.warn('AI response not valid JSON. Attempting salvage fallback.');
+          // Build fallback HTML using first available asset or Unsplash
+          const fallbackImg = (mergedAssets[0] && mergedAssets[0].url) || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
           parsed = {
-            html: fallbackHtmlParts.join('\n'),
-            css: `body{background:#0b1220;color:#e6eef8;font-family:Inter,system-ui,sans-serif} .kavrix-center{text-align:center}`,
+            html: `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#020617,#07102a);color:#fff;padding:40px;font-family:Inter,system-ui,sans-serif;"><div style="max-width:900px;text-align:center;"><img src="${fallbackImg}" alt="hero" style="max-width:100%;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.6);margin-bottom:20px"/><h1 style="font-size:32px;margin-bottom:8px">Gegenereerde App</h1><p style="color:#cbd5e1">${prompt}</p></div></div>`,
+            css: '',
             js: ''
           };
         }
 
-        // Ensure strings
+        // Ensure required keys exist
         parsed.html = parsed.html || '';
         parsed.css = parsed.css || '';
         parsed.js = parsed.js || '';
@@ -321,37 +324,41 @@ BELANGRIJK: Gebruik precise, absolute image URLs (zoals https://.../uploads/xxx.
           updatedAt: new Date()
         });
 
-        // Optional: notify admin
-        sendAdminNotification('AI Gen Voltooid', `<p>Project ${project._id} voor user ${userId} is afgerond.</p>`).catch(() => {});
+        // Notify admin optionally
+        sendAdminNotification('AI Gen afgerond', `<p>Project ${project._id} gegenereerd voor gebruiker ${userId}.</p>`).catch(()=>{});
 
       } catch (err) {
-        console.error("AI Generatie Fout (achtergrond):", err?.message || err);
-        // store error message in project files so frontend can show something
-        await Project.findByIdAndUpdate(project._id, {
-          files: {
-            html: `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Generatie Fout</h3><pre style="white-space:pre-wrap;color:#f87171">${(err?.message||'Onbekende fout')}</pre></div>`,
-            css: '',
-            js: ''
-          },
-          updatedAt: new Date()
-        });
+        console.error('AI generation error:', err?.message || err);
+        // Persist an error message into the project files so frontend can show it
+        try {
+          await Project.findByIdAndUpdate(project._id, {
+            files: {
+              html: `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Generatie Fout</h3><pre style="white-space:pre-wrap;color:#f87171">${(err?.message||'Onbekende fout')}</pre></div>`,
+              css: '',
+              js: ''
+            },
+            updatedAt: new Date()
+          });
+        } catch (saveErr) {
+          console.error('Failed to save error into project:', saveErr?.message || saveErr);
+        }
       }
     })();
 
   } catch (e) {
-    console.error('Generate route fout:', e);
-    res.status(500).json({ error: 'Generate fout' });
+    console.error('Generate route error:', e?.message || e);
+    return res.status(500).json({ error: 'Generate route fout' });
   }
 });
 
-// --- PROJECTS CRUD ---
+// --- Projects CRUD ---
 app.get('/projects/:userId', async (req, res) => {
   try {
     const projects = await Project.find({ userId: req.params.userId }).sort({ updatedAt: -1 });
     res.json(projects);
   } catch (e) {
-    console.error('projects ophalen fout:', e);
-    res.json([]);
+    console.error('projects fetch error:', e?.message || e);
+    res.status(500).json([]);
   }
 });
 
@@ -361,8 +368,8 @@ app.get('/project/:id', async (req, res) => {
     if (!project) return res.status(404).json({ error: 'Project niet gevonden.' });
     res.json(project);
   } catch (e) {
-    console.error('project ophalen fout:', e);
-    res.status(404).json({ error: 'Project niet gevonden.' });
+    console.error('project fetch error:', e?.message || e);
+    res.status(500).json({ error: 'Project ophalen mislukt.' });
   }
 });
 
@@ -374,14 +381,15 @@ app.delete('/project/:id', authMiddleware, async (req, res) => {
     await Project.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (e) {
-    console.error('delete project fout:', e);
+    console.error('delete project error:', e?.message || e);
     res.status(500).json({ error: 'Fout bij verwijderen.' });
   }
 });
 
-// -- Basic root test
-app.get('/', (req, res) => res.send('KAVRIX PRO API is Online 🚀'));
+// Health
+app.get('/', (req, res) => res.send('KAVRIX PRO API Online'));
 
-// START SERVER
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server draait op poort ${PORT}`));
+// Start
+app.listen(PORT, () => {
+  console.log(`Server draait op poort ${PORT} - BACKEND_ORIGIN=${BACKEND_ORIGIN || 'not-set'}`);
+});
