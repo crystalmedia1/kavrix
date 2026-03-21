@@ -1,7 +1,6 @@
-// server.js (final, volledig en opgeschoond)
-// Functies: auth, uploads, projecten, Groq AI-calls, No-Fail foto-injectie, Resend notificaties, uitgebreide debug-logging
-// Toegevoegd: food keyword mapping, project-level background persist, image proxy endpoint (optioneel via PROXY_IMAGES)
-// Zorg dat je env vars instelt: API_KEY, BACKEND_ORIGIN, PROXY_IMAGES (true/false), MONGODB_URI, RESEND_API_KEY, JWT_SECRET
+// server.js (opschoning & update)
+// Functies: auth, uploads, projecten, Groq AI-calls, No-Fail foto-injectie, Resend notificaties, debug-logging
+// ENV VARS: API_KEY, BACKEND_ORIGIN, PROXY_IMAGES (true/false), MONGODB_URI, RESEND_API_KEY, JWT_SECRET, ADMIN_EMAIL
 
 const express = require('express');
 const cors = require('cors');
@@ -18,6 +17,7 @@ require('dotenv').config();
 
 const app = express();
 
+// optional resend init
 let resend = null;
 if (process.env.RESEND_API_KEY) {
   try { resend = new Resend(process.env.RESEND_API_KEY); } catch (e) { console.warn('Resend init failed:', e?.message || e); }
@@ -27,25 +27,27 @@ app.use(cors());
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
-// CONFIG (zet deze variabelen in je .env of Render environment)
+// CONFIG
 const MONGODB_URI = process.env.MONGODB_URI || '';
-const API_KEY = process.env.API_KEY || ''; // jouw Groq key (gsk_...)
+const API_KEY = process.env.API_KEY || ''; // Groq / AI key
 const AI_API_URL = process.env.AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
-const AI_MODEL = process.env.AI_MODEL || 'llama-3.3-70b-versatile'; // Groq model
+const AI_MODEL = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
 const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_default_jwt_secret_change_me';
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null; // zet dit naar je deployed backend (bv https://kavrix.onrender.com)
+const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null;
 const PORT = process.env.PORT || 3000;
-const PROXY_IMAGES = (process.env.PROXY_IMAGES || 'true').toLowerCase() === 'true';
+// Default PROXY_IMAGES to false for Unsplash reliability; let env override
+const PROXY_IMAGES = (process.env.PROXY_IMAGES || 'false').toLowerCase() === 'true';
 
-if (!API_KEY) console.warn('API_KEY niet ingesteld in .env - AI-calls zullen falen.');
+if (!API_KEY) console.warn('API_KEY niet ingesteld - AI-calls zullen falen (verwacht).');
+if (!JWT_SECRET) console.warn('JWT_SECRET niet ingesteld - gebruik een veilige waarde in productie.');
 
-// MongoDB connect (optioneel maar aanbevolen)
+// MongoDB (optioneel)
 if (MONGODB_URI) {
   mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log('MongoDB verbonden'))
     .catch(err => console.error('MongoDB connect fout:', err?.message || err));
 } else {
-  console.warn('MONGO URI niet gevonden: database functionaliteit mogelijk beperkt.');
+  console.warn('MONGO URI niet gevonden: database functionaliteit beperkt.');
 }
 
 // Schemas
@@ -65,12 +67,12 @@ const ProjectSchema = new mongoose.Schema({
     css: { type: String, default: '' },
     js: { type: String, default: '' }
   },
-  assets: [{ name: String, url: String }], // background wordt hier persistent opgeslagen
+  assets: [{ name: String, url: String }],
   updatedAt: { type: Date, default: Date.now }
 });
 const Project = mongoose.models.Project || mongoose.model('Project', ProjectSchema);
 
-// Uploads via multer
+// Uploads setup
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -112,7 +114,7 @@ async function sendAdminNotification(subject, html) {
   if (!resend) return;
   try {
     await resend.emails.send({
-      from: 'KAVRIX <onboarding@resend.dev>',
+      from: `KAVRIX <${process.env.ADMIN_EMAIL || 'onboarding@resend.dev'}>`,
       to: process.env.ADMIN_EMAIL || 'zakelijk90@hotmail.com',
       subject,
       html
@@ -139,10 +141,8 @@ function escapeHtml(unsafe) {
 }
 
 // --------------------
-// IMAGE & FOOD LOGIC
+// IMAGE & FOOD LOGIC (Unsplash + ui-avatars)
 // --------------------
-
-// Map some common food keywords to explicit seeds (Picsum) — consistent and controllable.
 const FOOD_SEED_MAP = {
   'biefstuk': 'steak',
   'steak': 'steak',
@@ -157,32 +157,26 @@ const FOOD_SEED_MAP = {
   'dessert': 'dessert'
 };
 
-// Utility: build proxy URL (if enabled)
 function buildProxyUrl(originalUrl) {
   if (!PROXY_IMAGES) return originalUrl;
   if (!BACKEND_ORIGIN) {
-    console.warn('PROXY_IMAGES is true but BACKEND_ORIGIN is not set — proxy disabled.');
+    console.warn('PROXY_IMAGES true maar BACKEND_ORIGIN niet ingesteld - proxy disabled.');
     return originalUrl;
   }
   return `${BACKEND_ORIGIN.replace(/\/$/, '')}/proxy?url=${encodeURIComponent(originalUrl)}`;
 }
 
-// Create asset URLs based on prompt and existing project assets
-// REPLACED: use Unsplash Source for relevant images + ui-avatars for logo
 function createAssetsFromPrompt(prompt) {
   const cleaned = (prompt || '').toLowerCase();
   const words = cleaned.replace(/[^\w\s]/gi, '').split(/\s+/).filter(Boolean);
 
-  // detect food / subject
   let foundFood = null;
   for (const w of words) {
     if (FOOD_SEED_MAP[w]) { foundFood = FOOD_SEED_MAP[w]; break; }
   }
 
-  // Build Unsplash query — prioritized by foundFood, else pick main keyword or 'restaurant' as fallback
   let query = 'restaurant';
   if (foundFood) {
-    // map some seeds to nicer query terms
     const map = {
       steak: 'steak-dinner,steak,grilled-steak',
       fries: 'french-fries,fries',
@@ -194,24 +188,20 @@ function createAssetsFromPrompt(prompt) {
     };
     query = map[foundFood] || foundFood;
   } else if (words.length > 0) {
-    // take first meaningful word as query
     query = words[0];
   }
 
-  // Use source.unsplash to get relevant real photos; sig randomizes to reduce caching
+  // Unsplash Source for relevant images (no API key required)
   const dynamicPhoto = `https://source.unsplash.com/featured/1400x900?${encodeURIComponent(query)}&sig=${Math.floor(Math.random()*10000)}`;
-
-  // explicit steak fallback (if user asked explicitly for biefstuk we prefer this)
   const explicitSteak = `https://source.unsplash.com/featured/1400x900?steak&sig=${Math.floor(Math.random()*10000)}`;
 
-  // Logo via ui-avatars to avoid broken SVG/unknown host icons
   const firstWord = (words[0] || 'K').toUpperCase().substring(0, 2).replace(/[^A-Z0-9]/g, '') || 'KV';
   const logo = `https://ui-avatars.com/api/?name=${encodeURIComponent(firstWord)}&background=fb923c&color=fff&size=128&bold=true`;
 
   return { dynamicPhoto, explicitSteak, logo, foundFood, seedForDynamic: query };
 }
 
-// Proxy endpoint to fetch remote images via your backend (helpt CSP/hotlink issues)
+// Proxy endpoint (optioneel)
 app.get('/proxy', async (req, res) => {
   try {
     const { url } = req.query;
@@ -296,7 +286,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
   }
 });
 
-// Helper: ensure project
+// Ensure project helper
 async function ensureProject(userId, projectId, nameHint) {
   if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
     const p = await Project.findById(projectId).exec();
@@ -312,16 +302,13 @@ async function ensureProject(userId, projectId, nameHint) {
   return p;
 }
 
-// ------------------------------------------------------------------
-// Helper: enforce that AI output contains required items and inject if missing
-// ------------------------------------------------------------------
+// Enforcement & injection helper
 function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAssets) {
   parsed.html = parsed.html || '';
   parsed.css = parsed.css || '';
   parsed.js = parsed.js || '';
   parsed.verbatim_prompt = parsed.verbatim_prompt || '';
 
-  // 1) Verbatim prompt enforcement
   try {
     const cleanedPrompt = (prompt || '').trim();
     if (parsed.verbatim_prompt !== cleanedPrompt) {
@@ -339,7 +326,6 @@ function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAsset
     console.warn('Verbatim enforcement failed:', e?.message || e);
   }
 
-  // 2) Ensure chosen background is present in HTML. If not, inject explicit hero section that uses it.
   try {
     if (chosenBackground) {
       const containsBg = parsed.html.includes(chosenBackground);
@@ -368,7 +354,6 @@ function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAsset
     console.warn('Background injection failed:', e?.message || e);
   }
 
-  // 3) Proxy images if PROXY_IMAGES enabled (replace absolute image urls)
   try {
     if (PROXY_IMAGES) {
       parsed.html = parsed.html.replace(/(<img[^>]+src=['"])(https?:\/\/[^'"]+)(['"][^>]*>)/gi, (m, p1, url, p3) => {
@@ -388,7 +373,7 @@ function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAsset
   return { parsed, mergedAssets };
 }
 
-// GENERATE endpoint (AI) - Groq-ready + asset injection + debug logging + No-Fail injection
+// GENERATE endpoint
 app.post('/generate', authMiddleware, async (req, res) => {
   try {
     const { prompt, projectId, uploadedAssets } = req.body;
@@ -398,10 +383,10 @@ app.post('/generate', authMiddleware, async (req, res) => {
     const project = await ensureProject(userId, projectId, prompt);
     await Project.findByIdAndUpdate(project._id, { 'files.html': 'GENERATING', updatedAt: new Date() }).exec();
 
-    // respond immediately with projectId so frontend can poll
+    // immediate response with projectId so frontend can poll
     res.json({ projectId: project._id });
 
-    // normalize uploaded assets (if any)
+    // normalize uploaded assets
     const normAssets = Array.isArray(uploadedAssets) ? uploadedAssets.map(a => {
       if (typeof a === 'string') return { name: path.basename(a), url: a };
       if (a && a.url) return { name: a.name || path.basename(a.url), url: a.url };
@@ -418,40 +403,32 @@ app.post('/generate', authMiddleware, async (req, res) => {
       ? '\nBeschikbare assets (gebruik bij voorkeur deze absolute URL\'s voor afbeeldingen):\n' + mergedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') + '\n'
       : '';
 
-    // Create generated assets (Unsplash + ui-avatars)
-    const { dynamicPhoto, explicitSteak, logo, foundFood, seedForDynamic } = createAssetsFromPrompt(prompt);
+    // generate assets
+    const { dynamicPhoto, explicitSteak, logo, foundFood } = createAssetsFromPrompt(prompt);
 
-    // Decide chosenBackground (persisted) BEFORE AI call:
-    // Priority:
-    // 1) If project already had a background asset -> use that
-    // 2) If foundFood -> use food-specific Unsplash query
-    // 3) Else use dynamicPhoto
+    // decide chosenBackground
     let chosenBackground = null;
     const existingBg = mergedAssets.find(a => (a.name || '').toLowerCase().includes('background') || (a.name || '').toLowerCase().includes('hero'));
     if (existingBg && existingBg.url) {
       chosenBackground = existingBg.url;
     } else if (foundFood) {
-      chosenBackground = explicitSteak && foundFood === 'steak' ? explicitSteak : dynamicPhoto;
+      chosenBackground = (foundFood === 'steak') ? explicitSteak : dynamicPhoto;
       mergedAssets.push({ name: 'background', url: chosenBackground });
     } else {
       chosenBackground = dynamicPhoto;
-      if (!mergedAssets.find(a => a.url === dynamicPhoto)) {
-        mergedAssets.push({ name: 'background', url: dynamicPhoto });
-      }
+      if (!mergedAssets.find(a => a.url === dynamicPhoto)) mergedAssets.push({ name: 'background', url: dynamicPhoto });
     }
 
-    // Build the system message with enforced asset usage (use chosenBackground)
     const systemMessage = `Je bent KAVRIX PRO AI, een expert frontend developer en designer.
 OUTPUT ALTIJD EEN GELDIG JSON OBJECT: {"html":"...","css":"...","js":"...","verbatim_prompt":"..."}.
 
 BELANGRIJK (asset verplichtingen):
-- Gebruik DE VOLGENDE ASSETS in de gegenereerde code (toon ze prominent):
+- Gebruik DE VOLGENDE ASSETS in de gegenereerde code:
   - Logo URL: ${logo}
   - Hoofdfoto URL (moet gebruikt worden): ${chosenBackground}
-- Als de gebruiker expliciet om een biefstuk vroeg, geef prioriteit aan de expliciete biefstuk-afbeelding: ${explicitSteak}
-- Als er "Beschikbare assets" zijn (zie volgende tekst), gebruik die URL's prioriteit.
+- Als de gebruiker expliciet om een biefstuk vroeg, geef prioriteit aan: ${explicitSteak}
 - De tekst in de app moet exact overeenkomen met de opdracht van de gebruiker.
-- Voeg een veld "verbatim_prompt" toe in het JSON output met exact de prompt van de gebruiker.
+- Voeg "verbatim_prompt" toe in het JSON output met exact de prompt.
 - Gebruik Tailwind CSS (via <script src="https://cdn.tailwindcss.com"></script> in de head).
 - Geef GEEN extra tekst buiten het JSON-object.`;
 
@@ -460,9 +437,8 @@ BELANGRIJK (asset verplichtingen):
 ${assetText}
 Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de tekst exact is zoals in de opdracht. Gebruik de opgegeven assets (logo en foto).`;
 
-    // If no API key present, write a helpful error to the project and stop
     if (!API_KEY) {
-      const errHtml = `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Key ontbreekt</h3><p>De AI API sleutel (API_KEY) is niet ingesteld op de server. Voeg je Groq/AI sleutel toe als environment variable en probeer opnieuw.</p></div>`;
+      const errHtml = `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Key ontbreekt</h3><p>De AI API sleutel (API_KEY) is niet ingesteld op de server. Voeg je sleutel toe en probeer opnieuw.</p></div>`;
       await Project.findByIdAndUpdate(project._id, {
         files: { html: errHtml, css: '', js: '' },
         updatedAt: new Date()
@@ -470,7 +446,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
       return;
     }
 
-    // Fire off AI call in background
+    // background AI call (async)
     (async () => {
       try {
         const aiReq = {
@@ -505,7 +481,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           return;
         }
 
-        // parse AI response content
+        // extract text from AI response
         let text = null;
         if (aiResponse.data) {
           if (aiResponse.data.choices && aiResponse.data.choices[0] && aiResponse.data.choices[0].message) {
@@ -532,13 +508,13 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           };
         }
 
-        // Ensure keys exist
+        // ensure keys
         parsed.html = parsed.html || '';
         parsed.css = parsed.css || '';
         parsed.js = parsed.js || '';
         parsed.verbatim_prompt = parsed.verbatim_prompt || '';
 
-        // --- NO-FAIL PHOTO & LOGO INJECTIE (extra safety) ---
+        // NO-FAIL injectie: forceer achtergrond en logo als AI ze vergeet
         try {
           const hasChosenBg = parsed.html.includes(chosenBackground) || parsed.html.includes(explicitSteak);
           if (!hasChosenBg) {
@@ -548,7 +524,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
               parsed.html = `<div class="w-full h-96 overflow-hidden"><img src="${buildProxyUrl(chosenBackground)}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n` + parsed.html;
             }
           }
-          // Ensure logo appears; if not present, inject a small header with the logo
+
           if (!parsed.html.includes(logo)) {
             const logoHeader = `<header style="display:flex;align-items:center;gap:12px;padding:16px 20px;"><img src="${logo}" alt="Logo" style="width:48px;height:48px;border-radius:8px;object-fit:cover;"/><div style="font-weight:700">${escapeHtml((prompt || '').split(' ')[0] || 'Kavrix')}</div></header>`;
             if (/<body[^>]*>/i.test(parsed.html)) {
@@ -561,7 +537,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           console.warn('Injectie fout:', injectErr?.message || injectErr);
         }
 
-        // --- ENFORCEMENT: verbatim + background + proxy replacements ---
+        // enforcement (verbatim prompt, background presence, proxy urls)
         try {
           const enforcement = ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAssets);
           parsed = enforcement.parsed;
@@ -569,7 +545,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           console.warn('Enforcement step failed:', e?.message || e);
         }
 
-        // Save final parsed and assets
+        // save project
         await Project.findByIdAndUpdate(project._id, {
           files: {
             html: parsed.html,
