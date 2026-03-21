@@ -1,4 +1,6 @@
-// server.js (samengevoegd: jouw huidige code + No-Fail foto-injectie + debug)
+// server.js (final, volledig en opgeschoond)
+// Functies: auth, uploads, projecten, Groq AI-calls, No-Fail foto-injectie, Resend notificaties, uitgebreide debug-logging
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -115,6 +117,22 @@ async function sendAdminNotification(subject, html) {
   } catch (e) {
     console.warn('Resend send failed (non-fatal):', e?.message || e);
   }
+}
+
+function escapeHtml(unsafe) {
+  if (!unsafe) return '';
+  return unsafe.replace(/[&<>"'`=\/]/g, function (s) {
+    return ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+      '/': '&#x2F;',
+      '`': '&#x60;',
+      '=': '&#x3D;'
+    })[s];
+  });
 }
 
 // Auth endpoints
@@ -341,7 +359,6 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
         parsed.js = parsed.js || '';
 
         // --- NO-FAIL PHOTO & LOGO INJECTIE ---
-        // If parsed HTML doesn't contain the dynamic photo or explicit steak, insert hero image at top of <body>
         try {
           const hasDynamicPhoto = parsed.html.includes(dynamicPhoto) || parsed.html.includes(explicitSteak);
           if (!hasDynamicPhoto) {
@@ -440,20 +457,3 @@ app.get('/', (req, res) => res.send('KAVRIX PRO API Online'));
 app.listen(PORT, () => {
   console.log(`Server draait op poort ${PORT} - BACKEND_ORIGIN=${BACKEND_ORIGIN || 'not-set'}`);
 });
-
-// small utility
-function escapeHtml(unsafe) {
-  if (!unsafe) return '';
-  return unsafe.replace(/[&<>"'`=\/]/g, function (s) {
-    return ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-      '/': '&#x2F;',
-      '`': '&#x60;',
-      '=': '&#x3D;'
-    })[s];
-  });
-}
