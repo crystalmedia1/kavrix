@@ -1,4 +1,4 @@
-// server.js (geüpdatet voor Groq, behoudt Resend, uploads, auth, projecten, fallback, en uitgebreide debug-logging)
+// server.js (geüpdatet — Groq-ready + asset-injectie + uitgebreide debug logging)
 // Dependencies: express, cors, axios, mongoose, bcryptjs, jsonwebtoken, resend, multer, dotenv, uuid
 
 const express = require('express');
@@ -198,7 +198,22 @@ async function ensureProject(userId, projectId, nameHint) {
   return p;
 }
 
-// GENERATE endpoint (AI) - Groq-ready + betere debug logging
+// Utility: create asset URLs (Unsplash + UI Avatars). Always returns absolute URLs.
+function createAssetsFromPrompt(prompt) {
+  // Clean prompt for keywords
+  const cleaned = (prompt || '').toLowerCase().replace(/[^\w\s]/gi, '');
+  const words = cleaned.split(/\s+/).filter(Boolean).filter(w => w.length > 3);
+  const keywords = words.slice(0, 3).join(',');
+  // Default steak image (explicit) and dynamic fallback
+  const explicitSteak = 'https://images.unsplash.com/photo-1546241072-48010ad28c2c?auto=format&fit=crop&w=1400&q=80';
+  const dynamic = keywords ? `https://source.unsplash.com/1400x900/?${encodeURIComponent(keywords)}` : explicitSteak;
+  // Logo via ui-avatars (good placeholder); use first word for name
+  const firstWord = (cleaned.split(' ')[0] || 'Logo').replace(/[^a-zA-Z0-9]/g, '');
+  const logo = `https://ui-avatars.com/api/?name=${encodeURIComponent(firstWord)}&background=random&color=fff&size=256&bold=true`;
+  return { dynamicPhoto: dynamic, explicitSteak, logo };
+}
+
+// GENERATE endpoint (AI) - Groq-ready + asset injection + debug logging
 app.post('/generate', authMiddleware, async (req, res) => {
   try {
     const { prompt, projectId, uploadedAssets } = req.body;
@@ -228,21 +243,37 @@ app.post('/generate', authMiddleware, async (req, res) => {
       ? '\nBeschikbare assets (gebruik bij voorkeur deze absolute URL\'s voor afbeeldingen):\n' + mergedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') + '\n'
       : '';
 
-    // System/user prompts - instruct AI to always return valid JSON with html/css/js
+    // Create generated assets (Unsplash + UI Avatar)
+    const { dynamicPhoto, explicitSteak, logo } = createAssetsFromPrompt(prompt);
+
+    // Build the system message with enforced asset usage
     const systemMessage = `Je bent KAVRIX PRO AI, een expert frontend developer en designer.
 OUTPUT ALTIJD EEN GELDIG JSON OBJECT: {"html":"...","css":"...","js":"..."}.
 
-BELANGRIJK:
-- Als er "Beschikbare assets" zijn, gebruik die URL's voor afbeeldingen.
-- Als er geen assets zijn mag je mooie Unsplash-beeld-URL's of DALL·E-URLs gebruiken.
+BELANGRIJK (asset verplichtingen):
+- Gebruik DE VOLGENDE ASSETS in de gegenereerde code (toon ze prominent):
+  - Logo URL: ${logo}
+  - Hoofdfoto URL: ${dynamicPhoto}
+- Als de gebruiker expliciet om een biefstuk vroeg, gebruik dan deze expliciete biefstuk-afbeelding: ${explicitSteak}
+- Als er "Beschikbare assets" zijn (zie volgende tekst), gebruik die URL's prioriteit.
 - De tekst in de app moet exact overeenkomen met de opdracht van de gebruiker.
 - Gebruik Tailwind CSS (via <script src="https://cdn.tailwindcss.com"></script> in de head).
-- Geef geen extra tekst buiten het JSON-object.`;
+- Geef GEEN extra tekst buiten het JSON-object.`;
 
     const userMessage = `Opdracht: ${prompt}
 
 ${assetText}
-Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de tekst exact is zoals in de opdracht.`;
+Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de tekst exact is zoals in de opdracht. Gebruik de opgegeven assets (logo en foto).`;
+
+    // If no API key present, write a helpful error to the project and stop
+    if (!API_KEY) {
+      const errHtml = `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Key ontbreekt</h3><p>De AI API sleutel (API_KEY) is niet ingesteld op de server. Voeg je Groq/AI sleutel toe als environment variable en probeer opnieuw.</p></div>`;
+      await Project.findByIdAndUpdate(project._id, {
+        files: { html: errHtml, css: '', js: '' },
+        updatedAt: new Date()
+      }).exec();
+      return;
+    }
 
     // Fire off AI call in background
     (async () => {
@@ -274,6 +305,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           const errorHtml = `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Generatie Fout (API call)</h3><pre style="white-space:pre-wrap;color:#f87171">Status: ${status || 'unknown'}\n${escapeHtml(JSON.stringify(data || callErr.message, null, 2))}</pre></div>`;
           await Project.findByIdAndUpdate(project._id, {
             files: { html: errorHtml, css: '', js: '' },
+            assets: [{ name: 'Main Photo', url: dynamicPhoto }, { name: 'Logo', url: logo }],
             updatedAt: new Date()
           }).exec();
           return;
@@ -297,7 +329,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
 
         if (!parsed) {
           console.warn('AI response not valid JSON. Using fallback.');
-          const fallbackImg = (mergedAssets[0] && mergedAssets[0].url) || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
+          const fallbackImg = (mergedAssets[0] && mergedAssets[0].url) || dynamicPhoto || explicitSteak;
           parsed = {
             html: `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111827;color:#fff;padding:40px;font-family:Inter,system-ui,sans-serif;"><div style="max-width:900px;text-align:center;">${fallbackImg ? `<img src="${fallbackImg}" alt="hero" style="max-width:100%;border-radius:12px;margin-bottom:20px"/>` : ''}<h1 style="font-size:32px;margin-bottom:8px">Gegenereerde App</h1><p>${escapeHtml(prompt)}</p></div></div>`,
             css: '',
@@ -316,6 +348,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
             css: parsed.css,
             js: parsed.js
           },
+          assets: [{ name: 'Main Photo', url: dynamicPhoto }, { name: 'Logo', url: logo }],
           updatedAt: new Date()
         }).exec();
 
