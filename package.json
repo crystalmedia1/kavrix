@@ -1,5 +1,21 @@
 {
-  "html": "<!DOCTYPE html>\n<html lang=\"nl\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Luxe Steakhouse</title>\n  <script src=\"https://cdn.tailwindcss.com\"></script>\n</head>\n<body class=\"bg-gray-900 text-white font-sans\">\n  <main class=\"min-h-screen flex items-center justify-center p-4\">\n    <div class=\"relative w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border border-gray-800\">\n      <!-- Hero Image -->\n      <img src=\"https://images.unsplash.com/photo-1546241072-48010ad28c2c?auto=format&fit=crop&w=1600&q=80\" \n           alt=\"Premium Steak\" \n           class=\"w-full h-[70vh] object-cover brightness-50\">\n      \n      <!-- Content Overlay -->\n      <div class=\"absolute inset-0 flex flex-col items-center justify-center text-center px-6\">\n        <h1 class=\"text-5xl md:text-7xl font-black tracking-tighter mb-4 drop-shadow-2xl\">\n          LUXE STEAKHOUSE\n        </h1>\n        <p class=\"text-xl md:text-2xl font-light max-w-2xl mb-8 text-gray-200\">\n          Geniet van de beste biefstukken in een luxe omgeving\n        </p>\n        <button onclick=\"openBooking()\" \n                class=\"bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 px-10 rounded-full transition-all transform hover:scale-105 shadow-xl\">\n          Nu Reserveren\n        </button>\n      </div>\n    </div>\n  </main>\n</body>\n</html>",
-  "css": "/* Custom Styles */\nbody {\n  background-color: #0f172a;\n}\nh1 {\n  text-shadow: 2px 4px 10px rgba(0,0,0,0.5);\n}",
-  "js": "// Interactie Logica\nfunction openBooking() {\n  alert('Bedankt voor je interesse! Onze reserveringsmodule opent binnenkort.');\n  console.log('Reservering knop geklikt voor Luxe Steakhouse');\n}"
+  "name": "kavrix-backend",
+  "version": "1.0.0",
+  "description": "Kavrix AI Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.0",
+    "multer": "^1.4.5-lts.1",
+    "resend": "^2.0.0",
+    "uuid": "^9.0.1"
+  }
 }
