@@ -1,4 +1,4 @@
-// server.js (volledig, met strikte AI prompt voor exacte tekst en alleen geüploade assets)
+// server.js (gevuld op basis van jouw file) - RouteLLM / GPT-4 integratie
 // Dependencies: express, cors, axios, mongoose, bcryptjs, jsonwebtoken, resend, multer, dotenv, uuid
 
 const express = require('express');
@@ -22,27 +22,37 @@ if (process.env.RESEND_API_KEY) {
 }
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '12mb' }));
+app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
+// CONFIG (zorg dat je deze in .env zet)
 const MONGODB_URI = process.env.MONGODB_URI || '';
-const API_KEY = process.env.API_KEY || '';
-const AI_API_URL = process.env.AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
+const API_KEY = process.env.API_KEY || ''; // RouteLLM / OpenAI compatible key
+const AI_API_URL = process.env.AI_API_URL || 'https://routellm.abacus.ai/v1/chat/completions';
+const AI_MODEL = process.env.AI_MODEL || 'gpt-4o-mini';
 const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_default_jwt_secret_change_me';
 const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null;
 const PORT = process.env.PORT || 3000;
 
-mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB verbonden'))
-  .catch(err => console.error('MongoDB connect fout:', err?.message || err));
+if (!API_KEY) console.warn('API_KEY niet ingesteld in .env - AI-calls zullen falen.');
 
+// MongoDB connect (optioneel)
+if (MONGODB_URI) {
+  mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('MongoDB verbonden'))
+    .catch(err => console.error('MongoDB connect fout:', err?.message || err));
+} else {
+  console.warn('MONGO URI niet gevonden: database functionaliteit mogelijk beperkt.');
+}
+
+// Schemas
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
   isVerified: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });
-const User = mongoose.model('User', UserSchema);
+const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 const ProjectSchema = new mongoose.Schema({
   name: { type: String, default: 'Nieuw Project' },
@@ -55,8 +65,9 @@ const ProjectSchema = new mongoose.Schema({
   assets: [{ name: String, url: String }],
   updatedAt: { type: Date, default: Date.now }
 });
-const Project = mongoose.model('Project', ProjectSchema);
+const Project = mongoose.models.Project || mongoose.model('Project', ProjectSchema);
 
+// Uploads via multer
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -69,29 +80,15 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage });
-
 app.use('/uploads', express.static(uploadsDir));
 
+// Helpers
 function extractToken(req) {
   const auth = req.headers['authorization'];
   if (auth && auth.startsWith('Bearer ')) return auth.split(' ')[1];
   if (req.body && req.body.token) return req.body.token;
   if (req.query && req.query.token) return req.query.token;
   return null;
-}
-
-async function sendAdminNotification(subject, html) {
-  if (!resend) return;
-  try {
-    await resend.emails.send({
-      from: 'KAVRIX <onboarding@resend.dev>',
-      to: 'zakelijk90@hotmail.com',
-      subject,
-      html
-    });
-  } catch (e) {
-    console.warn('Resend send failed (non-fatal):', e?.message || e);
-  }
 }
 
 function safeJSONParse(text) {
@@ -108,12 +105,27 @@ function safeJSONParse(text) {
   return null;
 }
 
+async function sendAdminNotification(subject, html) {
+  if (!resend) return;
+  try {
+    await resend.emails.send({
+      from: 'KAVRIX <onboarding@resend.dev>',
+      to: process.env.ADMIN_EMAIL || 'zakelijk90@hotmail.com',
+      subject,
+      html
+    });
+  } catch (e) {
+    console.warn('Resend send failed (non-fatal):', e?.message || e);
+  }
+}
+
+// Auth endpoints
 app.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Vul alle velden in.' });
     const normalized = email.toLowerCase().trim();
-    const existing = await User.findOne({ email: normalized });
+    const existing = await User.findOne({ email: normalized }).exec().catch(()=>null);
     if (existing) return res.status(400).json({ error: 'Email bestaat al.' });
     const hashed = await bcrypt.hash(password, 10);
     const user = new User({ email: normalized, password: hashed, isVerified: true });
@@ -129,7 +141,7 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).exec();
     if (!user) return res.status(401).json({ error: 'Gebruiker niet gevonden.' });
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return res.status(401).json({ error: 'Wachtwoord onjuist.' });
@@ -141,6 +153,23 @@ app.post('/login', async (req, res) => {
   }
 });
 
+async function authMiddleware(req, res, next) {
+  try {
+    const token = extractToken(req);
+    if (!token) return res.status(401).json({ error: 'Token vereist' });
+    let decoded;
+    try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ error: 'Ongeldige token' }); }
+    const user = await User.findById(decoded.userId).exec();
+    if (!user) return res.status(401).json({ error: 'Gebruiker niet gevonden' });
+    req.user = user;
+    next();
+  } catch (e) {
+    console.error('authMiddleware error:', e?.message || e);
+    res.status(500).json({ error: 'Auth fout' });
+  }
+}
+
+// Upload endpoint
 app.post('/upload', upload.single('file'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -153,25 +182,10 @@ app.post('/upload', upload.single('file'), (req, res) => {
   }
 });
 
-async function authMiddleware(req, res, next) {
-  try {
-    const token = extractToken(req);
-    if (!token) return res.status(401).json({ error: 'Token vereist' });
-    let decoded;
-    try { decoded = jwt.verify(token, JWT_SECRET); } catch (err) { return res.status(401).json({ error: 'Ongeldige token' }); }
-    const user = await User.findById(decoded.userId);
-    if (!user) return res.status(401).json({ error: 'Gebruiker niet gevonden' });
-    req.user = user;
-    next();
-  } catch (e) {
-    console.error('authMiddleware error:', e?.message || e);
-    res.status(500).json({ error: 'Auth fout' });
-  }
-}
-
+// Helper: ensure project
 async function ensureProject(userId, projectId, nameHint) {
   if (projectId && mongoose.Types.ObjectId.isValid(projectId)) {
-    const p = await Project.findById(projectId);
+    const p = await Project.findById(projectId).exec();
     if (p) return p;
   }
   const p = new Project({
@@ -184,6 +198,7 @@ async function ensureProject(userId, projectId, nameHint) {
   return p;
 }
 
+// GENERATE endpoint (AI)
 app.post('/generate', authMiddleware, async (req, res) => {
   try {
     const { prompt, projectId, uploadedAssets } = req.body;
@@ -191,10 +206,12 @@ app.post('/generate', authMiddleware, async (req, res) => {
     if (!prompt || typeof prompt !== 'string') return res.status(400).json({ error: 'Prompt vereist' });
 
     const project = await ensureProject(userId, projectId, prompt);
-    await Project.findByIdAndUpdate(project._id, { 'files.html': 'GENERATING', updatedAt: new Date() });
+    await Project.findByIdAndUpdate(project._id, { 'files.html': 'GENERATING', updatedAt: new Date() }).exec();
 
+    // respond immediately with projectId so frontend can poll
     res.json({ projectId: project._id });
 
+    // normalize uploaded assets (if any)
     const normAssets = Array.isArray(uploadedAssets) ? uploadedAssets.map(a => {
       if (typeof a === 'string') return { name: path.basename(a), url: a };
       if (a && a.url) return { name: a.name || path.basename(a.url), url: a.url };
@@ -202,39 +219,37 @@ app.post('/generate', authMiddleware, async (req, res) => {
     }).filter(Boolean) : [];
 
     const mergedAssets = [...(project.assets || [])];
-    normAssets.forEach(a => {
-      if (!mergedAssets.find(x => x.url === a.url)) mergedAssets.push(a);
-    });
+    normAssets.forEach(a => { if (!mergedAssets.find(x => x.url === a.url)) mergedAssets.push(a); });
     if (mergedAssets.length > 0) {
-      await Project.findByIdAndUpdate(project._id, { assets: mergedAssets, updatedAt: new Date() });
+      await Project.findByIdAndUpdate(project._id, { assets: mergedAssets, updatedAt: new Date() }).exec();
     }
 
     const assetText = mergedAssets.length > 0
-      ? '\nBeschikbare assets (gebruik alleen deze afbeeldingen, met exacte URL\'s):\n' + mergedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') + '\n'
+      ? '\nBeschikbare assets (gebruik bij voorkeur deze absolute URL\'s voor afbeeldingen):\n' + mergedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') + '\n'
       : '';
 
+    // System/user prompts - instruct AI to always return valid JSON with html/css/js
     const systemMessage = `Je bent KAVRIX PRO AI, een expert frontend developer en designer.
 OUTPUT ALTIJD EEN GELDIG JSON OBJECT: {"html":"...","css":"...","js":"..."}.
 
 BELANGRIJK:
-- Gebruik ALLEEN de geüploade assets (deze worden in de prompt gegeven met naam en URL).
-- Gebruik GEEN andere afbeeldingen dan de geüploade assets.
+- Als er "Beschikbare assets" zijn, gebruik die URL's voor afbeeldingen.
+- Als er geen assets zijn mag je mooie Unsplash-beeld-URL's of DALL·E-URLs gebruiken.
 - De tekst in de app moet exact overeenkomen met de opdracht van de gebruiker.
 - Gebruik Tailwind CSS (via <script src="https://cdn.tailwindcss.com"></script> in de head).
-- Maak het design modern, strak en passend bij de opdracht.
 - Geef geen extra tekst buiten het JSON-object.`;
 
     const userMessage = `Opdracht: ${prompt}
 
-Beschikbare assets (gebruik alleen deze afbeeldingen, met exacte URL's):
 ${assetText}
-
 Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de tekst exact is zoals in de opdracht.`;
 
+
+    // Fire off AI call in background
     (async () => {
       try {
         const aiReq = {
-          model: process.env.AI_MODEL || 'llama-3.3-70b-versatile',
+          model: process.env.AI_MODEL || AI_MODEL,
           messages: [
             { role: 'system', content: systemMessage },
             { role: 'user', content: userMessage }
@@ -243,13 +258,12 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           temperature: 0.2
         };
 
-        const url = AI_API_URL;
         const headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${API_KEY}`
         };
 
-        const aiResponse = await axios.post(url, aiReq, { headers, timeout: 120000 });
+        const aiResponse = await axios.post(AI_API_URL, aiReq, { headers, timeout: 120000 });
 
         let text = null;
         if (aiResponse.data) {
@@ -268,14 +282,15 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
 
         if (!parsed) {
           console.warn('AI response not valid JSON. Using fallback.');
-          const fallbackImg = (mergedAssets[0] && mergedAssets[0].url) || '';
+          const fallbackImg = (mergedAssets[0] && mergedAssets[0].url) || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80';
           parsed = {
-            html: `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111827;color:#fff;padding:40px;font-family:Inter,system-ui,sans-serif;"><div style="max-width:900px;text-align:center;">${fallbackImg ? `<img src="${fallbackImg}" alt="hero" style="max-width:100%;border-radius:12px;margin-bottom:20px"/>` : ''}<h1 style="font-size:32px;margin-bottom:8px">Gegenereerde App</h1><p>${prompt}</p></div></div>`,
+            html: `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111827;color:#fff;padding:40px;font-family:Inter,system-ui,sans-serif;"><div style="max-width:900px;text-align:center;">${fallbackImg ? `<img src="${fallbackImg}" alt="hero" style="max-width:100%;border-radius:12px;margin-bottom:20px"/>` : ''}<h1 style="font-size:32px;margin-bottom:8px">Gegenereerde App</h1><p>${escapeHtml(prompt)}</p></div></div>`,
             css: '',
             js: ''
           };
         }
 
+        // Ensure keys exist
         parsed.html = parsed.html || '';
         parsed.css = parsed.css || '';
         parsed.js = parsed.js || '';
@@ -287,7 +302,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
             js: parsed.js
           },
           updatedAt: new Date()
-        });
+        }).exec();
 
         sendAdminNotification('AI Gen afgerond', `<p>Project ${project._id} gegenereerd voor gebruiker ${userId}.</p>`).catch(()=>{});
 
@@ -296,12 +311,12 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
         try {
           await Project.findByIdAndUpdate(project._id, {
             files: {
-              html: `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Generatie Fout</h3><pre style="white-space:pre-wrap;color:#f87171">${(err?.message||'Onbekende fout')}</pre></div>`,
+              html: `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Generatie Fout</h3><pre style="white-space:pre-wrap;color:#f87171">${escapeHtml(err?.message || 'Onbekende fout')}</pre></div>`,
               css: '',
               js: ''
             },
             updatedAt: new Date()
-          });
+          }).exec();
         } catch (saveErr) {
           console.error('Failed to save error into project:', saveErr?.message || saveErr);
         }
@@ -314,9 +329,10 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
   }
 });
 
+// Projects endpoints
 app.get('/projects/:userId', async (req, res) => {
   try {
-    const projects = await Project.find({ userId: req.params.userId }).sort({ updatedAt: -1 });
+    const projects = await Project.find({ userId: req.params.userId }).sort({ updatedAt: -1 }).exec();
     res.json(projects);
   } catch (e) {
     console.error('projects fetch error:', e?.message || e);
@@ -326,7 +342,7 @@ app.get('/projects/:userId', async (req, res) => {
 
 app.get('/project/:id', async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const project = await Project.findById(req.params.id).exec();
     if (!project) return res.status(404).json({ error: 'Project niet gevonden.' });
     res.json(project);
   } catch (e) {
@@ -337,10 +353,10 @@ app.get('/project/:id', async (req, res) => {
 
 app.delete('/project/:id', authMiddleware, async (req, res) => {
   try {
-    const proj = await Project.findById(req.params.id);
+    const proj = await Project.findById(req.params.id).exec();
     if (!proj) return res.status(404).json({ error: 'Project niet gevonden' });
     if (proj.userId.toString() !== req.user._id.toString()) return res.status(403).json({ error: 'Geen toegang' });
-    await Project.findByIdAndDelete(req.params.id);
+    await Project.findByIdAndDelete(req.params.id).exec();
     res.json({ success: true });
   } catch (e) {
     console.error('delete project error:', e?.message || e);
@@ -353,3 +369,20 @@ app.get('/', (req, res) => res.send('KAVRIX PRO API Online'));
 app.listen(PORT, () => {
   console.log(`Server draait op poort ${PORT} - BACKEND_ORIGIN=${BACKEND_ORIGIN || 'not-set'}`);
 });
+
+// small utility
+function escapeHtml(unsafe) {
+  if (!unsafe) return '';
+  return unsafe.replace(/[&<>"'`=\/]/g, function (s) {
+    return ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+      '/': '&#x2F;',
+      '`': '&#x60;',
+      '=': '&#x3D;'
+    })[s];
+  });
+}
