@@ -1,6 +1,4 @@
-// server.js (geüpdatet — Groq-ready + asset-injectie + uitgebreide debug logging)
-// Dependencies: express, cors, axios, mongoose, bcryptjs, jsonwebtoken, resend, multer, dotenv, uuid
-
+// server.js (samengevoegd: jouw huidige code + No-Fail foto-injectie + debug)
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -213,7 +211,7 @@ function createAssetsFromPrompt(prompt) {
   return { dynamicPhoto: dynamic, explicitSteak, logo };
 }
 
-// GENERATE endpoint (AI) - Groq-ready + asset injection + debug logging
+// GENERATE endpoint (AI) - Groq-ready + asset injection + debug logging + No-Fail injection
 app.post('/generate', authMiddleware, async (req, res) => {
   try {
     const { prompt, projectId, uploadedAssets } = req.body;
@@ -341,6 +339,31 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
         parsed.html = parsed.html || '';
         parsed.css = parsed.css || '';
         parsed.js = parsed.js || '';
+
+        // --- NO-FAIL PHOTO & LOGO INJECTIE ---
+        // If parsed HTML doesn't contain the dynamic photo or explicit steak, insert hero image at top of <body>
+        try {
+          const hasDynamicPhoto = parsed.html.includes(dynamicPhoto) || parsed.html.includes(explicitSteak);
+          if (!hasDynamicPhoto) {
+            if (/<body[^>]*>/i.test(parsed.html)) {
+              parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n<div class="w-full h-96 overflow-hidden"><img src="${dynamicPhoto}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n`);
+            } else {
+              // no body tag — prepend hero
+              parsed.html = `<div class="w-full h-96 overflow-hidden"><img src="${dynamicPhoto}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n` + parsed.html;
+            }
+          }
+          // Ensure logo appears; if not present, inject a small header with the logo
+          if (!parsed.html.includes(logo)) {
+            const logoHeader = `<header style="display:flex;align-items:center;gap:12px;padding:16px 20px;"><img src="${logo}" alt="Logo" style="width:48px;height:48px;border-radius:8px;object-fit:cover;"/><div style="font-weight:700">${escapeHtml((prompt || '').split(' ')[0] || 'Kavrix')}</div></header>`;
+            if (/<body[^>]*>/i.test(parsed.html)) {
+              parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n${logoHeader}\n`);
+            } else {
+              parsed.html = logoHeader + parsed.html;
+            }
+          }
+        } catch (injectErr) {
+          console.warn('Injectie fout:', injectErr?.message || injectErr);
+        }
 
         await Project.findByIdAndUpdate(project._id, {
           files: {
