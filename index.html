@@ -12,85 +12,100 @@
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
         :root { --accent: #6366f1; --accent-glow: rgba(99, 102, 241, 0.3); }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #06080f; color: white; overflow: hidden; margin: 0; }
+        
+        /* Glassmorphism & UI */
         .glass { background: rgba(15, 20, 35, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
         .text-accent { color: var(--accent); }
         .bg-accent { background-color: var(--accent); }
-        .sidebar { width: 300px; border-right: 1px solid rgba(255,255,255,0.05); }
+        
+        .sidebar { width: 300px; border-right: 1px solid rgba(255,255,255,0.05); z-index: 40; }
         .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: #94a3b8; cursor: pointer; font-size: 13px; transition: 0.2s; }
         .nav-item:hover, .nav-item.active { background: var(--accent-glow); color: white; }
-        .preview-area { flex: 1; background: #020408; position: relative; display: flex; flex-direction: column; }
-        #editorContainer { height: 100%; width: 100%; display: none; }
-        .device-frame { flex: 1; margin: 20px; background: #111827; border-radius: 20px; overflow: hidden; border: 6px solid #1f2937; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-        iframe { width: 100%; height: 100%; border: none; }
+        
+        .preview-area { flex: 1; background: #020408; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+        #editorContainer { height: 100%; width: 100%; display: none; border-top: 1px solid rgba(255,255,255,0.05); }
+        
+        /* Device Frame Styling */
+        .device-frame { flex: 1; margin: 20px; background: #111827; border-radius: 24px; overflow: hidden; border: 8px solid #1f2937; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        iframe { width: 100%; height: 100%; border: none; background: white; }
+        
+        /* Auth & Loaders */
         #authOverlay { position: fixed; inset: 0; z-index: 9999; background: #06080f; display: flex; align-items: center; justify-content: center; }
-        .color-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid rgba(255,255,255,0.1); }
-        .loader { border: 3px solid rgba(255, 255, 255, 0.1); border-left-color: var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .loader { border: 3px solid rgba(255, 255, 255, 0.1); border-left-color: var(--accent); border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .hidden { display: none !important; }
+        
         .upload-zone { border: 2px dashed rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; text-align: center; font-size: 11px; color: #64748b; cursor: pointer; transition: 0.2s; }
-        .upload-zone:hover { border-color: var(--accent); color: white; }
-        /* small asset thumbnail style */
-        .asset-thumb { width:36px;height:36px;object-fit:cover;border-radius:6px;margin-right:8px;border:1px solid rgba(255,255,255,0.04) }
+        .upload-zone:hover { border-color: var(--accent); color: white; background: rgba(255,255,255,0.02); }
+        
+        .asset-thumb { width:40px; height:40px; object-fit:cover; border-radius:8px; border:1px solid rgba(255,255,255,0.1); transition: transform 0.2s; }
+        .asset-thumb:hover { transform: scale(1.1); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
     </style>
 </head>
 <body class="flex h-screen">
 
     <!-- AUTH OVERLAY -->
     <div id="authOverlay">
-        <div class="glass p-10 rounded-[32px] w-full max-w-md text-center border-white/5">
-            <div class="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_var(--accent-glow)]">
-                <i data-lucide="zap" class="text-white w-8 h-8 fill-current"></i>
+        <div class="glass p-10 rounded-[32px] w-full max-w-md text-center border-white/5 shadow-2xl">
+            <div class="w-20 h-20 bg-accent rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_var(--accent-glow)]">
+                <i data-lucide="zap" class="text-white w-10 h-10 fill-current"></i>
             </div>
-            <h1 class="text-2xl font-bold mb-2">KAVRIX <span class="text-accent">PRO</span></h1>
-            <p class="text-slate-400 text-xs mb-8">Enterprise AI App Studio</p>
+            <h1 class="text-3xl font-bold mb-2 tracking-tight">KAVRIX <span class="text-accent">PRO</span></h1>
+            <p class="text-slate-400 text-sm mb-10">Enterprise AI App Studio</p>
             <div class="space-y-4 text-left">
-                <input type="email" id="email" placeholder="Email" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-accent transition">
-                <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-accent transition">
-                <button onclick="handleAuth()" id="authBtn" class="w-full bg-accent py-4 rounded-xl font-bold hover:opacity-90 transition text-white">Inloggen</button>
-                <p class="text-xs text-slate-500 text-center mt-4">Nog geen account? <a href="#" onclick="toggleAuthMode()" class="text-accent font-semibold" id="toggleLink">Registreer hier</a></p>
+                <div class="relative">
+                    <input type="email" id="email" placeholder="Email" class="w-full bg-white/5 border border-white/10 p-4 pl-12 rounded-2xl outline-none focus:border-accent transition">
+                    <i data-lucide="mail" class="w-5 h-5 absolute left-4 top-4 text-slate-500"></i>
+                </div>
+                <div class="relative">
+                    <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 pl-12 rounded-2xl outline-none focus:border-accent transition">
+                    <i data-lucide="lock" class="w-5 h-5 absolute left-4 top-4 text-slate-500"></i>
+                </div>
+                <button onclick="handleAuth()" id="authBtn" class="w-full bg-accent py-4 rounded-2xl font-bold hover:brightness-110 transition text-white shadow-lg shadow-indigo-500/20">Inloggen</button>
+                <p class="text-xs text-slate-500 text-center mt-6">Nog geen account? <a href="#" onclick="toggleAuthMode()" class="text-accent font-semibold hover:underline" id="toggleLink">Registreer hier</a></p>
             </div>
         </div>
     </div>
 
     <!-- SIDEBAR -->
-    <aside class="sidebar glass flex flex-col p-5">
-        <div class="flex items-center gap-3 mb-8 px-2">
-            <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-[0_0_15px_var(--accent-glow)]">
-                <i data-lucide="zap" class="text-white w-5 h-5 fill-current"></i>
+    <aside class="sidebar glass flex flex-col p-6">
+        <div class="flex items-center gap-3 mb-10 px-2">
+            <div class="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-[0_0_20px_var(--accent-glow)]">
+                <i data-lucide="zap" class="text-white w-6 h-6 fill-current"></i>
             </div>
-            <span class="text-lg font-bold tracking-tight">KAVRIX <span class="text-accent">PRO</span></span>
+            <span class="text-xl font-bold tracking-tight">KAVRIX <span class="text-accent">PRO</span></span>
         </div>
 
-        <nav class="space-y-1 mb-6">
-            <div class="nav-item active" onclick="showView('preview')"><i data-lucide="eye" class="w-4 h-4"></i> Preview</div>
-            <div class="nav-item" onclick="showView('code')"><i data-lucide="code-2" class="w-4 h-4"></i> Code Editor</div>
-            <div class="nav-item" onclick="newProject()"><i data-lucide="plus" class="w-4 h-4"></i> Nieuw Project</div>
+        <nav class="space-y-2 mb-8">
+            <div class="nav-item active" id="nav-preview" onclick="showView('preview')"><i data-lucide="eye" class="w-4 h-4"></i> Preview</div>
+            <div class="nav-item" id="nav-code" onclick="showView('code')"><i data-lucide="code-2" class="w-4 h-4"></i> Code Editor</div>
+            <div class="nav-item" onclick="newProject()"><i data-lucide="plus-circle" class="w-4 h-4"></i> Nieuw Project</div>
         </nav>
 
-        <!-- ASSETS / UPLOADS -->
-        <div class="px-2 mb-6">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Assets & Voorbeelden</p>
-            <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                <i data-lucide="upload-cloud" class="w-5 h-5 mx-auto mb-2 opacity-50"></i>
-                <span>Klik om bestanden te uploaden</span>
+        <!-- ASSETS -->
+        <div class="px-2 mb-8">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Media Assets</p>
+            <div class="upload-zone group" onclick="document.getElementById('fileInput').click()">
+                <i data-lucide="image" class="w-6 h-6 mx-auto mb-2 opacity-40 group-hover:opacity-100 transition"></i>
+                <span class="block text-[10px]">Sleep bestanden of klik hier</span>
                 <input type="file" id="fileInput" class="hidden" multiple onchange="handleUpload(this)">
             </div>
-            <div id="assetList" class="mt-3 space-y-2 max-h-32 overflow-y-auto"></div>
+            <div id="assetList" class="mt-4 grid grid-cols-4 gap-2 max-h-40 overflow-y-auto"></div>
         </div>
 
-        <!-- THEMA -->
-        <div class="px-2 mb-6">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Studio Kleur</p>
-            <div class="flex flex-wrap gap-2" id="colorPicker"></div>
+        <!-- PROJECTEN -->
+        <div class="flex-1 overflow-y-auto px-2">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Mijn Projecten</p>
+            <div id="projectList" class="space-y-2"></div>
         </div>
 
-        <div class="flex-1 overflow-y-auto">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-2">Projecten</p>
-            <div id="projectList" class="space-y-1"></div>
-        </div>
-
-        <div class="mt-auto pt-4 border-t border-white/5">
-            <button onclick="logout()" class="w-full flex items-center gap-3 p-2 text-slate-500 hover:text-white transition text-xs">
+        <div class="mt-auto pt-6 border-t border-white/5">
+            <button onclick="logout()" class="w-full flex items-center gap-3 p-3 text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition text-xs">
                 <i data-lucide="log-out" class="w-4 h-4"></i> Uitloggen
             </button>
         </div>
@@ -98,44 +113,54 @@
 
     <!-- MAIN CONTENT -->
     <main class="flex-1 flex flex-col">
-        <header class="h-16 border-b border-white/5 flex items-center justify-between px-6 glass">
-            <div class="flex items-center gap-4">
-                <h2 id="currentProjectName" class="text-xs font-semibold text-slate-400">Nieuw Project</h2>
-                <div class="flex bg-white/5 rounded-lg p-1">
-                    <button onclick="showView('preview')" id="btnPreview" class="px-3 py-1 text-[10px] font-bold rounded-md bg-accent text-white">PREVIEW</button>
-                    <button onclick="showView('code')" id="btnCode" class="px-3 py-1 text-[10px] font-bold rounded-md text-slate-400">CODE</button>
+        <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 glass z-30">
+            <div class="flex items-center gap-6">
+                <div>
+                    <h2 id="currentProjectName" class="text-sm font-bold text-white">Nieuw Project</h2>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Status: <span id="statusText" class="text-emerald-500">Klaar</span></p>
+                </div>
+                <div class="h-8 w-[1px] bg-white/10"></div>
+                <div class="flex bg-white/5 rounded-xl p-1 border border-white/5">
+                    <button onclick="showView('preview')" id="btnPreview" class="px-4 py-1.5 text-[10px] font-bold rounded-lg bg-accent text-white transition-all">PREVIEW</button>
+                    <button onclick="showView('code')" id="btnCode" class="px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-400 hover:text-white transition-all">CODE</button>
                 </div>
             </div>
-            <div class="flex items-center gap-3">
-                <button onclick="downloadProject()" class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-bold transition flex items-center gap-2">
-                    <i data-lucide="download" class="w-3 h-3"></i> DOWNLOAD .HTML
+            <div class="flex items-center gap-4">
+                <button onclick="downloadProject()" class="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[11px] font-bold transition flex items-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> DOWNLOAD
                 </button>
-                <button class="px-4 py-2 bg-accent rounded-lg text-[10px] font-bold transition shadow-[0_0_15px_var(--accent-glow)] text-white">PUBLICEREN</button>
+                <button class="px-6 py-2.5 bg-accent rounded-xl text-[11px] font-bold transition shadow-lg shadow-indigo-500/20 text-white hover:brightness-110">PUBLICEREN</button>
             </div>
         </header>
 
         <div class="preview-area">
-            <div id="loadingOverlay" class="absolute inset-0 bg-[#06080f]/90 z-50 flex flex-col items-center justify-center hidden">
-                <div class="loader mb-6"></div>
-                <p class="text-accent font-bold text-xs tracking-widest animate-pulse">AI IS AAN HET BOUWEN...</p>
+            <!-- AI Loading Overlay -->
+            <div id="loadingOverlay" class="absolute inset-0 bg-[#06080f]/95 z-50 flex flex-col items-center justify-center hidden transition-opacity duration-500">
+                <div class="relative">
+                    <div class="loader mb-8"></div>
+                    <i data-lucide="sparkles" class="w-6 h-6 text-accent absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse"></i>
+                </div>
+                <p class="text-white font-bold text-sm tracking-widest mb-2">KAVRIX AI ENGINE</p>
+                <p class="text-slate-500 text-xs animate-pulse">Bezig met het schrijven van code...</p>
             </div>
             
             <!-- Preview View -->
             <div id="previewContainer" class="device-frame">
-                <iframe id="previewFrame" srcdoc="<body style='background:#111827; display:flex; align-items:center; justify-content:center; color:#4b5563; font-family:sans-serif; height:100vh; margin:0;'><h1>Start je project...</h1></body>"></iframe>
+                <iframe id="previewFrame" srcdoc="<body style='background:#0f172a; display:flex; align-items:center; justify-content:center; color:#4b5563; font-family:sans-serif; height:100vh; margin:0;'><div><h1 style='text-align:center'>Beschrijf je app hieronder...</h1></div></body>"></iframe>
             </div>
 
             <!-- Code View -->
             <div id="editorContainer"></div>
         </div>
 
-        <div class="p-6 glass border-t border-white/5">
-            <div class="max-w-4xl mx-auto relative">
-                <div class="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/10 focus-within:border-accent transition-all shadow-2xl">
-                    <div class="pl-4 text-accent"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
-                    <input type="text" id="promptInput" placeholder="Beschrijf je app of geef een wijziging door..." class="flex-1 bg-transparent border-none outline-none py-3 text-sm text-white placeholder:text-slate-600">
-                    <button onclick="generateApp()" id="genBtn" class="bg-accent p-3 rounded-xl transition shadow-[0_0_15px_var(--accent-glow)] text-white">
-                        <i data-lucide="zap" class="w-5 h-5 fill-current"></i>
+        <!-- Prompt Input Area -->
+        <div class="p-8 glass border-t border-white/5 z-30">
+            <div class="max-w-5xl mx-auto">
+                <div class="flex items-center gap-4 bg-white/5 p-3 rounded-2xl border border-white/10 focus-within:border-accent focus-within:ring-4 focus-within:ring-accent/10 transition-all shadow-2xl">
+                    <div class="pl-4 text-accent"><i data-lucide="sparkles" class="w-6 h-6"></i></div>
+                    <input type="text" id="promptInput" onkeypress="if(event.key==='Enter') generateApp()" placeholder="Bijv: 'Een modern restaurant menu met een donker thema en animaties'..." class="flex-1 bg-transparent border-none outline-none py-3 text-sm text-white placeholder:text-slate-600">
+                    <button onclick="generateApp()" id="genBtn" class="bg-accent p-4 rounded-xl transition shadow-lg shadow-indigo-500/30 text-white hover:scale-105 active:scale-95">
+                        <i data-lucide="zap" class="w-6 h-6 fill-current"></i>
                     </button>
                 </div>
             </div>
@@ -143,7 +168,7 @@
     </main>
 
     <script>
-        const API_URL = "https://kavrix.onrender.com"; // pas aan naar jouw backend URL indien nodig
+        const API_URL = "https://kavrix.onrender.com"; 
         let userId = localStorage.getItem('kavrix_user_id');
         let token = localStorage.getItem('kavrix_token');
         let currentProjectId = null;
@@ -151,10 +176,10 @@
         let pollInterval = null;
         let editor = null;
         let currentFiles = { html: '', css: '', js: '' };
-        // uploadedAssets will contain objects { name, url }
         let uploadedAssets = [];
+        let updateTimeout = null;
 
-        // Monaco Editor Initialisatie
+        // Monaco Editor Setup
         require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' } });
         require(['vs/editor/editor.main'], function () {
             editor = monaco.editor.create(document.getElementById('editorContainer'), {
@@ -163,97 +188,78 @@
                 theme: 'vs-dark',
                 automaticLayout: true,
                 fontSize: 14,
-                minimap: { enabled: false }
+                fontFamily: 'JetBrains Mono, Menlo, Monaco, Courier New, monospace',
+                minimap: { enabled: false },
+                padding: { top: 20 },
+                cursorSmoothCaretAnimation: true,
+                smoothScrolling: true
             });
+
+            // Live Preview Sync met Debounce (voorkomt lag)
             editor.onDidChangeModelContent(() => {
-                const code = editor.getValue();
-                document.getElementById('previewFrame').srcdoc = code;
+                clearTimeout(updateTimeout);
+                updateTimeout = setTimeout(() => {
+                    const code = editor.getValue();
+                    document.getElementById('previewFrame').srcdoc = code;
+                }, 400);
             });
         });
-
-        const themeColors = ['#6366f1', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#a855f7', '#ec4899', '#06b6d4'];
-
-        function initColors() {
-            const picker = document.getElementById('colorPicker');
-            themeColors.forEach(color => {
-                const dot = document.createElement('div');
-                dot.className = 'color-dot';
-                dot.style.backgroundColor = color;
-                dot.onclick = () => changeTheme(color);
-                picker.appendChild(dot);
-            });
-            const saved = localStorage.getItem('kavrix_theme');
-            if(saved) changeTheme(saved);
-        }
-
-        function changeTheme(color) {
-            document.documentElement.style.setProperty('--accent', color);
-            document.documentElement.style.setProperty('--accent-glow', color + '4d');
-            localStorage.setItem('kavrix_theme', color);
-        }
 
         function showView(view) {
             const preview = document.getElementById('previewContainer');
             const code = document.getElementById('editorContainer');
             const btnP = document.getElementById('btnPreview');
             const btnC = document.getElementById('btnCode');
+            const navP = document.getElementById('nav-preview');
+            const navC = document.getElementById('nav-code');
 
             if(view === 'code') {
                 preview.style.display = 'none';
                 code.style.display = 'block';
-                btnC.className = "px-3 py-1 text-[10px] font-bold rounded-md bg-accent text-white";
-                btnP.className = "px-3 py-1 text-[10px] font-bold rounded-md text-slate-400";
-                if(editor) {
+                btnC.className = "px-4 py-1.5 text-[10px] font-bold rounded-lg bg-accent text-white transition-all";
+                btnP.className = "px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-400 transition-all";
+                navC.classList.add('active');
+                navP.classList.remove('active');
+                
+                if(editor && !editor.getValue()) {
                     const fullCode = `<!DOCTYPE html>\n<html>\n<head>\n<script src="https://cdn.tailwindcss.com"><\/script>\n<style>\n${currentFiles.css}\n</style>\n</head>\n<body>\n${currentFiles.html}\n<script>\n${currentFiles.js}\n<\/script>\n</body>\n</html>`;
                     editor.setValue(fullCode);
                 }
             } else {
                 preview.style.display = 'block';
                 code.style.display = 'none';
-                btnP.className = "px-3 py-1 text-[10px] font-bold rounded-md bg-accent text-white";
-                btnC.className = "px-3 py-1 text-[10px] font-bold rounded-md text-slate-400";
+                btnP.className = "px-4 py-1.5 text-[10px] font-bold rounded-lg bg-accent text-white transition-all";
+                btnC.className = "px-4 py-1.5 text-[10px] font-bold rounded-lg text-slate-400 transition-all";
+                navP.classList.add('active');
+                navC.classList.remove('active');
             }
         }
 
-        // --- NEW: handleUpload uploads files to backend and stores public URLs ---
         async function handleUpload(input) {
             const list = document.getElementById('assetList');
             const files = input.files;
             if (!files || files.length === 0) return;
+            
             for (let file of files) {
                 const form = new FormData();
                 form.append('file', file);
                 try {
-                    const res = await fetch(`${API_URL}/upload`, {
-                        method: 'POST',
-                        body: form
-                    });
+                    const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: form });
                     const data = await res.json();
                     if (data && data.url) {
                         uploadedAssets.push({ name: data.filename, url: data.url });
-
-                        // Show asset thumbnail (image preview if image)
                         const item = document.createElement('div');
-                        item.className = "flex items-center gap-2 text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg";
-                        let thumbHtml = '';
-                        if (file.type && file.type.startsWith('image/')) {
-                            thumbHtml = `<img src="${data.url}" class="asset-thumb" alt="${data.filename}" />`;
+                        item.className = "relative group cursor-pointer";
+                        if (file.type.startsWith('image/')) {
+                            item.innerHTML = `<img src="${data.url}" class="asset-thumb" title="${data.filename}" />`;
                         } else {
-                            thumbHtml = `<div style="width:36px;height:36px;border-radius:6px;background:#0f172a;display:flex;align-items:center;justify-content:center;margin-right:8px;font-size:10px">FILE</div>`;
+                            item.innerHTML = `<div class="asset-thumb bg-white/5 flex items-center justify-center text-[8px] overflow-hidden">${data.filename}</div>`;
                         }
-                        item.innerHTML = `${thumbHtml}<div class="truncate">${data.filename}</div>`;
                         list.appendChild(item);
-                    } else {
-                        alert('Upload mislukt: geen URL ontvangen.');
                     }
-                } catch (e) {
-                    console.error('Upload error', e);
-                    alert('Upload fout. Controleer backend en probeer opnieuw.');
-                }
+                } catch (e) { console.error('Upload error', e); }
             }
             lucide.createIcons();
-            // Informeer de gebruiker kort
-            setTimeout(()=>{ alert("Bestanden geüpload! De AI kan deze nu gebruiken als referentie."); }, 100);
         }
 
         function downloadProject() {
@@ -262,13 +268,12 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = (document.getElementById('currentProjectName').innerText || 'mijn-kavrix-app') + '.html';
+            a.download = (document.getElementById('currentProjectName').innerText || 'kavrix-app') + '.html';
             a.click();
         }
 
-        // --- AUTH & API LOGICA ---
+        // --- AUTH & API ---
         lucide.createIcons();
-        initColors();
 
         if(userId && token) {
             document.getElementById('authOverlay').classList.add('hidden');
@@ -284,7 +289,7 @@
         async function handleAuth() {
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value.trim();
-            if(!email || !password) return alert("Vul alles in.");
+            if(!email || !password) return;
             try {
                 const res = await fetch(API_URL + (isLogin ? '/login' : '/register'), {
                     method: 'POST',
@@ -295,23 +300,17 @@
                 if(data.token) {
                     localStorage.setItem('kavrix_token', data.token);
                     localStorage.setItem('kavrix_user_id', data.userId);
-                    // update local vars then hide overlay
-                    token = data.token;
-                    userId = data.userId;
-                    document.getElementById('authOverlay').classList.add('hidden');
-                    loadProjects();
+                    location.reload();
                 } else if(data.message) {
-                    // registration success message — switch to login mode
                     alert(data.message);
                     if(!isLogin) toggleAuthMode();
-                } else { alert(data.error || 'Onbekend antwoord van server'); }
-            } catch (e) { console.error(e); alert("Server Fout"); }
+                }
+            } catch (e) { alert("Server Fout"); }
         }
 
-        function logout() { localStorage.clear(); token = null; userId = null; location.reload(); }
+        function logout() { localStorage.clear(); location.reload(); }
 
         async function loadProjects() {
-            if(!userId) return;
             try {
                 const res = await fetch(`${API_URL}/projects/${userId}`);
                 const projects = await res.json();
@@ -324,23 +323,16 @@
                     list.appendChild(div);
                 });
                 lucide.createIcons();
-            } catch (e) {
-                console.error('loadProjects error', e);
-            }
+            } catch (e) { console.error(e); }
         }
 
         async function generateApp() {
             const prompt = document.getElementById('promptInput').value;
-            if(!prompt) return alert('Vul een beschrijving in.');
-
-            // Build full prompt: include uploadedAssets list (name -> url)
-            const assetContext = uploadedAssets.length > 0 
-                ? '\nBeschikbare assets:\n' + uploadedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') 
-                : '';
-
-            const fullPrompt = prompt + assetContext;
+            if(!prompt) return;
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('statusText').innerText = "Genereren...";
+            document.getElementById('statusText').className = "text-amber-500";
 
             try {
                 const res = await fetch(`${API_URL}/generate`, {
@@ -350,55 +342,41 @@
                         'Authorization': 'Bearer ' + token
                     },
                     body: JSON.stringify({ 
-                        prompt: fullPrompt, 
+                        prompt: prompt, 
                         userId, 
                         projectId: currentProjectId,
-                        uploadedAssets // send assets so backend can persist them
+                        uploadedAssets 
                     })
                 });
                 const data = await res.json();
-                if (!data.projectId) {
-                    alert('Generate failed: geen projectId terug');
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                    return;
-                }
                 currentProjectId = data.projectId;
                 if(pollInterval) clearInterval(pollInterval);
                 pollInterval = setInterval(checkStatus, 3000);
             } catch (e) {
-                console.error('generateApp error', e);
-                alert('Fout tijdens genereren. Controleer console.');
                 document.getElementById('loadingOverlay').classList.add('hidden');
+                alert('Fout bij genereren.');
             }
         }
 
         async function checkStatus() {
-            if(!currentProjectId) return;
             try {
                 const res = await fetch(`${API_URL}/project/${currentProjectId}`);
                 const data = await res.json();
                 if(data.files && data.files.html !== "GENERATING") {
                     clearInterval(pollInterval);
                     currentFiles = data.files;
-                    // If backend saved assets in project, merge them locally
-                    if (data.assets && Array.isArray(data.assets)) {
-                        // ensure uploadedAssets contains them (avoid duplicates)
-                        data.assets.forEach(a => {
-                            if (!uploadedAssets.find(x => x.url === a.url)) uploadedAssets.push(a);
-                        });
-                    }
                     renderApp(data.files);
                     document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('statusText').innerText = "Klaar";
+                    document.getElementById('statusText').className = "text-emerald-500";
                     document.getElementById('promptInput').value = "";
                     loadProjects();
                 }
-            } catch (e) {
-                console.error('checkStatus error', e);
-            }
+            } catch (e) { console.error(e); }
         }
 
         function renderApp(files) {
-            const fullCode = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><style>${files.css}</style></head><body>${files.html}<script>${files.js}<\/script></body></html>`;
+            const fullCode = `<!DOCTYPE html>\n<html>\n<head>\n<script src="https://cdn.tailwindcss.com"><\/script>\n<style>\n${files.css}\n</style>\n</head>\n<body class="bg-white">\n${files.html}\n<script>\n${files.js}\n<\/script>\n</body>\n</html>`;
             document.getElementById('previewFrame').srcdoc = fullCode;
             if(editor) editor.setValue(fullCode);
         }
@@ -407,48 +385,23 @@
             try {
                 const res = await fetch(`${API_URL}/project/${id}`);
                 const data = await res.json();
-                currentFiles = data.files || { html: '', css: '', js: '' };
-                // Load project assets into uploadedAssets
-                if (data.assets && Array.isArray(data.assets)) {
-                    data.assets.forEach(a => {
-                        if (!uploadedAssets.find(x => x.url === a.url)) uploadedAssets.push(a);
-                        // Show them in assetList if not shown
-                        const list = document.getElementById('assetList');
-                        const exists = [...list.children].some(c => c.innerText.includes(a.name));
-                        if (!exists) {
-                            const item = document.createElement('div');
-                            item.className = "flex items-center gap-2 text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg";
-                            if (a.url.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i)) {
-                                item.innerHTML = `<img src="${a.url}" class="asset-thumb" alt="${a.name}" /><div class="truncate">${a.name}</div>`;
-                            } else {
-                                item.innerHTML = `<div style="width:36px;height:36px;border-radius:6px;background:#0f172a;display:flex;align-items:center;justify-content:center;margin-right:8px;font-size:10px">FILE</div><div class="truncate">${a.name}</div>`;
-                            }
-                            list.appendChild(item);
-                        }
-                    });
-                }
-                renderApp(currentFiles);
+                currentFiles = data.files;
+                renderApp(data.files);
                 document.getElementById('currentProjectName').innerText = data.name || 'Project';
                 currentProjectId = id;
-            } catch (e) {
-                console.error('openProject error', e);
-                alert('Kon project niet openen.');
-            }
+                showView('preview');
+            } catch (e) { alert('Kon project niet openen.'); }
         }
 
         async function deleteProject(id) {
             if(!confirm("Project verwijderen?")) return;
-            if(!token) return alert('Log in om te verwijderen.');
             try {
                 await fetch(`${API_URL}/project/${id}`, { 
                     method: 'DELETE',
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 loadProjects();
-            } catch (e) {
-                console.error('deleteProject error', e);
-                alert('Verwijderen mislukt.');
-            }
+            } catch (e) { console.error(e); }
         }
 
         function newProject() {
@@ -456,6 +409,7 @@
             document.getElementById('previewFrame').srcdoc = "<body></body>";
             document.getElementById('currentProjectName').innerText = "Nieuw Project";
             if(editor) editor.setValue('');
+            showView('preview');
         }
     </script>
 </body>
