@@ -1,4 +1,4 @@
-// server.js (gevuld op basis van jouw file) - RouteLLM / GPT-4 integratie
+// server.js (geüpdatet voor Groq, behoudt Resend, uploads, auth, projecten, fallback, en uitgebreide debug-logging)
 // Dependencies: express, cors, axios, mongoose, bcryptjs, jsonwebtoken, resend, multer, dotenv, uuid
 
 const express = require('express');
@@ -25,18 +25,18 @@ app.use(cors());
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
-// CONFIG (zorg dat je deze in .env zet)
+// CONFIG (zet deze variabelen in je .env of Render environment)
 const MONGODB_URI = process.env.MONGODB_URI || '';
-const API_KEY = process.env.API_KEY || ''; // RouteLLM / OpenAI compatible key
-const AI_API_URL = process.env.AI_API_URL || 'https://routellm.abacus.ai/v1/chat/completions';
-const AI_MODEL = process.env.AI_MODEL || 'gpt-4o-mini';
+const API_KEY = process.env.API_KEY || ''; // jouw Groq key (gsk_...)
+const AI_API_URL = process.env.AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
+const AI_MODEL = process.env.AI_MODEL || 'llama-3.3-70b-versatile'; // Groq model
 const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_default_jwt_secret_change_me';
 const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null;
 const PORT = process.env.PORT || 3000;
 
 if (!API_KEY) console.warn('API_KEY niet ingesteld in .env - AI-calls zullen falen.');
 
-// MongoDB connect (optioneel)
+// MongoDB connect (optioneel maar aanbevolen)
 if (MONGODB_URI) {
   mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
     .then(() => console.log('MongoDB verbonden'))
@@ -198,7 +198,7 @@ async function ensureProject(userId, projectId, nameHint) {
   return p;
 }
 
-// GENERATE endpoint (AI)
+// GENERATE endpoint (AI) - Groq-ready + betere debug logging
 app.post('/generate', authMiddleware, async (req, res) => {
   try {
     const { prompt, projectId, uploadedAssets } = req.body;
@@ -244,7 +244,6 @@ BELANGRIJK:
 ${assetText}
 Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de tekst exact is zoals in de opdracht.`;
 
-
     // Fire off AI call in background
     (async () => {
       try {
@@ -263,8 +262,24 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           'Authorization': `Bearer ${API_KEY}`
         };
 
-        const aiResponse = await axios.post(AI_API_URL, aiReq, { headers, timeout: 120000 });
+        let aiResponse;
+        try {
+          aiResponse = await axios.post(AI_API_URL, aiReq, { headers, timeout: 120000 });
+        } catch (callErr) {
+          // If Groq returns 4xx/5xx, axios throws — capture details for debugging and store in project
+          const status = callErr.response?.status;
+          const data = callErr.response?.data;
+          console.error('AI call failed:', status, data || callErr.message);
 
+          const errorHtml = `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Generatie Fout (API call)</h3><pre style="white-space:pre-wrap;color:#f87171">Status: ${status || 'unknown'}\n${escapeHtml(JSON.stringify(data || callErr.message, null, 2))}</pre></div>`;
+          await Project.findByIdAndUpdate(project._id, {
+            files: { html: errorHtml, css: '', js: '' },
+            updatedAt: new Date()
+          }).exec();
+          return;
+        }
+
+        // parse AI response content
         let text = null;
         if (aiResponse.data) {
           if (aiResponse.data.choices && aiResponse.data.choices[0] && aiResponse.data.choices[0].message) {
