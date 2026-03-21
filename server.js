@@ -214,19 +214,27 @@ async function ensureProject(userId, projectId, nameHint) {
   return p;
 }
 
-// Utility: create asset URLs (Unsplash + UI Avatars). Always returns absolute URLs.
+// Utility: create asset URLs (IMPROVED)
+// Vervangt source.unsplash.com door stabielere images.unsplash.com link + cache-bust via sig/random
 function createAssetsFromPrompt(prompt) {
   // Clean prompt for keywords
   const cleaned = (prompt || '').toLowerCase().replace(/[^\w\s]/gi, '');
   const words = cleaned.split(/\s+/).filter(Boolean).filter(w => w.length > 3);
-  const keywords = words.slice(0, 3).join(',');
-  // Default steak image (explicit) and dynamic fallback
+  const keyword = words[0] || 'business';
+
+  // Stabiele Unsplash CDN foto (generieke, goed-werkende foto) + cache-bust param
+  // We kiezen een betrouwbare image id; sig zorgt voor frisse variant en voorkomt caching issues in some previews.
+  const dynamicPhoto = `https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1400&q=80&sig=${Math.floor(Math.random()*1000000)}`;
+
+  // Specifieke biefstuk foto als backup
   const explicitSteak = 'https://images.unsplash.com/photo-1546241072-48010ad28c2c?auto=format&fit=crop&w=1400&q=80';
-  const dynamic = keywords ? `https://source.unsplash.com/1400x900/?${encodeURIComponent(keywords)}` : explicitSteak;
-  // Logo via ui-avatars (good placeholder); use first word for name
-  const firstWord = (cleaned.split(' ')[0] || 'Logo').replace(/[^a-zA-Z0-9]/g, '');
-  const logo = `https://ui-avatars.com/api/?name=${encodeURIComponent(firstWord)}&background=random&color=fff&size=256&bold=true`;
-  return { dynamicPhoto: dynamic, explicitSteak, logo };
+
+  // Logo via ui-avatars (deze werkt altijd); gebruik eerste woord of K
+  const firstWord = (cleaned.split(' ')[0] || 'K').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const logo = `https://ui-avatars.com/api/?name=${encodeURIComponent(firstWord)}&background=0D8ABC&color=fff&size=256&bold=true`;
+
+  // Als je liever wilt kun je hier later picsum.photos of een andere CDN gebruiken afhankelijk van keywords.
+  return { dynamicPhoto, explicitSteak, logo };
 }
 
 // GENERATE endpoint (AI) - Groq-ready + asset injection + debug logging + No-Fail injection
