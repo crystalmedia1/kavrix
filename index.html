@@ -1,251 +1,426 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAVRIX PRO | Enterprise AI Builder</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #06080f; color: white; overflow: hidden; margin: 0; }
-        .glass { background: rgba(15, 20, 35, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
-        .sidebar { width: 280px; border-right: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; color: #94a3b8; transition: all 0.2s; cursor: pointer; font-size: 14px; }
-        .nav-item:hover, .nav-item.active { background: rgba(99, 102, 241, 0.1); color: #818cf8; }
-        .preview-container { flex: 1; background: #020408; display: flex; align-items: center; justify-content: center; padding: 30px; position: relative; }
-        .device-frame { width: 100%; height: 100%; max-width: 1200px; background: #111827; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); border: 8px solid #1f2937; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; }
-        #authOverlay { position: fixed; inset: 0; z-index: 9999; background: #06080f; display: flex; align-items: center; justify-content: center; }
-        .loader { border: 3px solid rgba(99, 102, 241, 0.1); border-left-color: #6366f1; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .hidden { display: none !important; }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KAVRIX PRO | AI Builder met Kleurenkeuze</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
+  :root {
+    --accent-color: #6366f1; /* Indigo default */
+    --accent-color-light: #818cf8;
+    --accent-color-dark: #4f46e5;
+  }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: #0f172a;
+    color: #e0e7ff;
+    margin: 0;
+    overflow: hidden;
+    transition: background-color 0.3s ease;
+  }
+  .accent {
+    color: var(--accent-color);
+  }
+  .bg-accent {
+    background-color: var(--accent-color);
+  }
+  .bg-accent-light {
+    background-color: var(--accent-color-light);
+  }
+  .bg-accent-dark {
+    background-color: var(--accent-color-dark);
+  }
+  .border-accent {
+    border-color: var(--accent-color);
+  }
+  .glass {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .sidebar {
+    width: 280px;
+    border-right: 1px solid rgba(255, 255, 255, 0.07);
+    transition: all 0.3s ease;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-radius: 14px;
+    color: #a5b4fc;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+  .nav-item:hover,
+  .nav-item.active {
+    background-color: var(--accent-color);
+    color: white;
+  }
+  .device-frame {
+    width: 100%;
+    height: 100%;
+    max-width: 1200px;
+    background: #1e293b;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.7);
+    border: 10px solid #334155;
+    position: relative;
+  }
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+  }
+  #authOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #0f172a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .loader {
+    border: 4px solid rgba(99, 102, 241, 0.15);
+    border-left-color: var(--accent-color);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .hidden {
+    display: none !important;
+  }
+  /* Color picker styles */
+  .color-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+  .color-swatch.selected {
+    border-color: white;
+  }
+</style>
 </head>
 <body class="flex h-screen">
 
-    <!-- AUTH OVERLAY -->
-    <div id="authOverlay">
-        <div class="glass p-10 rounded-[32px] w-full max-w-md shadow-2xl text-center border-indigo-500/20">
-            <div class="w-20 h-20 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-indigo-500/20">
-                <i data-lucide="zap" class="text-white w-10 h-10 fill-current"></i>
-            </div>
-            <h1 class="text-3xl font-bold mb-2 tracking-tight">KAVRIX <span class="text-indigo-500">PRO</span></h1>
-            <p class="text-slate-400 text-sm mb-10" id="authSubtitle">Log in op je Enterprise Dashboard</p>
-            <div class="space-y-4">
-                <div class="relative">
-                    <i data-lucide="mail" class="absolute left-4 top-4 w-5 h-5 text-slate-500"></i>
-                    <input type="email" id="email" placeholder="Email Adres" class="w-full bg-white/5 border border-white/10 p-4 pl-12 rounded-2xl outline-none focus:border-indigo-500 transition">
-                </div>
-                <div class="relative">
-                    <i data-lucide="lock" class="absolute left-4 top-4 w-5 h-5 text-slate-500"></i>
-                    <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 pl-12 rounded-2xl outline-none focus:border-indigo-500 transition">
-                </div>
-                <button onclick="handleAuth()" id="authBtn" class="w-full bg-indigo-600 py-4 rounded-2xl font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-600/30">Inloggen</button>
-                <p class="text-sm text-slate-500 mt-6">
-                    Nog geen account? <a href="#" onclick="toggleAuthMode()" class="text-indigo-400 font-semibold" id="toggleLink">Registreer hier</a>
-                </p>
-            </div>
-        </div>
+<!-- AUTH OVERLAY -->
+<div id="authOverlay">
+  <div class="glass p-10 rounded-3xl w-full max-w-md shadow-2xl text-center border-accent">
+    <div class="w-20 h-20 bg-accent rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-accent/50">
+      <i data-lucide="zap" class="text-white w-10 h-10 fill-current"></i>
     </div>
+    <h1 class="text-3xl font-bold mb-2 tracking-tight">KAVRIX <span class="accent">PRO</span></h1>
+    <p class="text-slate-400 text-sm mb-10" id="authSubtitle">Log in op je Enterprise Dashboard</p>
+    <div class="space-y-4">
+      <div class="relative">
+        <i data-lucide="mail" class="absolute left-4 top-4 w-5 h-5 text-slate-500"></i>
+        <input type="email" id="email" placeholder="Email Adres" class="w-full bg-white/5 border border-white/10 p-4 pl-12 rounded-2xl outline-none focus:border-accent transition" />
+      </div>
+      <div class="relative">
+        <i data-lucide="lock" class="absolute left-4 top-4 w-5 h-5 text-slate-500"></i>
+        <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 pl-12 rounded-2xl outline-none focus:border-accent transition" />
+      </div>
+      <button onclick="handleAuth()" id="authBtn" class="w-full bg-accent py-4 rounded-2xl font-bold hover:bg-accent-dark transition shadow-lg shadow-accent/50">Inloggen</button>
+      <p class="text-sm text-slate-500 mt-6">
+        Nog geen account? <a href="#" onclick="toggleAuthMode()" class="text-accent font-semibold" id="toggleLink">Registreer hier</a>
+      </p>
+    </div>
+  </div>
+</div>
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar glass flex flex-col p-6">
-        <div class="flex items-center gap-3 mb-10 px-2">
-            <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                <i data-lucide="zap" class="text-white w-6 h-6 fill-current"></i>
-            </div>
-            <span class="text-xl font-bold tracking-tight">KAVRIX <span class="text-indigo-500">PRO</span></span>
-        </div>
+<!-- SIDEBAR -->
+<aside class="sidebar glass flex flex-col p-6">
+  <div class="flex items-center gap-3 mb-10 px-2">
+    <div class="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/50">
+      <i data-lucide="zap" class="text-white w-6 h-6 fill-current"></i>
+    </div>
+    <span class="text-xl font-bold tracking-tight">KAVRIX <span class="accent">PRO</span></span>
+  </div>
 
-        <nav class="space-y-1 mb-10">
-            <div class="nav-item active"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard</div>
-            <div class="nav-item" onclick="newProject()"><i data-lucide="plus-circle" class="w-5 h-5"></i> Nieuwe App</div>
-            <div class="nav-item"><i data-lucide="layers" class="w-5 h-5"></i> Templates</div>
-            <div class="nav-item"><i data-lucide="settings" class="w-5 h-5"></i> Instellingen</div>
-        </nav>
+  <nav class="space-y-1 mb-6">
+    <div class="nav-item active"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard</div>
+    <div class="nav-item" onclick="newProject()"><i data-lucide="plus-circle" class="w-5 h-5"></i> Nieuwe App</div>
+    <div class="nav-item"><i data-lucide="layers" class="w-5 h-5"></i> Templates</div>
+    <div class="nav-item"><i data-lucide="settings" class="w-5 h-5"></i> Instellingen</div>
+  </nav>
 
-        <div class="flex-1 overflow-y-auto">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-4">Mijn Projecten</p>
-            <div id="projectList" class="space-y-1">
-                <!-- Projecten komen hier -->
-            </div>
-        </div>
+  <div>
+    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-4">Kies Accentkleur</p>
+    <div class="color-picker" id="colorPicker">
+      <!-- kleuren komen hier via JS -->
+    </div>
+  </div>
 
-        <div class="mt-auto pt-6 border-t border-white/5">
-            <div class="flex items-center gap-3 p-3 rounded-2xl bg-white/5 mb-4">
-                <div class="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold">K</div>
-                <div class="flex-1 overflow-hidden">
-                    <p class="text-xs font-bold truncate" id="userDisplay">User</p>
-                    <p class="text-[10px] text-slate-500">Pro Plan</p>
-                </div>
-            </div>
-            <button onclick="logout()" class="w-full flex items-center gap-3 p-3 text-slate-400 hover:text-white transition text-sm">
-                <i data-lucide="log-out" class="w-4 h-4"></i> Uitloggen
-            </button>
-        </div>
-    </aside>
+  <div class="flex-1 overflow-y-auto mt-6">
+    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-4">Mijn Projecten</p>
+    <div id="projectList" class="space-y-1"></div>
+  </div>
 
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 flex flex-col">
-        <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 glass">
-            <div class="flex items-center gap-4">
-                <h2 id="currentProjectName" class="text-sm font-semibold text-slate-300">Nieuw Project</h2>
-                <span class="px-2 py-1 rounded bg-green-500/10 text-green-500 text-[10px] font-bold uppercase">Live Preview</span>
-            </div>
-            <div class="flex items-center gap-3">
-                <button class="p-2 hover:bg-white/5 rounded-lg text-slate-400"><i data-lucide="monitor" class="w-4 h-4"></i></button>
-                <button class="p-2 hover:bg-white/5 rounded-lg text-slate-400"><i data-lucide="tablet" class="w-4 h-4"></i></button>
-                <button class="p-2 hover:bg-white/5 rounded-lg text-slate-400"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
-                <div class="h-4 w-[1px] bg-white/10 mx-2"></div>
-                <button class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition">Code Export</button>
-                <button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/20">Publiceren</button>
-            </div>
-        </header>
+  <div class="mt-auto pt-6 border-t border-white/5">
+    <div class="flex items-center gap-3 p-3 rounded-2xl bg-white/5 mb-4">
+      <div class="w-10 h-10 rounded-full bg-accent/30 flex items-center justify-center text-white font-bold" id="userInitial">K</div>
+      <div class="flex-1 overflow-hidden">
+        <p class="text-xs font-bold truncate" id="userDisplay">User</p>
+        <p class="text-[10px] text-slate-400">Pro Plan</p>
+      </div>
+    </div>
+    <button onclick="logout()" class="w-full flex items-center gap-3 p-3 text-slate-400 hover:text-white transition text-sm">
+      <i data-lucide="log-out" class="w-4 h-4"></i> Uitloggen
+    </button>
+  </div>
+</aside>
 
-        <div class="preview-container">
-            <div id="loadingOverlay" class="absolute inset-0 bg-[#06080f]/90 z-50 flex flex-col items-center justify-center hidden">
-                <div class="loader mb-6"></div>
-                <p class="text-indigo-400 font-bold tracking-widest animate-pulse">KAVRIX AI GENEREERT JE APP...</p>
-            </div>
-            <div class="device-frame">
-                <iframe id="previewFrame" srcdoc="<body style='background:#111827; display:flex; align-items:center; justify-content:center; color:#4b5563; font-family:sans-serif; height:100vh; margin:0;'><div><h1 style='text-align:center'>Beschrijf je app om te beginnen</h1></div></body>"></iframe>
-            </div>
-        </div>
+<!-- MAIN CONTENT -->
+<main class="flex-1 flex flex-col">
+  <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 glass">
+    <div class="flex items-center gap-4">
+      <h2 id="currentProjectName" class="text-sm font-semibold text-slate-300">Nieuw Project</h2>
+      <span class="px-2 py-1 rounded bg-green-500/10 text-green-500 text-[10px] font-bold uppercase">Live Preview</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button class="p-2 hover:bg-white/5 rounded-lg text-slate-400"><i data-lucide="monitor" class="w-4 h-4"></i></button>
+      <button class="p-2 hover:bg-white/5 rounded-lg text-slate-400"><i data-lucide="tablet" class="w-4 h-4"></i></button>
+      <button class="p-2 hover:bg-white/5 rounded-lg text-slate-400"><i data-lucide="smartphone" class="w-4 h-4"></i></button>
+      <div class="h-4 w-[1px] bg-white/10 mx-2"></div>
+      <button class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition">Code Export</button>
+      <button class="px-4 py-2 bg-accent hover:bg-accent-dark rounded-xl text-xs font-bold transition shadow-lg shadow-accent/40">Publiceren</button>
+    </div>
+  </header>
 
-        <div class="p-8 glass border-t border-white/5">
-            <div class="max-w-4xl mx-auto relative">
-                <div class="flex items-center gap-4 bg-white/5 p-2 rounded-[24px] border border-white/10 focus-within:border-indigo-500/50 transition-all shadow-2xl">
-                    <div class="pl-4 text-indigo-500"><i data-lucide="sparkles" class="w-6 h-6"></i></div>
-                    <input type="text" id="promptInput" placeholder="Beschrijf je droom app (bijv: Een luxe crypto dashboard met grafieken)..." class="flex-1 bg-transparent border-none outline-none py-4 text-sm text-white placeholder:text-slate-500">
-                    <button onclick="generateApp()" id="genBtn" class="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-2xl transition shadow-xl shadow-indigo-600/40">
-                        <i data-lucide="zap" class="w-6 h-6 fill-current"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </main>
+  <div class="preview-container">
+    <div id="loadingOverlay" class="absolute inset-0 bg-[#0f172a]/90 z-50 flex flex-col items-center justify-center hidden">
+      <div class="loader mb-6"></div>
+      <p class="text-accent font-bold tracking-widest animate-pulse">KAVRIX AI GENEREERT JE APP...</p>
+    </div>
+    <div class="device-frame">
+      <iframe id="previewFrame" srcdoc="<body style='background:#1e293b; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-family:sans-serif; height:100vh; margin:0;'><div><h1 style='text-align:center'>Beschrijf je app om te beginnen</h1></div></body>"></iframe>
+    </div>
+  </div>
 
-    <script>
-        const API_URL = "https://kavrix.onrender.com";
-        let userId = localStorage.getItem('kavrix_user_id');
-        let token = localStorage.getItem('kavrix_token');
-        let currentProjectId = null;
-        let isLogin = true;
-        let pollInterval = null;
+  <div class="p-8 glass border-t border-white/5">
+    <div class="max-w-4xl mx-auto relative">
+      <div class="flex items-center gap-4 bg-white/5 p-2 rounded-[24px] border border-white/10 focus-within:border-accent/50 transition-all shadow-2xl">
+        <div class="pl-4 text-accent"><i data-lucide="sparkles" class="w-6 h-6"></i></div>
+        <input type="text" id="promptInput" placeholder="Beschrijf je droom app (bijv: Een luxe crypto dashboard met grafieken)..." class="flex-1 bg-transparent border-none outline-none py-4 text-sm text-white placeholder:text-slate-500" onkeydown="if(event.key==='Enter') generateApp()" />
+        <button onclick="generateApp()" id="genBtn" class="bg-accent hover:bg-accent-dark p-4 rounded-2xl transition shadow-xl shadow-accent/50">
+          <i data-lucide="zap" class="w-6 h-6 fill-current"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
 
-        lucide.createIcons();
+<script>
+  const API_URL = "https://kavrix.onrender.com";
+  let userId = localStorage.getItem('kavrix_user_id');
+  let token = localStorage.getItem('kavrix_token');
+  let currentProjectId = null;
+  let isLogin = true;
+  let pollInterval = null;
 
-        if(userId && token) {
-            document.getElementById('authOverlay').classList.add('hidden');
-            document.getElementById('userDisplay').innerText = localStorage.getItem('kavrix_email') || 'User';
-            loadProjects();
-        }
+  lucide.createIcons();
 
-        function toggleAuthMode() {
-            isLogin = !isLogin;
-            document.getElementById('authBtn').innerText = isLogin ? 'Inloggen' : 'Registreren';
-            document.getElementById('authSubtitle').innerText = isLogin ? 'Log in op je Enterprise Dashboard' : 'Maak een gratis account aan';
-            document.getElementById('toggleLink').innerText = isLogin ? 'Registreer hier' : 'Log hier in';
-        }
+  // Kleurenlijst voor accentkleur
+  const colors = [
+    { name: 'Indigo', hex: '#6366f1' },
+    { name: 'Red', hex: '#ef4444' },
+    { name: 'Green', hex: '#22c55e' },
+    { name: 'Blue', hex: '#3b82f6' },
+    { name: 'Purple', hex: '#a855f7' },
+    { name: 'Pink', hex: '#ec4899' },
+    { name: 'Orange', hex: '#f97316' },
+    { name: 'Teal', hex: '#14b8a6' },
+    { name: 'Yellow', hex: '#eab308' },
+    { name: 'Cyan', hex: '#06b6d4' },
+    { name: 'Lime', hex: '#84cc16' },
+    { name: 'Rose', hex: '#f43f5e' },
+    { name: 'Amber', hex: '#f59e0b' },
+    { name: 'Slate', hex: '#64748b' },
+    { name: 'Emerald', hex: '#10b981' }
+  ];
 
-        async function handleAuth() {
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const authBtn = document.getElementById('authBtn');
-            if(!email || !password) return alert("Vul alles in.");
-            
-            authBtn.innerText = "Verifiëren...";
-            authBtn.disabled = true;
+  // Vul kleurkiezer
+  const colorPicker = document.getElementById('colorPicker');
+  let selectedColor = localStorage.getItem('kavrix_accent_color') || colors[0].hex;
 
-            try {
-                const res = await fetch(API_URL + (isLogin ? '/login' : '/register'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await res.json();
-                
-                if(data.token) {
-                    localStorage.setItem('kavrix_token', data.token);
-                    localStorage.setItem('kavrix_user_id', data.userId);
-                    localStorage.setItem('kavrix_email', email);
-                    location.reload();
-                } else if(data.message) {
-                    alert(data.message);
-                    if(!isLogin) toggleAuthMode();
-                } else { alert(data.error); }
-            } catch (e) { alert("Server Fout"); }
-            finally { authBtn.disabled = false; authBtn.innerText = isLogin ? 'Inloggen' : 'Registreren'; }
-        }
+  function setAccentColor(color) {
+    document.documentElement.style.setProperty('--accent-color', color);
+    // Lichtere en donkerdere tinten
+    const c = tinycolor(color);
+    document.documentElement.style.setProperty('--accent-color-light', c.lighten(20).toString());
+    document.documentElement.style.setProperty('--accent-color-dark', c.darken(15).toString());
+    localStorage.setItem('kavrix_accent_color', color);
+    updateColorSelection();
+  }
 
-        function logout() { localStorage.clear(); location.reload(); }
+  function updateColorSelection() {
+    [...colorPicker.children].forEach(child => {
+      child.classList.toggle('selected', child.dataset.color === selectedColor);
+    });
+  }
 
-        async function loadProjects() {
-            const res = await fetch(`${API_URL}/projects/${userId}`);
-            const projects = await res.json();
-            const list = document.getElementById('projectList');
-            list.innerHTML = '';
-            projects.forEach(p => {
-                const div = document.createElement('div');
-                div.className = "nav-item group justify-between";
-                div.innerHTML = `<div class="flex items-center gap-3 truncate" onclick="openProject('${p._id}')"><i data-lucide="file-code" class="w-4 h-4"></i><span class="truncate">${p.name}</span></div><i data-lucide="trash-2" onclick="deleteProject('${p._id}')" class="w-4 h-4 opacity-0 group-hover:opacity-100 hover:text-red-500 transition"></i>`;
-                list.appendChild(div);
-            });
-            lucide.createIcons();
-        }
+  colors.forEach(c => {
+    const swatch = document.createElement('div');
+    swatch.className = 'color-swatch';
+    swatch.style.backgroundColor = c.hex;
+    swatch.dataset.color = c.hex;
+    swatch.title = c.name;
+    swatch.onclick = () => {
+      selectedColor = c.hex;
+      setAccentColor(c.hex);
+    };
+    colorPicker.appendChild(swatch);
+  });
 
-        async function generateApp() {
-            const prompt = document.getElementById('promptInput').value;
-            if(!prompt) return;
-            document.getElementById('loadingOverlay').classList.remove('hidden');
-            const res = await fetch(`${API_URL}/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, userId, token, projectId: currentProjectId })
-            });
-            const data = await res.json();
-            currentProjectId = data.projectId;
-            if(pollInterval) clearInterval(pollInterval);
-            pollInterval = setInterval(checkStatus, 3000);
-        }
+  // Initialiseer kleur
+  setAccentColor(selectedColor);
 
-        async function checkStatus() {
-            const res = await fetch(`${API_URL}/project/${currentProjectId}`);
-            const data = await res.json();
-            if(data.files && data.files.html !== "GENERATING") {
-                clearInterval(pollInterval);
-                renderApp(data.files);
-                document.getElementById('loadingOverlay').classList.add('hidden');
-                document.getElementById('promptInput').value = "";
-                loadProjects();
-            }
-        }
+  // TinyColor lib voor kleur manipulatie (inladen)
+  const tinyColorScript = document.createElement('script');
+  tinyColorScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/tinycolor/1.4.2/tinycolor.min.js';
+  document.head.appendChild(tinyColorScript);
 
-        function renderApp(files) {
-            document.getElementById('previewFrame').srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><style>${files.css}</style></head><body>${files.html}<script>${files.js}<\/script></body></html>`;
-        }
+  // Auth & UI logica
 
-        async function openProject(id) {
-            const res = await fetch(`${API_URL}/project/${id}`);
-            const data = await res.json();
-            renderApp(data.files);
-            document.getElementById('currentProjectName').innerText = data.name;
-            currentProjectId = id;
-        }
+  if(userId && token) {
+    document.getElementById('authOverlay').classList.add('hidden');
+    document.getElementById('userDisplay').innerText = localStorage.getItem('kavrix_email') || 'User';
+    document.getElementById('userInitial').innerText = (localStorage.getItem('kavrix_email') || 'User')[0].toUpperCase();
+    loadProjects();
+  }
 
-        async function deleteProject(id) {
-            if(confirm("Project verwijderen?")) {
-                await fetch(`${API_URL}/project/${id}`, { method: 'DELETE' });
-                loadProjects();
-            }
-        }
+  function toggleAuthMode() {
+    isLogin = !isLogin;
+    document.getElementById('authBtn').innerText = isLogin ? 'Inloggen' : 'Registreren';
+    document.getElementById('authSubtitle').innerText = isLogin ? 'Log in op je Enterprise Dashboard' : 'Maak een gratis account aan';
+    document.getElementById('toggleLink').innerText = isLogin ? 'Registreer hier' : 'Log hier in';
+  }
 
-        function newProject() {
-            currentProjectId = null;
-            document.getElementById('previewFrame').srcdoc = "<body></body>";
-            document.getElementById('currentProjectName').innerText = "Nieuw Project";
-        }
-    </script>
+  async function handleAuth() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const authBtn = document.getElementById('authBtn');
+    if(!email || !password) return alert("Vul alles in.");
+
+    authBtn.innerText = "Verifiëren...";
+    authBtn.disabled = true;
+
+    try {
+      const res = await fetch(API_URL + (isLogin ? '/login' : '/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if(data.token) {
+        localStorage.setItem('kavrix_token', data.token);
+        localStorage.setItem('kavrix_user_id', data.userId);
+        localStorage.setItem('kavrix_email', email);
+        location.reload();
+      } else if(data.message) {
+        alert(data.message);
+        if(!isLogin) toggleAuthMode();
+      } else { alert(data.error); }
+    } catch (e) { alert("Server Fout"); }
+    finally { authBtn.disabled = false; authBtn.innerText = isLogin ? 'Inloggen' : 'Registreren'; }
+  }
+
+  function logout() {
+    localStorage.clear();
+    location.reload();
+  }
+
+  async function loadProjects() {
+    const res = await fetch(`${API_URL}/projects/${userId}`);
+    const projects = await res.json();
+    const list = document.getElementById('projectList');
+    list.innerHTML = '';
+    projects.forEach(p => {
+      const div = document.createElement('div');
+      div.className = "nav-item group justify-between";
+      div.innerHTML = `<div class="flex items-center gap-3 truncate" onclick="openProject('${p._id}')"><i data-lucide="file-code" class="w-4 h-4"></i><span class="truncate">${p.name}</span></div><i data-lucide="trash-2" onclick="deleteProject('${p._id}')" class="w-4 h-4 opacity-0 group-hover:opacity-100 hover:text-red-500 transition"></i>`;
+      list.appendChild(div);
+    });
+    lucide.createIcons();
+  }
+
+  async function generateApp() {
+    const prompt = document.getElementById('promptInput').value;
+    if(!prompt) return;
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    const res = await fetch(`${API_URL}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, userId, token, projectId: currentProjectId })
+    });
+    const data = await res.json();
+    currentProjectId = data.projectId;
+    if(pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(checkStatus, 3000);
+  }
+
+  async function checkStatus() {
+    const res = await fetch(`${API_URL}/project/${currentProjectId}`);
+    const data = await res.json();
+    if(data.files && data.files.html !== "GENERATING") {
+      clearInterval(pollInterval);
+      renderApp(data.files);
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      document.getElementById('promptInput').value = "";
+      loadProjects();
+    }
+  }
+
+  function renderApp(files) {
+    document.getElementById('previewFrame').srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><style>${files.css}</style></head><body>${files.html}<script>${files.js}<\/script></body></html>`;
+  }
+
+  async function openProject(id) {
+    const res = await fetch(`${API_URL}/project/${id}`);
+    const data = await res.json();
+    renderApp(data.files);
+    document.getElementById('currentProjectName').innerText = data.name;
+    currentProjectId = id;
+  }
+
+  async function deleteProject(id) {
+    if(confirm("Project verwijderen?")) {
+      await fetch(`${API_URL}/project/${id}`, { method: 'DELETE' });
+      loadProjects();
+    }
+  }
+
+  function newProject() {
+    currentProjectId = null;
+    document.getElementById('previewFrame').srcdoc = "<body></body>";
+    document.getElementById('currentProjectName').innerText = "Nieuw Project";
+  }
+</script>
+
 </body>
 </html>
