@@ -3,96 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAVRIX PRO | Custom AI Builder</title>
+    <title>KAVRIX PRO | Advanced AI Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Monaco Editor voor de Code Functie -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap');
-        
-        :root {
-            --accent: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.3);
-        }
-
+        :root { --accent: #6366f1; --accent-glow: rgba(99, 102, 241, 0.3); }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #06080f; color: white; overflow: hidden; margin: 0; }
-        
         .glass { background: rgba(15, 20, 35, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
-        
-        /* Dynamische Kleuren */
         .text-accent { color: var(--accent); }
         .bg-accent { background-color: var(--accent); }
-        .border-accent { border-color: var(--accent); }
-        .shadow-accent { box-shadow: 0 10px 30px -10px var(--accent-glow); }
-        
-        .sidebar { width: 280px; border-right: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 12px; color: #94a3b8; transition: all 0.2s; cursor: pointer; font-size: 14px; }
+        .sidebar { width: 300px; border-right: 1px solid rgba(255,255,255,0.05); }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: #94a3b8; cursor: pointer; font-size: 13px; transition: 0.2s; }
         .nav-item:hover, .nav-item.active { background: var(--accent-glow); color: white; }
-        
-        .preview-container { flex: 1; background: #020408; display: flex; align-items: center; justify-content: center; padding: 30px; position: relative; }
-        .device-frame { width: 100%; height: 100%; max-width: 1200px; background: #111827; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); border: 8px solid #1f2937; position: relative; }
-        
+        .preview-area { flex: 1; background: #020408; position: relative; display: flex; flex-direction: column; }
+        #editorContainer { height: 100%; width: 100%; display: none; }
+        .device-frame { flex: 1; margin: 20px; background: #111827; border-radius: 20px; overflow: hidden; border: 6px solid #1f2937; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        iframe { width: 100%; height: 100%; border: none; }
         #authOverlay { position: fixed; inset: 0; z-index: 9999; background: #06080f; display: flex; align-items: center; justify-content: center; }
-        
-        /* Kleurenkiezer */
-        .color-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; border: 2px solid rgba(255,255,255,0.1); }
-        .color-dot:hover { transform: scale(1.3); }
-
+        .color-dot { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid rgba(255,255,255,0.1); }
         .loader { border: 3px solid rgba(255, 255, 255, 0.1); border-left-color: var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .hidden { display: none !important; }
+        .upload-zone { border: 2px dashed rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; text-align: center; font-size: 11px; color: #64748b; cursor: pointer; transition: 0.2s; }
+        .upload-zone:hover { border-color: var(--accent); color: white; }
     </style>
 </head>
 <body class="flex h-screen">
 
     <!-- AUTH OVERLAY -->
     <div id="authOverlay">
-        <div class="glass p-10 rounded-[32px] w-full max-w-md shadow-2xl text-center border-white/5">
-            <div class="w-20 h-20 bg-accent rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-accent">
-                <i data-lucide="zap" class="text-white w-10 h-10 fill-current"></i>
+        <div class="glass p-10 rounded-[32px] w-full max-w-md text-center border-white/5">
+            <div class="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_var(--accent-glow)]">
+                <i data-lucide="zap" class="text-white w-8 h-8 fill-current"></i>
             </div>
-            <h1 class="text-3xl font-bold mb-2 tracking-tight">KAVRIX <span class="text-accent">PRO</span></h1>
-            <p class="text-slate-400 text-sm mb-10" id="authSubtitle">Log in op je Enterprise Dashboard</p>
+            <h1 class="text-2xl font-bold mb-2">KAVRIX <span class="text-accent">PRO</span></h1>
+            <p class="text-slate-400 text-xs mb-8">Enterprise AI App Studio</p>
             <div class="space-y-4 text-left">
-                <input type="email" id="email" placeholder="Email Adres" class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none focus:border-accent transition">
-                <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none focus:border-accent transition">
-                <button onclick="handleAuth()" id="authBtn" class="w-full bg-accent py-4 rounded-2xl font-bold hover:opacity-90 transition shadow-accent text-white">Inloggen</button>
-                <p class="text-sm text-slate-500 text-center mt-6">
-                    Nog geen account? <a href="#" onclick="toggleAuthMode()" class="text-accent font-semibold" id="toggleLink">Registreer hier</a>
-                </p>
+                <input type="email" id="email" placeholder="Email" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-accent transition">
+                <input type="password" id="password" placeholder="Wachtwoord" class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-accent transition">
+                <button onclick="handleAuth()" id="authBtn" class="w-full bg-accent py-4 rounded-xl font-bold hover:opacity-90 transition text-white">Inloggen</button>
+                <p class="text-xs text-slate-500 text-center mt-4">Nog geen account? <a href="#" onclick="toggleAuthMode()" class="text-accent font-semibold" id="toggleLink">Registreer hier</a></p>
             </div>
         </div>
     </div>
 
     <!-- SIDEBAR -->
-    <aside class="sidebar glass flex flex-col p-6">
-        <div class="flex items-center gap-3 mb-10 px-2">
-            <div class="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-accent">
-                <i data-lucide="zap" class="text-white w-6 h-6 fill-current"></i>
+    <aside class="sidebar glass flex flex-col p-5">
+        <div class="flex items-center gap-3 mb-8 px-2">
+            <div class="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-[0_0_15px_var(--accent-glow)]">
+                <i data-lucide="zap" class="text-white w-5 h-5 fill-current"></i>
             </div>
-            <span class="text-xl font-bold tracking-tight">KAVRIX <span class="text-accent">PRO</span></span>
+            <span class="text-lg font-bold tracking-tight">KAVRIX <span class="text-accent">PRO</span></span>
         </div>
 
-        <nav class="space-y-1 mb-8">
-            <div class="nav-item active"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard</div>
-            <div class="nav-item" onclick="newProject()"><i data-lucide="plus-circle" class="w-5 h-5"></i> Nieuwe App</div>
-            <div class="nav-item"><i data-lucide="settings" class="w-5 h-5"></i> Instellingen</div>
+        <nav class="space-y-1 mb-6">
+            <div class="nav-item active" onclick="showView('preview')"><i data-lucide="eye" class="w-4 h-4"></i> Preview</div>
+            <div class="nav-item" onclick="showView('code')"><i data-lucide="code-2" class="w-4 h-4"></i> Code Editor</div>
+            <div class="nav-item" onclick="newProject()"><i data-lucide="plus" class="w-4 h-4"></i> Nieuw Project</div>
         </nav>
 
-        <!-- KLEUREN KIEZER -->
-        <div class="px-4 mb-8">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Thema Kleur</p>
-            <div class="flex flex-wrap gap-2" id="colorPicker">
-                <!-- Kleuren worden door JS gevuld -->
+        <!-- ASSETS / UPLOADS -->
+        <div class="px-2 mb-6">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Assets & Voorbeelden</p>
+            <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                <i data-lucide="upload-cloud" class="w-5 h-5 mx-auto mb-2 opacity-50"></i>
+                <span>Klik om bestanden te uploaden</span>
+                <input type="file" id="fileInput" class="hidden" multiple onchange="handleUpload(this)">
             </div>
+            <div id="assetList" class="mt-3 space-y-2 max-h-32 overflow-y-auto"></div>
+        </div>
+
+        <!-- THEMA -->
+        <div class="px-2 mb-6">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Studio Kleur</p>
+            <div class="flex flex-wrap gap-2" id="colorPicker"></div>
         </div>
 
         <div class="flex-1 overflow-y-auto">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-4">Mijn Projecten</p>
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-2">Projecten</p>
             <div id="projectList" class="space-y-1"></div>
         </div>
 
-        <div class="mt-auto pt-6 border-t border-white/5">
-            <button onclick="logout()" class="w-full flex items-center gap-3 p-3 text-slate-400 hover:text-white transition text-sm">
+        <div class="mt-auto pt-4 border-t border-white/5">
+            <button onclick="logout()" class="w-full flex items-center gap-3 p-2 text-slate-500 hover:text-white transition text-xs">
                 <i data-lucide="log-out" class="w-4 h-4"></i> Uitloggen
             </button>
         </div>
@@ -100,33 +96,44 @@
 
     <!-- MAIN CONTENT -->
     <main class="flex-1 flex flex-col">
-        <header class="h-20 border-b border-white/5 flex items-center justify-between px-8 glass">
+        <header class="h-16 border-b border-white/5 flex items-center justify-between px-6 glass">
             <div class="flex items-center gap-4">
-                <h2 id="currentProjectName" class="text-sm font-semibold text-slate-300">Nieuw Project</h2>
-                <span class="px-2 py-1 rounded bg-green-500/10 text-green-500 text-[10px] font-bold uppercase">Live Preview</span>
+                <h2 id="currentProjectName" class="text-xs font-semibold text-slate-400">Nieuw Project</h2>
+                <div class="flex bg-white/5 rounded-lg p-1">
+                    <button onclick="showView('preview')" id="btnPreview" class="px-3 py-1 text-[10px] font-bold rounded-md bg-accent text-white">PREVIEW</button>
+                    <button onclick="showView('code')" id="btnCode" class="px-3 py-1 text-[10px] font-bold rounded-md text-slate-400">CODE</button>
+                </div>
             </div>
             <div class="flex items-center gap-3">
-                <button class="px-4 py-2 bg-accent rounded-xl text-xs font-bold transition shadow-accent text-white">Publiceren</button>
+                <button onclick="downloadProject()" class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-bold transition flex items-center gap-2">
+                    <i data-lucide="download" class="w-3 h-3"></i> DOWNLOAD .HTML
+                </button>
+                <button class="px-4 py-2 bg-accent rounded-lg text-[10px] font-bold transition shadow-[0_0_15px_var(--accent-glow)] text-white">PUBLICEREN</button>
             </div>
         </header>
 
-        <div class="preview-container">
+        <div class="preview-area">
             <div id="loadingOverlay" class="absolute inset-0 bg-[#06080f]/90 z-50 flex flex-col items-center justify-center hidden">
                 <div class="loader mb-6"></div>
-                <p class="text-accent font-bold tracking-widest animate-pulse">KAVRIX AI GENEREERT JE APP...</p>
+                <p class="text-accent font-bold text-xs tracking-widest animate-pulse">AI IS AAN HET BOUWEN...</p>
             </div>
-            <div class="device-frame">
-                <iframe id="previewFrame" srcdoc="<body style='background:#111827; display:flex; align-items:center; justify-content:center; color:#4b5563; font-family:sans-serif; height:100vh; margin:0;'><h1>Beschrijf je app om te beginnen</h1></body>"></iframe>
+            
+            <!-- Preview View -->
+            <div id="previewContainer" class="device-frame">
+                <iframe id="previewFrame" srcdoc="<body style='background:#111827; display:flex; align-items:center; justify-content:center; color:#4b5563; font-family:sans-serif; height:100vh; margin:0;'><h1>Start je project...</h1></body>"></iframe>
             </div>
+
+            <!-- Code View -->
+            <div id="editorContainer"></div>
         </div>
 
-        <div class="p-8 glass border-t border-white/5">
+        <div class="p-6 glass border-t border-white/5">
             <div class="max-w-4xl mx-auto relative">
-                <div class="flex items-center gap-4 bg-white/5 p-2 rounded-[24px] border border-white/10 focus-within:border-accent transition-all shadow-2xl">
-                    <div class="pl-4 text-accent"><i data-lucide="sparkles" class="w-6 h-6"></i></div>
-                    <input type="text" id="promptInput" placeholder="Beschrijf je droom app..." class="flex-1 bg-transparent border-none outline-none py-4 text-sm text-white placeholder:text-slate-500">
-                    <button onclick="generateApp()" id="genBtn" class="bg-accent p-4 rounded-2xl transition shadow-accent text-white">
-                        <i data-lucide="zap" class="w-6 h-6 fill-current"></i>
+                <div class="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/10 focus-within:border-accent transition-all shadow-2xl">
+                    <div class="pl-4 text-accent"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
+                    <input type="text" id="promptInput" placeholder="Beschrijf je app of geef een wijziging door..." class="flex-1 bg-transparent border-none outline-none py-3 text-sm text-white placeholder:text-slate-600">
+                    <button onclick="generateApp()" id="genBtn" class="bg-accent p-3 rounded-xl transition shadow-[0_0_15px_var(--accent-glow)] text-white">
+                        <i data-lucide="zap" class="w-5 h-5 fill-current"></i>
                     </button>
                 </div>
             </div>
@@ -140,13 +147,28 @@
         let currentProjectId = null;
         let isLogin = true;
         let pollInterval = null;
+        let editor = null;
+        let currentFiles = { html: '', css: '', js: '' };
+        let uploadedAssets = [];
 
-        // Kleuren opties
-        const themeColors = [
-            '#6366f1', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', 
-            '#a855f7', '#ec4899', '#06b6d4', '#84cc16', '#f43f5e',
-            '#14b8a6', '#fb923c', '#64748b', '#d946ef', '#fbbf24'
-        ];
+        // Monaco Editor Initialisatie
+        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+            editor = monaco.editor.create(document.getElementById('editorContainer'), {
+                value: '',
+                language: 'html',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 14,
+                minimap: { enabled: false }
+            });
+            editor.onDidChangeModelContent(() => {
+                const code = editor.getValue();
+                document.getElementById('previewFrame').srcdoc = code;
+            });
+        });
+
+        const themeColors = ['#6366f1', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#a855f7', '#ec4899', '#06b6d4'];
 
         function initColors() {
             const picker = document.getElementById('colorPicker');
@@ -167,6 +189,53 @@
             localStorage.setItem('kavrix_theme', color);
         }
 
+        function showView(view) {
+            const preview = document.getElementById('previewContainer');
+            const code = document.getElementById('editorContainer');
+            const btnP = document.getElementById('btnPreview');
+            const btnC = document.getElementById('btnCode');
+
+            if(view === 'code') {
+                preview.style.display = 'none';
+                code.style.display = 'block';
+                btnC.className = "px-3 py-1 text-[10px] font-bold rounded-md bg-accent text-white";
+                btnP.className = "px-3 py-1 text-[10px] font-bold rounded-md text-slate-400";
+                if(editor) {
+                    const fullCode = `<!DOCTYPE html>\n<html>\n<head>\n<script src="https://cdn.tailwindcss.com"><\/script>\n<style>\n${currentFiles.css}\n</style>\n</head>\n<body>\n${currentFiles.html}\n<script>\n${currentFiles.js}\n<\/script>\n</body>\n</html>`;
+                    editor.setValue(fullCode);
+                }
+            } else {
+                preview.style.display = 'block';
+                code.style.display = 'none';
+                btnP.className = "px-3 py-1 text-[10px] font-bold rounded-md bg-accent text-white";
+                btnC.className = "px-3 py-1 text-[10px] font-bold rounded-md text-slate-400";
+            }
+        }
+
+        function handleUpload(input) {
+            const list = document.getElementById('assetList');
+            for (let file of input.files) {
+                uploadedAssets.push(file.name);
+                const item = document.createElement('div');
+                item.className = "flex items-center gap-2 text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg";
+                item.innerHTML = `<i data-lucide="file" class="w-3 h-3"></i> <span class="truncate">${file.name}</span>`;
+                list.appendChild(item);
+            }
+            lucide.createIcons();
+            alert("Bestanden geüpload! De AI kan deze nu gebruiken als referentie.");
+        }
+
+        function downloadProject() {
+            const code = editor ? editor.getValue() : document.getElementById('previewFrame').srcdoc;
+            const blob = new Blob([code], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = (document.getElementById('currentProjectName').innerText || 'mijn-kavrix-app') + '.html';
+            a.click();
+        }
+
+        // --- AUTH & API LOGICA ---
         lucide.createIcons();
         initColors();
 
@@ -178,19 +247,13 @@
         function toggleAuthMode() {
             isLogin = !isLogin;
             document.getElementById('authBtn').innerText = isLogin ? 'Inloggen' : 'Registreren';
-            document.getElementById('authSubtitle').innerText = isLogin ? 'Log in op je Enterprise Dashboard' : 'Maak een gratis account aan';
             document.getElementById('toggleLink').innerText = isLogin ? 'Registreer hier' : 'Log hier in';
         }
 
         async function handleAuth() {
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value.trim();
-            const authBtn = document.getElementById('authBtn');
             if(!email || !password) return alert("Vul alles in.");
-            
-            authBtn.innerText = "Bezig...";
-            authBtn.disabled = true;
-
             try {
                 const res = await fetch(API_URL + (isLogin ? '/login' : '/register'), {
                     method: 'POST',
@@ -198,7 +261,6 @@
                     body: JSON.stringify({ email, password })
                 });
                 const data = await res.json();
-                
                 if(data.token) {
                     localStorage.setItem('kavrix_token', data.token);
                     localStorage.setItem('kavrix_user_id', data.userId);
@@ -208,7 +270,6 @@
                     if(!isLogin) toggleAuthMode();
                 } else { alert(data.error); }
             } catch (e) { alert("Server Fout"); }
-            finally { authBtn.disabled = false; authBtn.innerText = isLogin ? 'Inloggen' : 'Registreren'; }
         }
 
         function logout() { localStorage.clear(); location.reload(); }
@@ -230,11 +291,16 @@
         async function generateApp() {
             const prompt = document.getElementById('promptInput').value;
             if(!prompt) return;
+            
+            // Voeg asset informatie toe aan de prompt voor de AI
+            const assetContext = uploadedAssets.length > 0 ? `\nBeschikbare assets: ${uploadedAssets.join(', ')}.` : '';
+            const fullPrompt = prompt + assetContext;
+
             document.getElementById('loadingOverlay').classList.remove('hidden');
             const res = await fetch(`${API_URL}/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, userId, token, projectId: currentProjectId })
+                body: JSON.stringify({ prompt: fullPrompt, userId, token, projectId: currentProjectId })
             });
             const data = await res.json();
             currentProjectId = data.projectId;
@@ -247,6 +313,7 @@
             const data = await res.json();
             if(data.files && data.files.html !== "GENERATING") {
                 clearInterval(pollInterval);
+                currentFiles = data.files;
                 renderApp(data.files);
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 document.getElementById('promptInput').value = "";
@@ -255,12 +322,15 @@
         }
 
         function renderApp(files) {
-            document.getElementById('previewFrame').srcdoc = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><style>${files.css}</style></head><body>${files.html}<script>${files.js}<\/script></body></html>`;
+            const fullCode = `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"><\/script><style>${files.css}</style></head><body>${files.html}<script>${files.js}<\/script></body></html>`;
+            document.getElementById('previewFrame').srcdoc = fullCode;
+            if(editor) editor.setValue(fullCode);
         }
 
         async function openProject(id) {
             const res = await fetch(`${API_URL}/project/${id}`);
             const data = await res.json();
+            currentFiles = data.files;
             renderApp(data.files);
             document.getElementById('currentProjectName').innerText = data.name;
             currentProjectId = id;
@@ -277,6 +347,7 @@
             currentProjectId = null;
             document.getElementById('previewFrame').srcdoc = "<body></body>";
             document.getElementById('currentProjectName').innerText = "Nieuw Project";
+            if(editor) editor.setValue('');
         }
     </script>
 </body>
