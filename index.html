@@ -29,6 +29,8 @@
         .hidden { display: none !important; }
         .upload-zone { border: 2px dashed rgba(255,255,255,0.1); border-radius: 12px; padding: 15px; text-align: center; font-size: 11px; color: #64748b; cursor: pointer; transition: 0.2s; }
         .upload-zone:hover { border-color: var(--accent); color: white; }
+        /* small asset thumbnail style */
+        .asset-thumb { width:36px;height:36px;object-fit:cover;border-radius:6px;margin-right:8px;border:1px solid rgba(255,255,255,0.04) }
     </style>
 </head>
 <body class="flex h-screen">
@@ -141,7 +143,7 @@
     </main>
 
     <script>
-        const API_URL = "https://kavrix.onrender.com";
+        const API_URL = "https://kavrix.onrender.com"; // pas aan naar jouw backend URL indien nodig
         let userId = localStorage.getItem('kavrix_user_id');
         let token = localStorage.getItem('kavrix_token');
         let currentProjectId = null;
@@ -149,6 +151,7 @@
         let pollInterval = null;
         let editor = null;
         let currentFiles = { html: '', css: '', js: '' };
+        // uploadedAssets will contain objects { name, url }
         let uploadedAssets = [];
 
         // Monaco Editor Initialisatie
@@ -212,17 +215,45 @@
             }
         }
 
-        function handleUpload(input) {
+        // --- NEW: handleUpload uploads files to backend and stores public URLs ---
+        async function handleUpload(input) {
             const list = document.getElementById('assetList');
-            for (let file of input.files) {
-                uploadedAssets.push(file.name);
-                const item = document.createElement('div');
-                item.className = "flex items-center gap-2 text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg";
-                item.innerHTML = `<i data-lucide="file" class="w-3 h-3"></i> <span class="truncate">${file.name}</span>`;
-                list.appendChild(item);
+            const files = input.files;
+            if (!files || files.length === 0) return;
+            for (let file of files) {
+                const form = new FormData();
+                form.append('file', file);
+                try {
+                    const res = await fetch(`${API_URL}/upload`, {
+                        method: 'POST',
+                        body: form
+                    });
+                    const data = await res.json();
+                    if (data && data.url) {
+                        uploadedAssets.push({ name: data.filename, url: data.url });
+
+                        // Show asset thumbnail (image preview if image)
+                        const item = document.createElement('div');
+                        item.className = "flex items-center gap-2 text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg";
+                        let thumbHtml = '';
+                        if (file.type && file.type.startsWith('image/')) {
+                            thumbHtml = `<img src="${data.url}" class="asset-thumb" alt="${data.filename}" />`;
+                        } else {
+                            thumbHtml = `<div style="width:36px;height:36px;border-radius:6px;background:#0f172a;display:flex;align-items:center;justify-content:center;margin-right:8px;font-size:10px">FILE</div>`;
+                        }
+                        item.innerHTML = `${thumbHtml}<div class="truncate">${data.filename}</div>`;
+                        list.appendChild(item);
+                    } else {
+                        alert('Upload mislukt: geen URL ontvangen.');
+                    }
+                } catch (e) {
+                    console.error('Upload error', e);
+                    alert('Upload fout. Controleer backend en probeer opnieuw.');
+                }
             }
             lucide.createIcons();
-            alert("Bestanden geüpload! De AI kan deze nu gebruiken als referentie.");
+            // Informeer de gebruiker kort
+            setTimeout(()=>{ alert("Bestanden geüpload! De AI kan deze nu gebruiken als referentie."); }, 100);
         }
 
         function downloadProject() {
@@ -264,60 +295,105 @@
                 if(data.token) {
                     localStorage.setItem('kavrix_token', data.token);
                     localStorage.setItem('kavrix_user_id', data.userId);
-                    location.reload();
+                    // update local vars then hide overlay
+                    token = data.token;
+                    userId = data.userId;
+                    document.getElementById('authOverlay').classList.add('hidden');
+                    loadProjects();
                 } else if(data.message) {
+                    // registration success message — switch to login mode
                     alert(data.message);
                     if(!isLogin) toggleAuthMode();
-                } else { alert(data.error); }
-            } catch (e) { alert("Server Fout"); }
+                } else { alert(data.error || 'Onbekend antwoord van server'); }
+            } catch (e) { console.error(e); alert("Server Fout"); }
         }
 
-        function logout() { localStorage.clear(); location.reload(); }
+        function logout() { localStorage.clear(); token = null; userId = null; location.reload(); }
 
         async function loadProjects() {
-            const res = await fetch(`${API_URL}/projects/${userId}`);
-            const projects = await res.json();
-            const list = document.getElementById('projectList');
-            list.innerHTML = '';
-            projects.forEach(p => {
-                const div = document.createElement('div');
-                div.className = "nav-item group justify-between";
-                div.innerHTML = `<div class="flex items-center gap-3 truncate" onclick="openProject('${p._id}')"><i data-lucide="file-code" class="w-4 h-4"></i><span class="truncate">${p.name}</span></div><i data-lucide="trash-2" onclick="deleteProject('${p._id}')" class="w-4 h-4 opacity-0 group-hover:opacity-100 hover:text-red-500 transition"></i>`;
-                list.appendChild(div);
-            });
-            lucide.createIcons();
+            if(!userId) return;
+            try {
+                const res = await fetch(`${API_URL}/projects/${userId}`);
+                const projects = await res.json();
+                const list = document.getElementById('projectList');
+                list.innerHTML = '';
+                projects.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = "nav-item group justify-between";
+                    div.innerHTML = `<div class="flex items-center gap-3 truncate" onclick="openProject('${p._id}')"><i data-lucide="file-code" class="w-4 h-4"></i><span class="truncate">${p.name}</span></div><i data-lucide="trash-2" onclick="deleteProject('${p._id}')" class="w-4 h-4 opacity-0 group-hover:opacity-100 hover:text-red-500 transition"></i>`;
+                    list.appendChild(div);
+                });
+                lucide.createIcons();
+            } catch (e) {
+                console.error('loadProjects error', e);
+            }
         }
 
         async function generateApp() {
             const prompt = document.getElementById('promptInput').value;
-            if(!prompt) return;
-            
-            // Voeg asset informatie toe aan de prompt voor de AI
-            const assetContext = uploadedAssets.length > 0 ? `\nBeschikbare assets: ${uploadedAssets.join(', ')}.` : '';
+            if(!prompt) return alert('Vul een beschrijving in.');
+
+            // Build full prompt: include uploadedAssets list (name -> url)
+            const assetContext = uploadedAssets.length > 0 
+                ? '\nBeschikbare assets:\n' + uploadedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') 
+                : '';
+
             const fullPrompt = prompt + assetContext;
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            const res = await fetch(`${API_URL}/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: fullPrompt, userId, token, projectId: currentProjectId })
-            });
-            const data = await res.json();
-            currentProjectId = data.projectId;
-            if(pollInterval) clearInterval(pollInterval);
-            pollInterval = setInterval(checkStatus, 3000);
+
+            try {
+                const res = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ 
+                        prompt: fullPrompt, 
+                        userId, 
+                        projectId: currentProjectId,
+                        uploadedAssets // send assets so backend can persist them
+                    })
+                });
+                const data = await res.json();
+                if (!data.projectId) {
+                    alert('Generate failed: geen projectId terug');
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    return;
+                }
+                currentProjectId = data.projectId;
+                if(pollInterval) clearInterval(pollInterval);
+                pollInterval = setInterval(checkStatus, 3000);
+            } catch (e) {
+                console.error('generateApp error', e);
+                alert('Fout tijdens genereren. Controleer console.');
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
         }
 
         async function checkStatus() {
-            const res = await fetch(`${API_URL}/project/${currentProjectId}`);
-            const data = await res.json();
-            if(data.files && data.files.html !== "GENERATING") {
-                clearInterval(pollInterval);
-                currentFiles = data.files;
-                renderApp(data.files);
-                document.getElementById('loadingOverlay').classList.add('hidden');
-                document.getElementById('promptInput').value = "";
-                loadProjects();
+            if(!currentProjectId) return;
+            try {
+                const res = await fetch(`${API_URL}/project/${currentProjectId}`);
+                const data = await res.json();
+                if(data.files && data.files.html !== "GENERATING") {
+                    clearInterval(pollInterval);
+                    currentFiles = data.files;
+                    // If backend saved assets in project, merge them locally
+                    if (data.assets && Array.isArray(data.assets)) {
+                        // ensure uploadedAssets contains them (avoid duplicates)
+                        data.assets.forEach(a => {
+                            if (!uploadedAssets.find(x => x.url === a.url)) uploadedAssets.push(a);
+                        });
+                    }
+                    renderApp(data.files);
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('promptInput').value = "";
+                    loadProjects();
+                }
+            } catch (e) {
+                console.error('checkStatus error', e);
             }
         }
 
@@ -328,18 +404,50 @@
         }
 
         async function openProject(id) {
-            const res = await fetch(`${API_URL}/project/${id}`);
-            const data = await res.json();
-            currentFiles = data.files;
-            renderApp(data.files);
-            document.getElementById('currentProjectName').innerText = data.name;
-            currentProjectId = id;
+            try {
+                const res = await fetch(`${API_URL}/project/${id}`);
+                const data = await res.json();
+                currentFiles = data.files || { html: '', css: '', js: '' };
+                // Load project assets into uploadedAssets
+                if (data.assets && Array.isArray(data.assets)) {
+                    data.assets.forEach(a => {
+                        if (!uploadedAssets.find(x => x.url === a.url)) uploadedAssets.push(a);
+                        // Show them in assetList if not shown
+                        const list = document.getElementById('assetList');
+                        const exists = [...list.children].some(c => c.innerText.includes(a.name));
+                        if (!exists) {
+                            const item = document.createElement('div');
+                            item.className = "flex items-center gap-2 text-[10px] text-slate-400 bg-white/5 p-2 rounded-lg";
+                            if (a.url.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i)) {
+                                item.innerHTML = `<img src="${a.url}" class="asset-thumb" alt="${a.name}" /><div class="truncate">${a.name}</div>`;
+                            } else {
+                                item.innerHTML = `<div style="width:36px;height:36px;border-radius:6px;background:#0f172a;display:flex;align-items:center;justify-content:center;margin-right:8px;font-size:10px">FILE</div><div class="truncate">${a.name}</div>`;
+                            }
+                            list.appendChild(item);
+                        }
+                    });
+                }
+                renderApp(currentFiles);
+                document.getElementById('currentProjectName').innerText = data.name || 'Project';
+                currentProjectId = id;
+            } catch (e) {
+                console.error('openProject error', e);
+                alert('Kon project niet openen.');
+            }
         }
 
         async function deleteProject(id) {
-            if(confirm("Project verwijderen?")) {
-                await fetch(`${API_URL}/project/${id}`, { method: 'DELETE' });
+            if(!confirm("Project verwijderen?")) return;
+            if(!token) return alert('Log in om te verwijderen.');
+            try {
+                await fetch(`${API_URL}/project/${id}`, { 
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
                 loadProjects();
+            } catch (e) {
+                console.error('deleteProject error', e);
+                alert('Verwijderen mislukt.');
             }
         }
 
