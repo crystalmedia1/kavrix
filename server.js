@@ -68,7 +68,8 @@ const ProjectSchema = new mongoose.Schema({
     js: { type: String, default: '' }
   },
   assets: [{ name: String, url: String }],
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
+  verbatim_prompt: { type: String, default: '' } // audit only
 });
 const Project = mongoose.models.Project || mongoose.model('Project', ProjectSchema);
 
@@ -333,6 +334,9 @@ function ensureTailwind(parsed) {
 }
 
 // Enforcement & injection helper (met robuuste hero detectie)
+// NOTE: we DO NOT inject the user's prompt as visible HTML anymore.
+// We still store verbatim_prompt in the project object for auditing, and we still
+// inject a hero image/logo if the AI output lacks them.
 function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAssets) {
   parsed.html = parsed.html || '';
   parsed.css = parsed.css || '';
@@ -341,19 +345,11 @@ function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAsset
 
   try {
     const cleanedPrompt = (prompt || '').trim();
-    if (parsed.verbatim_prompt !== cleanedPrompt) {
-      const promptNotice = `<div style="background:#0b1220;color:#fff;padding:12px;border-left:4px solid #fb923c;font-family:Inter,system-ui,sans-serif;">
-        <strong>Opdracht (geforceerd):</strong> ${escapeHtml(cleanedPrompt)}
-      </div>`;
-      if (/<body[^>]*>/i.test(parsed.html)) {
-        parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n${promptNotice}\n`);
-      } else {
-        parsed.html = promptNotice + '\n' + parsed.html;
-      }
-      parsed.verbatim_prompt = cleanedPrompt;
-    }
+    // Instead of inserting a visible promptNotice into the HTML (which caused the issue),
+    // we only set parsed.verbatim_prompt so it is stored with the project (audit trail).
+    parsed.verbatim_prompt = cleanedPrompt;
   } catch (e) {
-    console.warn('Verbatim enforcement failed:', e?.message || e);
+    console.warn('Verbatim prompt store failed:', e?.message || e);
   }
 
   // Hero detection: controleer of parsed.html al een grote <img> of background-image bevat
@@ -471,6 +467,7 @@ app.post('/generate', authMiddleware, async (req, res) => {
       if (!mergedAssets.find(a => a.url === primary)) mergedAssets.push({ name: 'background', url: primary });
     }
 
+    // Revised system message: do NOT render the user's prompt or assets as visible UI text.
     const systemMessage = `Je bent KAVRIX PRO AI, een expert frontend developer en designer.
 OUTPUT ALTIJD EEN GELDIG JSON OBJECT: {"html":"...","css":"...","js":"...","verbatim_prompt":"..."}.
 
@@ -479,15 +476,15 @@ BELANGRIJK (asset verplichtingen):
   - Logo URL: ${logo}
   - Hoofdfoto URL (moet gebruikt worden): ${chosenBackground}
 - Als de gebruiker expliciet om een biefstuk vroeg, geef prioriteit aan: ${explicitSteak}
-- De tekst in de app moet exact overeenkomen met de opdracht van de gebruiker.
-- Voeg "verbatim_prompt" toe in het JSON output met exact de prompt.
+- WAARSCHUWING: NOOIT de oorspronkelijke prompt, NOOIT de opgelijste asset-URL's en NOOIT enige instructietekst letterlijk tonen als zichtbare tekst in de UI.
+  - Zet de originele prompt uitsluitend in het JSON-veld "verbatim_prompt" (voor audit/history).
 - Gebruik Tailwind CSS (via <script src="https://cdn.tailwindcss.com"></script> in de head).
 - Geef GEEN extra tekst buiten het JSON-object.`;
 
     const userMessage = `Opdracht: ${prompt}
 
 ${assetText}
-Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de tekst exact is zoals in de opdracht. Gebruik de opgegeven assets (logo en foto).`;
+Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de UI geen zichtbare kopieën van de opdracht of asset-lijst toont. Gebruik de opgegeven assets (logo en foto).`;
 
     if (!API_KEY) {
       const errHtml = `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Key ontbreekt</h3><p>De AI API sleutel (API_KEY) is niet ingesteld op de server. Voeg je sleutel toe en probeer opnieuw.</p></div>`;
@@ -609,7 +606,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           console.warn('Injectie fout:', injectErr?.message || injectErr);
         }
 
-        // enforcement (verbatim prompt, background presence, proxy urls, tailwind)
+        // enforcement (store verbatim prompt, background presence, proxy urls, tailwind)
         try {
           const enforcement = ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAssets);
           parsed = enforcement.parsed;
@@ -617,7 +614,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           console.warn('Enforcement step failed:', e?.message || e);
         }
 
-        // save project
+        // save project (include verbatim_prompt field for auditing, but do NOT display it)
         await Project.findByIdAndUpdate(project._id, {
           files: {
             html: parsed.html,
@@ -625,6 +622,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
             js: parsed.js
           },
           assets: mergedAssets.map(a => ({ name: a.name, url: a.url })),
+          verbatim_prompt: (parsed.verbatim_prompt || prompt || '').toString().slice(0, 5000),
           updatedAt: new Date()
         }).exec();
 
