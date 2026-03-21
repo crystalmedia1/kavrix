@@ -142,21 +142,8 @@ function escapeHtml(unsafe) {
 }
 
 // --------------------
-// IMAGE & FOOD LOGIC (LoremFlickr / Picsum + ui-avatars)
+// VERBETERDE IMAGE LOGIC (Dynamisch voor alle onderwerpen)
 // --------------------
-const FOOD_SEED_MAP = {
-  'biefstuk': 'steak',
-  'steak': 'steak',
-  'patat': 'fries',
-  'friet': 'fries',
-  'fries': 'fries',
-  'pizza': 'pizza',
-  'burger': 'burger',
-  'pasta': 'pasta',
-  'salade': 'salad',
-  'salad': 'salad',
-  'dessert': 'dessert'
-};
 
 function buildProxyUrl(originalUrl) {
   if (!PROXY_IMAGES) return originalUrl;
@@ -167,53 +154,31 @@ function buildProxyUrl(originalUrl) {
   return `${BACKEND_ORIGIN.replace(/\/$/, '')}/proxy?url=${encodeURIComponent(originalUrl)}`;
 }
 
-// Create multiple candidate asset URLs for reliability (primary + fallback)
 function createAssetsFromPrompt(prompt) {
   const cleaned = (prompt || '').toLowerCase();
-  const words = cleaned.replace(/[^\w\s]/gi, '').split(/\s+/).filter(Boolean);
+  
+  // Verwijder basale stopwoorden om het belangrijkste onderwerp te vinden
+  const stopWords = ['maak', 'een', 'het', 'de', 'wil', 'ik', 'met', 'voor', 'van', 'app', 'website', 'genereer', 'toon', 'toont', 'laat', 'zien'];
+  const words = cleaned.replace(/[^\w\s]/gi, '').split(/\s+/).filter(w => w.length > 2 && !stopWords.includes(w));
 
-  let foundFood = null;
-  for (const w of words) {
-    if (FOOD_SEED_MAP[w]) { foundFood = FOOD_SEED_MAP[w]; break; }
-  }
+  // Gebruik de eerste 2 relevante woorden als zoekterm (bijv. "rode ferrari")
+  let mainQuery = words.slice(0, 2).join(',') || 'abstract';
 
-  let mainQuery = 'restaurant';
-  if (foundFood) {
-    const map = {
-      steak: 'steak',
-      fries: 'fries',
-      pizza: 'pizza',
-      burger: 'burger',
-      pasta: 'pasta',
-      salad: 'salad',
-      dessert: 'dessert'
-    };
-    mainQuery = map[foundFood] || foundFood;
-  } else if (words.length > 0) {
-    mainQuery = words[0];
-  }
-
-  // Primary (loremflickr) - supports tags
+  // Primary (loremflickr) - gebruikt nu de specifieke zoekterm
   const primary = `https://loremflickr.com/1400/900/${encodeURIComponent(mainQuery)}?lock=${Math.floor(Math.random()*100000)}`;
-  // Fallback 1: picsum (random image, no query but stable seed)
-  const picsum = `https://picsum.photos/seed/${encodeURIComponent(mainQuery)}-` + Math.floor(Math.random()*100000) + `/1400/900`;
-  // Fallback 2: placeholder (guaranteed)
-  const placeholder = `https://placehold.co/1400x900/111827/ffffff.png?text=${encodeURIComponent(mainQuery)}`;
+  
+  // Fallbacks
+  const picsum = `https://picsum.photos/seed/${encodeURIComponent(mainQuery)}/1400/900`;
+  const unsplash = `https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80`;
 
-  // explicit steak image (when user asked for steak) using loremflickr steak tag
-  const explicitSteak = `https://loremflickr.com/1400/900/steak?lock=${Math.floor(Math.random()*100000)}`;
+  // Logo via ui-avatars (pakt de eerste letter van je onderwerp)
+  const firstLetter = (mainQuery[0] || 'K').toUpperCase();
+  const logo = `https://ui-avatars.com/api/?name=${firstLetter}&background=random&color=fff&size=128&bold=true`;
 
-  // Logo via ui-avatars
-  const firstWord = (words[0] || 'K').toUpperCase().substring(0, 2).replace(/[^A-Z0-9]/g, '') || 'KV';
-  const logo = `https://ui-avatars.com/api/?name=${encodeURIComponent(firstWord)}&background=fb923c&color=fff&size=128&bold=true`;
-
-  // Return ordered list (primary first)
   return {
     primary,
-    fallbacks: [picsum, placeholder],
-    explicitSteak,
+    fallbacks: [picsum, unsplash],
     logo,
-    foundFood,
     seedForDynamic: mainQuery
   };
 }
@@ -451,17 +416,13 @@ app.post('/generate', authMiddleware, async (req, res) => {
       : '';
 
     // generate assets (improved)
-    const { primary, fallbacks, explicitSteak, logo, foundFood } = createAssetsFromPrompt(prompt);
+    const { primary, fallbacks, logo } = createAssetsFromPrompt(prompt);
 
     // decide chosenBackground (try existing project asset first)
     let chosenBackground = null;
     const existingBg = mergedAssets.find(a => (a.name || '').toLowerCase().includes('background') || (a.name || '').toLowerCase().includes('hero'));
     if (existingBg && existingBg.url) {
       chosenBackground = existingBg.url;
-    } else if (foundFood) {
-      // prefer explicit steak when foundFood === steak
-      chosenBackground = (foundFood === 'steak') ? explicitSteak : primary;
-      mergedAssets.push({ name: 'background', url: chosenBackground });
     } else {
       chosenBackground = primary;
       if (!mergedAssets.find(a => a.url === primary)) mergedAssets.push({ name: 'background', url: primary });
@@ -475,7 +436,6 @@ BELANGRIJK (asset verplichtingen):
 - Gebruik DE VOLGENDE ASSETS in de gegenereerde code:
   - Logo URL: ${logo}
   - Hoofdfoto URL (moet gebruikt worden): ${chosenBackground}
-- Als de gebruiker expliciet om een biefstuk vroeg, geef prioriteit aan: ${explicitSteak}
 - WAARSCHUWING: NOOIT de oorspronkelijke prompt, NOOIT de opgelijste asset-URL's en NOOIT enige instructietekst letterlijk tonen als zichtbare tekst in de UI.
   - Zet de originele prompt uitsluitend in het JSON-veld "verbatim_prompt" (voor audit/history).
 - Gebruik Tailwind CSS (via <script src="https://cdn.tailwindcss.com"></script> in de head).
@@ -548,8 +508,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de UI
 
         if (!parsed) {
           console.warn('AI response not valid JSON. Using fallback.');
-          // pick best fallback available (explicitSteak > primary > fallbacks[0])
-          const fallbackImg = explicitSteak || primary || (fallbacks && fallbacks[0]) || '';
+          const fallbackImg = primary || (fallbacks && fallbacks[0]) || '';
           parsed = {
             html: `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111827;color:#fff;padding:40px;font-family:Inter,system-ui,sans-serif;"><div style="max-width:900px;text-align:center;">${fallbackImg ? `<img src="${buildProxyUrl(fallbackImg)}" alt="hero" style="max-width:100%;border-radius:12px;margin-bottom:20px"/>` : ''}<h1 style="font-size:32px;margin-bottom:8px">Gegenereerde App</h1><p>${escapeHtml(prompt)}</p></div></div>`,
             css: '',
@@ -573,7 +532,6 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de UI
               if (!c) continue;
               if (lower.includes(c.toLowerCase())) return true;
             }
-            // fallback heuristics
             if (/(class=["'][^"']*(hero|background|jumbo|hero-image)[^"']*["'])/.test(parsed.html)) return true;
             if (/<img[^>]+src=["']https?:\/\/[^"']+["'][^>]*>/i.test(parsed.html)) return true;
             if (/background-image\s*:\s*url\(/i.test(parsed.html)) return true;
@@ -581,8 +539,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de UI
           })();
 
           if (!hasChosenBg) {
-            // attempt to use chosenBackground or fallbacks if primary fails to load in client
-            const bgToUse = buildProxyUrl(chosenBackground) || buildProxyUrl(explicitSteak) || (fallbacks && buildProxyUrl(fallbacks[0])) || '';
+            const bgToUse = buildProxyUrl(chosenBackground) || (fallbacks && buildProxyUrl(fallbacks[0])) || '';
             if (bgToUse) {
               if (/<body[^>]*>/i.test(parsed.html)) {
                 parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n<div class="w-full h-96 overflow-hidden"><img src="${bgToUse}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n`);
