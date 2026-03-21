@@ -1,5 +1,7 @@
 // server.js (final, volledig en opgeschoond)
 // Functies: auth, uploads, projecten, Groq AI-calls, No-Fail foto-injectie, Resend notificaties, uitgebreide debug-logging
+// Toegevoegd: food keyword mapping, project-level background persist, image proxy endpoint (optioneel via PROXY_IMAGES)
+// Zorg dat je env vars instelt: API_KEY, BACKEND_ORIGIN, PROXY_IMAGES (true/false), MONGODB_URI, RESEND_API_KEY, JWT_SECRET
 
 const express = require('express');
 const cors = require('cors');
@@ -31,8 +33,9 @@ const API_KEY = process.env.API_KEY || ''; // jouw Groq key (gsk_...)
 const AI_API_URL = process.env.AI_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
 const AI_MODEL = process.env.AI_MODEL || 'llama-3.3-70b-versatile'; // Groq model
 const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_default_jwt_secret_change_me';
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null;
+const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null; // zet dit naar je deployed backend (bv https://kavrix.onrender.com)
 const PORT = process.env.PORT || 3000;
+const PROXY_IMAGES = (process.env.PROXY_IMAGES || 'true').toLowerCase() === 'true';
 
 if (!API_KEY) console.warn('API_KEY niet ingesteld in .env - AI-calls zullen falen.');
 
@@ -62,7 +65,7 @@ const ProjectSchema = new mongoose.Schema({
     css: { type: String, default: '' },
     js: { type: String, default: '' }
   },
-  assets: [{ name: String, url: String }],
+  assets: [{ name: String, url: String }], // background wordt hier persistent opgeslagen
   updatedAt: { type: Date, default: Date.now }
 });
 const Project = mongoose.models.Project || mongoose.model('Project', ProjectSchema);
@@ -135,7 +138,83 @@ function escapeHtml(unsafe) {
   });
 }
 
+// --------------------
+// IMAGE & FOOD LOGIC
+// --------------------
+
+// Map some common food keywords to explicit seeds (Picsum) — consistent and controllable.
+const FOOD_SEED_MAP = {
+  'biefstuk': 'steak',
+  'steak': 'steak',
+  'patat': 'fries',
+  'friet': 'fries',
+  'fries': 'fries',
+  'pizza': 'pizza',
+  'burger': 'burger',
+  'pasta': 'pasta',
+  'salade': 'salad',
+  'salad': 'salad',
+  'dessert': 'dessert'
+};
+
+// Utility: build proxy URL (if enabled)
+function buildProxyUrl(originalUrl) {
+  if (!PROXY_IMAGES) return originalUrl;
+  if (!BACKEND_ORIGIN) {
+    console.warn('PROXY_IMAGES is true but BACKEND_ORIGIN is not set — proxy disabled.');
+    return originalUrl;
+  }
+  return `${BACKEND_ORIGIN.replace(/\/$/, '')}/proxy?url=${encodeURIComponent(originalUrl)}`;
+}
+
+// Create asset URLs based on prompt and existing project assets
+function createAssetsFromPrompt(prompt) {
+  const cleaned = (prompt || '').toLowerCase().replace(/[^\w\s]/gi, '');
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  let foundFood = null;
+  for (const w of words) {
+    if (FOOD_SEED_MAP[w]) { foundFood = FOOD_SEED_MAP[w]; break; }
+  }
+
+  // If a specific food keyword found, use that seed to get consistent image
+  const seedForDynamic = foundFood ? `${foundFood}_food` : (words[0] || `kavrix_${Math.floor(Math.random()*10000)}`);
+
+  // Picsum seeded image (consistent)
+  const dynamicPhoto = `https://picsum.photos/seed/${encodeURIComponent(seedForDynamic)}/1400/900`;
+
+  // explicit steak backup seed (for cases when 'biefstuk' specifically requested)
+  const explicitSteak = `https://picsum.photos/seed/steak_food/1400/900`;
+
+  // Logo via DiceBear initials (SVG) — betrouwbaar en snel
+  const firstWord = (cleaned.split(' ')[0] || 'K').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const logo = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(firstWord)}&size=256&radius=12&backgroundType=gradient&backgroundColor=0080ff`;
+
+  return { dynamicPhoto, explicitSteak, logo, foundFood, seedForDynamic };
+}
+
+// Proxy endpoint to fetch remote images via your backend (helpt CSP/hotlink issues)
+app.get('/proxy', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') return res.status(400).send('Missing url');
+    const decoded = decodeURIComponent(url);
+    if (!/^https?:\/\//i.test(decoded)) return res.status(400).send('Invalid url');
+    if (/localhost|127\.0\.0\.1|::1/.test(decoded)) return res.status(400).send('Forbidden url');
+
+    const r = await axios.get(decoded, { responseType: 'stream', timeout: 20000 });
+    const contentType = r.headers['content-type'] || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    r.data.pipe(res);
+  } catch (e) {
+    console.error('Proxy error:', e?.message || e);
+    res.status(500).send('Proxy failed');
+  }
+});
+
+// --------------------
 // Auth endpoints
+// --------------------
 app.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -214,24 +293,80 @@ async function ensureProject(userId, projectId, nameHint) {
   return p;
 }
 
-// Utility: create asset URLs (IMPROVED)
-// Vervangt source.unsplash.com / images.unsplash.com door picsum + DiceBear (zeer betrouwbaar in previews)
-function createAssetsFromPrompt(prompt) {
-  const cleaned = (prompt || '').toLowerCase().replace(/[^\w\s]/gi, '');
-  const words = cleaned.split(/\s+/).filter(Boolean).filter(w => w.length > 2);
-  const seed = words[0] || `kavrix_${Math.floor(Math.random()*10000)}`;
+// ------------------------------------------------------------------
+// Helper: enforce that AI output contains required items and inject if missing
+// ------------------------------------------------------------------
+function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAssets) {
+  parsed.html = parsed.html || '';
+  parsed.css = parsed.css || '';
+  parsed.js = parsed.js || '';
+  parsed.verbatim_prompt = parsed.verbatim_prompt || '';
 
-  // Picsum seeded image (zeer betrouwbaar)
-  const dynamicPhoto = `https://picsum.photos/seed/${encodeURIComponent(seed)}/1400/900`;
+  // 1) Verbatim prompt enforcement
+  try {
+    const cleanedPrompt = (prompt || '').trim();
+    if (parsed.verbatim_prompt !== cleanedPrompt) {
+      const promptNotice = `<div style="background:#0b1220;color:#fff;padding:12px;border-left:4px solid #fb923c;font-family:Inter,system-ui,sans-serif;">
+        <strong>Opdracht (geforceerd):</strong> ${escapeHtml(cleanedPrompt)}
+      </div>`;
+      if (/<body[^>]*>/i.test(parsed.html)) {
+        parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n${promptNotice}\n`);
+      } else {
+        parsed.html = promptNotice + '\n' + parsed.html;
+      }
+      parsed.verbatim_prompt = cleanedPrompt;
+    }
+  } catch (e) {
+    console.warn('Verbatim enforcement failed:', e?.message || e);
+  }
 
-  // Steak fallback (picsum seed 'steak')
-  const explicitSteak = `https://picsum.photos/seed/steak/1400/900`;
+  // 2) Ensure chosen background is present in HTML. If not, inject explicit hero section that uses it.
+  try {
+    if (chosenBackground) {
+      const containsBg = parsed.html.includes(chosenBackground);
+      if (!containsBg) {
+        const hero = `
+          <div style="width:100%;height:60vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+            <img src="${buildProxyUrl(chosenBackground)}" alt="Hero" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"/>
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.55));"></div>
+            <div style="position:relative;z-index:3;padding:28px;color:#fff;max-width:1100px;text-align:center;">
+              <h1 style="font-size:clamp(28px,6vw,64px);margin:0 0 12px;font-weight:700;">${escapeHtml((prompt || '').split('\n')[0] || '')}</h1>
+              <p style="opacity:0.95;margin:0 0 18px;">${escapeHtml((prompt || '').slice(0,120) || '')}</p>
+            </div>
+          </div>
+        `;
+        if (/<body[^>]*>/i.test(parsed.html)) {
+          parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n${hero}\n`);
+        } else {
+          parsed.html = hero + '\n' + parsed.html;
+        }
+      }
+      if (!mergedAssets.find(a => a.url === chosenBackground)) {
+        mergedAssets.push({ name: 'background', url: chosenBackground });
+      }
+    }
+  } catch (e) {
+    console.warn('Background injection failed:', e?.message || e);
+  }
 
-  // Logo via DiceBear initials (SVG) — betrouwbaar en snel
-  const firstWord = (cleaned.split(' ')[0] || 'K').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const logo = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(firstWord)}&size=256&radius=12&backgroundType=gradient&backgroundColor=0080ff`;
+  // 3) Proxy images if PROXY_IMAGES enabled (replace absolute image urls)
+  try {
+    if (PROXY_IMAGES) {
+      parsed.html = parsed.html.replace(/(<img[^>]+src=['"])(https?:\/\/[^'"]+)(['"][^>]*>)/gi, (m, p1, url, p3) => {
+        const prox = buildProxyUrl(url);
+        return `${p1}${prox}${p3}`;
+      });
+      parsed.html = parsed.html.replace(/url\((https?:\/\/[^)]+)\)/gi, (m, url) => {
+        const clean = url.replace(/^["']|["']$/g, '');
+        const prox = buildProxyUrl(clean);
+        return `url(${prox})`;
+      });
+    }
+  } catch (e) {
+    console.warn('Image proxy replacement failed:', e?.message || e);
+  }
 
-  return { dynamicPhoto, explicitSteak, logo };
+  return { parsed, mergedAssets };
 }
 
 // GENERATE endpoint (AI) - Groq-ready + asset injection + debug logging + No-Fail injection
@@ -265,19 +400,40 @@ app.post('/generate', authMiddleware, async (req, res) => {
       : '';
 
     // Create generated assets (Picsum + DiceBear)
-    const { dynamicPhoto, explicitSteak, logo } = createAssetsFromPrompt(prompt);
+    const { dynamicPhoto, explicitSteak, logo, foundFood, seedForDynamic } = createAssetsFromPrompt(prompt);
 
-    // Build the system message with enforced asset usage
+    // Decide chosenBackground (persisted) BEFORE AI call:
+    // Priority:
+    // 1) If project already had a background asset -> use that
+    // 2) If foundFood -> use food-specific seed URL
+    // 3) Else use dynamicPhoto
+    let chosenBackground = null;
+    const existingBg = mergedAssets.find(a => (a.name || '').toLowerCase().includes('background') || (a.name || '').toLowerCase().includes('hero'));
+    if (existingBg && existingBg.url) {
+      chosenBackground = existingBg.url;
+    } else if (foundFood) {
+      chosenBackground = `https://picsum.photos/seed/${encodeURIComponent(foundFood + '_food')}/1400/900`;
+      mergedAssets.push({ name: 'background', url: chosenBackground });
+    } else {
+      chosenBackground = dynamicPhoto;
+      // do NOT push dynamicPhoto forcibly unless we want to persist each generation; still include as asset for fallback
+      if (!mergedAssets.find(a => a.url === dynamicPhoto)) {
+        mergedAssets.push({ name: 'background', url: dynamicPhoto });
+      }
+    }
+
+    // Build the system message with enforced asset usage (use chosenBackground)
     const systemMessage = `Je bent KAVRIX PRO AI, een expert frontend developer en designer.
-OUTPUT ALTIJD EEN GELDIG JSON OBJECT: {"html":"...","css":"...","js":"..."}.
+OUTPUT ALTIJD EEN GELDIG JSON OBJECT: {"html":"...","css":"...","js":"...","verbatim_prompt":"..."}.
 
 BELANGRIJK (asset verplichtingen):
 - Gebruik DE VOLGENDE ASSETS in de gegenereerde code (toon ze prominent):
   - Logo URL: ${logo}
-  - Hoofdfoto URL: ${dynamicPhoto}
-- Als de gebruiker expliciet om een biefstuk vroeg, gebruik dan deze expliciete biefstuk-afbeelding: ${explicitSteak}
+  - Hoofdfoto URL (moet gebruikt worden): ${chosenBackground}
+- Als de gebruiker expliciet om een biefstuk vroeg, geef prioriteit aan de expliciete biefstuk-afbeelding: ${explicitSteak}
 - Als er "Beschikbare assets" zijn (zie volgende tekst), gebruik die URL's prioriteit.
 - De tekst in de app moet exact overeenkomen met de opdracht van de gebruiker.
+- Voeg een veld "verbatim_prompt" toe in het JSON output met exact de prompt van de gebruiker.
 - Gebruik Tailwind CSS (via <script src="https://cdn.tailwindcss.com"></script> in de head).
 - Geef GEEN extra tekst buiten het JSON-object.`;
 
@@ -318,7 +474,6 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
         try {
           aiResponse = await axios.post(AI_API_URL, aiReq, { headers, timeout: 120000 });
         } catch (callErr) {
-          // If Groq returns 4xx/5xx, axios throws — capture details for debugging and store in project
           const status = callErr.response?.status;
           const data = callErr.response?.data;
           console.error('AI call failed:', status, data || callErr.message);
@@ -326,7 +481,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           const errorHtml = `<div style="padding:24px;color:#fff;background:#111827"><h3>AI Generatie Fout (API call)</h3><pre style="white-space:pre-wrap;color:#f87171">Status: ${status || 'unknown'}\n${escapeHtml(JSON.stringify(data || callErr.message, null, 2))}</pre></div>`;
           await Project.findByIdAndUpdate(project._id, {
             files: { html: errorHtml, css: '', js: '' },
-            assets: [{ name: 'Main Photo', url: dynamicPhoto }, { name: 'Logo', url: logo }],
+            assets: [{ name: 'Main Photo', url: chosenBackground }, { name: 'Logo', url: logo }],
             updatedAt: new Date()
           }).exec();
           return;
@@ -350,11 +505,12 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
 
         if (!parsed) {
           console.warn('AI response not valid JSON. Using fallback.');
-          const fallbackImg = (mergedAssets[0] && mergedAssets[0].url) || dynamicPhoto || explicitSteak;
+          const fallbackImg = (mergedAssets[0] && mergedAssets[0].url) || chosenBackground || explicitSteak;
           parsed = {
-            html: `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111827;color:#fff;padding:40px;font-family:Inter,system-ui,sans-serif;"><div style="max-width:900px;text-align:center;">${fallbackImg ? `<img src="${fallbackImg}" alt="hero" style="max-width:100%;border-radius:12px;margin-bottom:20px"/>` : ''}<h1 style="font-size:32px;margin-bottom:8px">Gegenereerde App</h1><p>${escapeHtml(prompt)}</p></div></div>`,
+            html: `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111827;color:#fff;padding:40px;font-family:Inter,system-ui,sans-serif;"><div style="max-width:900px;text-align:center;">${fallbackImg ? `<img src="${buildProxyUrl(fallbackImg)}" alt="hero" style="max-width:100%;border-radius:12px;margin-bottom:20px"/>` : ''}<h1 style="font-size:32px;margin-bottom:8px">Gegenereerde App</h1><p>${escapeHtml(prompt)}</p></div></div>`,
             css: '',
-            js: ''
+            js: '',
+            verbatim_prompt: prompt
           };
         }
 
@@ -362,16 +518,16 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
         parsed.html = parsed.html || '';
         parsed.css = parsed.css || '';
         parsed.js = parsed.js || '';
+        parsed.verbatim_prompt = parsed.verbatim_prompt || '';
 
-        // --- NO-FAIL PHOTO & LOGO INJECTIE ---
+        // --- NO-FAIL PHOTO & LOGO INJECTIE (extra safety) ---
         try {
-          const hasDynamicPhoto = parsed.html.includes(dynamicPhoto) || parsed.html.includes(explicitSteak);
-          if (!hasDynamicPhoto) {
+          const hasChosenBg = parsed.html.includes(chosenBackground) || parsed.html.includes(explicitSteak);
+          if (!hasChosenBg) {
             if (/<body[^>]*>/i.test(parsed.html)) {
-              parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n<div class="w-full h-96 overflow-hidden"><img src="${dynamicPhoto}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n`);
+              parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n<div class="w-full h-96 overflow-hidden"><img src="${buildProxyUrl(chosenBackground)}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n`);
             } else {
-              // no body tag — prepend hero
-              parsed.html = `<div class="w-full h-96 overflow-hidden"><img src="${dynamicPhoto}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n` + parsed.html;
+              parsed.html = `<div class="w-full h-96 overflow-hidden"><img src="${buildProxyUrl(chosenBackground)}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n` + parsed.html;
             }
           }
           // Ensure logo appears; if not present, inject a small header with the logo
@@ -387,13 +543,22 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           console.warn('Injectie fout:', injectErr?.message || injectErr);
         }
 
+        // --- ENFORCEMENT: verbatim + background + proxy replacements ---
+        try {
+          const enforcement = ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAssets);
+          parsed = enforcement.parsed;
+        } catch (e) {
+          console.warn('Enforcement step failed:', e?.message || e);
+        }
+
+        // Save final parsed and assets
         await Project.findByIdAndUpdate(project._id, {
           files: {
             html: parsed.html,
             css: parsed.css,
             js: parsed.js
           },
-          assets: [{ name: 'Main Photo', url: dynamicPhoto }, { name: 'Logo', url: logo }],
+          assets: mergedAssets.map(a => ({ name: a.name, url: a.url })),
           updatedAt: new Date()
         }).exec();
 
@@ -460,5 +625,5 @@ app.delete('/project/:id', authMiddleware, async (req, res) => {
 app.get('/', (req, res) => res.send('KAVRIX PRO API Online'));
 
 app.listen(PORT, () => {
-  console.log(`Server draait op poort ${PORT} - BACKEND_ORIGIN=${BACKEND_ORIGIN || 'not-set'}`);
+  console.log(`Server draait op poort ${PORT} - BACKEND_ORIGIN=${BACKEND_ORIGIN || 'not-set'} - PROXY_IMAGES=${PROXY_IMAGES}`);
 });
