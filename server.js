@@ -215,25 +215,22 @@ async function ensureProject(userId, projectId, nameHint) {
 }
 
 // Utility: create asset URLs (IMPROVED)
-// Vervangt source.unsplash.com door stabielere images.unsplash.com link + cache-bust via sig/random
+// Vervangt source.unsplash.com / images.unsplash.com door picsum + DiceBear (zeer betrouwbaar in previews)
 function createAssetsFromPrompt(prompt) {
-  // Clean prompt for keywords
   const cleaned = (prompt || '').toLowerCase().replace(/[^\w\s]/gi, '');
-  const words = cleaned.split(/\s+/).filter(Boolean).filter(w => w.length > 3);
-  const keyword = words[0] || 'business';
+  const words = cleaned.split(/\s+/).filter(Boolean).filter(w => w.length > 2);
+  const seed = words[0] || `kavrix_${Math.floor(Math.random()*10000)}`;
 
-  // Stabiele Unsplash CDN foto (generieke, goed-werkende foto) + cache-bust param
-  // We kiezen een betrouwbare image id; sig zorgt voor frisse variant en voorkomt caching issues in some previews.
-  const dynamicPhoto = `https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1400&q=80&sig=${Math.floor(Math.random()*1000000)}`;
+  // Picsum seeded image (zeer betrouwbaar)
+  const dynamicPhoto = `https://picsum.photos/seed/${encodeURIComponent(seed)}/1400/900`;
 
-  // Specifieke biefstuk foto als backup
-  const explicitSteak = 'https://images.unsplash.com/photo-1546241072-48010ad28c2c?auto=format&fit=crop&w=1400&q=80';
+  // Steak fallback (picsum seed 'steak')
+  const explicitSteak = `https://picsum.photos/seed/steak/1400/900`;
 
-  // Logo via ui-avatars (deze werkt altijd); gebruik eerste woord of K
+  // Logo via DiceBear initials (SVG) — betrouwbaar en snel
   const firstWord = (cleaned.split(' ')[0] || 'K').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const logo = `https://ui-avatars.com/api/?name=${encodeURIComponent(firstWord)}&background=0D8ABC&color=fff&size=256&bold=true`;
+  const logo = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(firstWord)}&size=256&radius=12&backgroundType=gradient&backgroundColor=0080ff`;
 
-  // Als je liever wilt kun je hier later picsum.photos of een andere CDN gebruiken afhankelijk van keywords.
   return { dynamicPhoto, explicitSteak, logo };
 }
 
@@ -267,7 +264,7 @@ app.post('/generate', authMiddleware, async (req, res) => {
       ? '\nBeschikbare assets (gebruik bij voorkeur deze absolute URL\'s voor afbeeldingen):\n' + mergedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') + '\n'
       : '';
 
-    // Create generated assets (Unsplash + UI Avatar)
+    // Create generated assets (Picsum + DiceBear)
     const { dynamicPhoto, explicitSteak, logo } = createAssetsFromPrompt(prompt);
 
     // Build the system message with enforced asset usage
