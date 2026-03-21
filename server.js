@@ -35,7 +35,7 @@ const AI_MODEL = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
 const JWT_SECRET = process.env.JWT_SECRET || 'kavrix_default_jwt_secret_change_me';
 const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || null;
 const PORT = process.env.PORT || 3000;
-// Default PROXY_IMAGES to false for Unsplash reliability; let env override
+// PROXY_IMAGES default false; zet op 'true' in env als je images via /proxy wilt laten lopen
 const PROXY_IMAGES = (process.env.PROXY_IMAGES || 'false').toLowerCase() === 'true';
 
 if (!API_KEY) console.warn('API_KEY niet ingesteld - AI-calls zullen falen (verwacht).');
@@ -141,7 +141,7 @@ function escapeHtml(unsafe) {
 }
 
 // --------------------
-// IMAGE & FOOD LOGIC (Unsplash + ui-avatars)
+// IMAGE & FOOD LOGIC (LoremFlickr / Picsum + ui-avatars)
 // --------------------
 const FOOD_SEED_MAP = {
   'biefstuk': 'steak',
@@ -166,6 +166,7 @@ function buildProxyUrl(originalUrl) {
   return `${BACKEND_ORIGIN.replace(/\/$/, '')}/proxy?url=${encodeURIComponent(originalUrl)}`;
 }
 
+// Create multiple candidate asset URLs for reliability (primary + fallback)
 function createAssetsFromPrompt(prompt) {
   const cleaned = (prompt || '').toLowerCase();
   const words = cleaned.replace(/[^\w\s]/gi, '').split(/\s+/).filter(Boolean);
@@ -175,30 +176,45 @@ function createAssetsFromPrompt(prompt) {
     if (FOOD_SEED_MAP[w]) { foundFood = FOOD_SEED_MAP[w]; break; }
   }
 
-  let query = 'restaurant';
+  let mainQuery = 'restaurant';
   if (foundFood) {
     const map = {
-      steak: 'steak-dinner,steak,grilled-steak',
-      fries: 'french-fries,fries',
-      pizza: 'pizza,neapolitan-pizza',
-      burger: 'gourmet-burger,burger',
-      pasta: 'pasta,noodles',
-      salad: 'salad,healthy-salad',
-      dessert: 'dessert,cake'
+      steak: 'steak',
+      fries: 'fries',
+      pizza: 'pizza',
+      burger: 'burger',
+      pasta: 'pasta',
+      salad: 'salad',
+      dessert: 'dessert'
     };
-    query = map[foundFood] || foundFood;
+    mainQuery = map[foundFood] || foundFood;
   } else if (words.length > 0) {
-    query = words[0];
+    mainQuery = words[0];
   }
 
-  // Unsplash Source for relevant images (no API key required)
-  const dynamicPhoto = `https://source.unsplash.com/featured/1400x900?${encodeURIComponent(query)}&sig=${Math.floor(Math.random()*10000)}`;
-  const explicitSteak = `https://source.unsplash.com/featured/1400x900?steak&sig=${Math.floor(Math.random()*10000)}`;
+  // Primary (loremflickr) - supports tags
+  const primary = `https://loremflickr.com/1400/900/${encodeURIComponent(mainQuery)}?lock=${Math.floor(Math.random()*100000)}`;
+  // Fallback 1: picsum (random image, no query but stable seed)
+  const picsum = `https://picsum.photos/seed/${encodeURIComponent(mainQuery)}-` + Math.floor(Math.random()*100000) + `/1400/900`;
+  // Fallback 2: placeholder (guaranteed)
+  const placeholder = `https://placehold.co/1400x900/111827/ffffff.png?text=${encodeURIComponent(mainQuery)}`;
 
+  // explicit steak image (when user asked for steak) using loremflickr steak tag
+  const explicitSteak = `https://loremflickr.com/1400/900/steak?lock=${Math.floor(Math.random()*100000)}`;
+
+  // Logo via ui-avatars
   const firstWord = (words[0] || 'K').toUpperCase().substring(0, 2).replace(/[^A-Z0-9]/g, '') || 'KV';
   const logo = `https://ui-avatars.com/api/?name=${encodeURIComponent(firstWord)}&background=fb923c&color=fff&size=128&bold=true`;
 
-  return { dynamicPhoto, explicitSteak, logo, foundFood, seedForDynamic: query };
+  // Return ordered list (primary first)
+  return {
+    primary,
+    fallbacks: [picsum, placeholder],
+    explicitSteak,
+    logo,
+    foundFood,
+    seedForDynamic: mainQuery
+  };
 }
 
 // Proxy endpoint (optioneel)
@@ -302,7 +318,21 @@ async function ensureProject(userId, projectId, nameHint) {
   return p;
 }
 
-// Enforcement & injection helper
+// Utility: ensure Tailwind is injected
+function ensureTailwind(parsed) {
+  try {
+    if (!parsed.html) return parsed;
+    const hasTailwind = /cdn\.tailwindcss\.com|tailwindcss/i.test(parsed.html);
+    if (!hasTailwind) {
+      parsed.html = `<script src="https://cdn.tailwindcss.com"></script>\n` + parsed.html;
+    }
+  } catch (e) {
+    console.warn('Tailwind injection failed:', e?.message || e);
+  }
+  return parsed;
+}
+
+// Enforcement & injection helper (met robuuste hero detectie)
 function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAssets) {
   parsed.html = parsed.html || '';
   parsed.css = parsed.css || '';
@@ -326,14 +356,33 @@ function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAsset
     console.warn('Verbatim enforcement failed:', e?.message || e);
   }
 
+  // Hero detection: controleer of parsed.html al een grote <img> of background-image bevat
+  function hasHeroImage(html, candidates) {
+    if (!html) return false;
+    // check for img tags pointing to candidate urls
+    const lower = html.toLowerCase();
+    for (const c of candidates) {
+      if (!c) continue;
+      if (lower.includes(c.toLowerCase())) return true;
+    }
+    // heuristics: presence of 'hero'/'background' classes/ids or large background-image usages
+    if (/(class=["'][^"']*(hero|background|jumbo|hero-image)[^"']*["'])/.test(html)) return true;
+    if (/background-image\s*:\s*url\(/i.test(html)) return true;
+    if (/<img[^>]+class=["'][^"']*(w-full|h-full|object-cover|hero)[^"']*["']/i.test(html)) return true;
+    return false;
+  }
+
   try {
     if (chosenBackground) {
-      const containsBg = parsed.html.includes(chosenBackground);
+      const candidates = [chosenBackground].concat((mergedAssets || []).map(a => a.url).filter(Boolean));
+      const containsBg = hasHeroImage(parsed.html, candidates);
       if (!containsBg) {
+        // inject hero with the first reachable background from candidates
+        const bg = buildProxyUrl(chosenBackground);
         const hero = `
           <div style="width:100%;height:60vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
-            <img src="${buildProxyUrl(chosenBackground)}" alt="Hero" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"/>
-            <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.55));"></div>
+            <img src="${bg}" alt="Hero" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"/>
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.45));"></div>
             <div style="position:relative;z-index:3;padding:28px;color:#fff;max-width:1100px;text-align:center;">
               <h1 style="font-size:clamp(28px,6vw,64px);margin:0 0 12px;font-weight:700;">${escapeHtml((prompt || '').split('\n')[0] || '')}</h1>
               <p style="opacity:0.95;margin:0 0 18px;">${escapeHtml((prompt || '').slice(0,120) || '')}</p>
@@ -354,6 +403,7 @@ function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAsset
     console.warn('Background injection failed:', e?.message || e);
   }
 
+  // Proxy replacement if needed
   try {
     if (PROXY_IMAGES) {
       parsed.html = parsed.html.replace(/(<img[^>]+src=['"])(https?:\/\/[^'"]+)(['"][^>]*>)/gi, (m, p1, url, p3) => {
@@ -370,6 +420,7 @@ function ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAsset
     console.warn('Image proxy replacement failed:', e?.message || e);
   }
 
+  parsed = ensureTailwind(parsed);
   return { parsed, mergedAssets };
 }
 
@@ -403,20 +454,21 @@ app.post('/generate', authMiddleware, async (req, res) => {
       ? '\nBeschikbare assets (gebruik bij voorkeur deze absolute URL\'s voor afbeeldingen):\n' + mergedAssets.map(a => `${a.name} -> ${a.url}`).join('\n') + '\n'
       : '';
 
-    // generate assets
-    const { dynamicPhoto, explicitSteak, logo, foundFood } = createAssetsFromPrompt(prompt);
+    // generate assets (improved)
+    const { primary, fallbacks, explicitSteak, logo, foundFood } = createAssetsFromPrompt(prompt);
 
-    // decide chosenBackground
+    // decide chosenBackground (try existing project asset first)
     let chosenBackground = null;
     const existingBg = mergedAssets.find(a => (a.name || '').toLowerCase().includes('background') || (a.name || '').toLowerCase().includes('hero'));
     if (existingBg && existingBg.url) {
       chosenBackground = existingBg.url;
     } else if (foundFood) {
-      chosenBackground = (foundFood === 'steak') ? explicitSteak : dynamicPhoto;
+      // prefer explicit steak when foundFood === steak
+      chosenBackground = (foundFood === 'steak') ? explicitSteak : primary;
       mergedAssets.push({ name: 'background', url: chosenBackground });
     } else {
-      chosenBackground = dynamicPhoto;
-      if (!mergedAssets.find(a => a.url === dynamicPhoto)) mergedAssets.push({ name: 'background', url: dynamicPhoto });
+      chosenBackground = primary;
+      if (!mergedAssets.find(a => a.url === primary)) mergedAssets.push({ name: 'background', url: primary });
     }
 
     const systemMessage = `Je bent KAVRIX PRO AI, een expert frontend developer en designer.
@@ -499,7 +551,8 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
 
         if (!parsed) {
           console.warn('AI response not valid JSON. Using fallback.');
-          const fallbackImg = (mergedAssets[0] && mergedAssets[0].url) || chosenBackground || explicitSteak;
+          // pick best fallback available (explicitSteak > primary > fallbacks[0])
+          const fallbackImg = explicitSteak || primary || (fallbacks && fallbacks[0]) || '';
           parsed = {
             html: `<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111827;color:#fff;padding:40px;font-family:Inter,system-ui,sans-serif;"><div style="max-width:900px;text-align:center;">${fallbackImg ? `<img src="${buildProxyUrl(fallbackImg)}" alt="hero" style="max-width:100%;border-radius:12px;margin-bottom:20px"/>` : ''}<h1 style="font-size:32px;margin-bottom:8px">Gegenereerde App</h1><p>${escapeHtml(prompt)}</p></div></div>`,
             css: '',
@@ -516,16 +569,35 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
 
         // NO-FAIL injectie: forceer achtergrond en logo als AI ze vergeet
         try {
-          const hasChosenBg = parsed.html.includes(chosenBackground) || parsed.html.includes(explicitSteak);
+          const candidates = [chosenBackground].concat((mergedAssets || []).map(a => a.url).filter(Boolean));
+          const hasChosenBg = (() => {
+            const lower = (parsed.html || '').toLowerCase();
+            for (const c of candidates) {
+              if (!c) continue;
+              if (lower.includes(c.toLowerCase())) return true;
+            }
+            // fallback heuristics
+            if (/(class=["'][^"']*(hero|background|jumbo|hero-image)[^"']*["'])/.test(parsed.html)) return true;
+            if (/<img[^>]+src=["']https?:\/\/[^"']+["'][^>]*>/i.test(parsed.html)) return true;
+            if (/background-image\s*:\s*url\(/i.test(parsed.html)) return true;
+            return false;
+          })();
+
           if (!hasChosenBg) {
-            if (/<body[^>]*>/i.test(parsed.html)) {
-              parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n<div class="w-full h-96 overflow-hidden"><img src="${buildProxyUrl(chosenBackground)}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n`);
-            } else {
-              parsed.html = `<div class="w-full h-96 overflow-hidden"><img src="${buildProxyUrl(chosenBackground)}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n` + parsed.html;
+            // attempt to use chosenBackground or fallbacks if primary fails to load in client
+            const bgToUse = buildProxyUrl(chosenBackground) || buildProxyUrl(explicitSteak) || (fallbacks && buildProxyUrl(fallbacks[0])) || '';
+            if (bgToUse) {
+              if (/<body[^>]*>/i.test(parsed.html)) {
+                parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n<div class="w-full h-96 overflow-hidden"><img src="${bgToUse}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n`);
+              } else {
+                parsed.html = `<div class="w-full h-96 overflow-hidden"><img src="${bgToUse}" alt="Hero" class="w-full h-full object-cover" style="object-fit:cover;"/></div>\n` + parsed.html;
+              }
             }
           }
 
-          if (!parsed.html.includes(logo)) {
+          // Ensure logo appears; if not present, inject a small header with the logo
+          const hasLogo = parsed.html.includes(logo) || /<svg[^>]+class=["'][^"']*logo[^"']*["']/.test(parsed.html);
+          if (!hasLogo) {
             const logoHeader = `<header style="display:flex;align-items:center;gap:12px;padding:16px 20px;"><img src="${logo}" alt="Logo" style="width:48px;height:48px;border-radius:8px;object-fit:cover;"/><div style="font-weight:700">${escapeHtml((prompt || '').split(' ')[0] || 'Kavrix')}</div></header>`;
             if (/<body[^>]*>/i.test(parsed.html)) {
               parsed.html = parsed.html.replace(/<body[^>]*>/i, match => `${match}\n${logoHeader}\n`);
@@ -537,7 +609,7 @@ Genereer een single-page app met HTML, CSS en JS in JSON-formaat. Zorg dat de te
           console.warn('Injectie fout:', injectErr?.message || injectErr);
         }
 
-        // enforcement (verbatim prompt, background presence, proxy urls)
+        // enforcement (verbatim prompt, background presence, proxy urls, tailwind)
         try {
           const enforcement = ensureComplianceAndInject(parsed, prompt, chosenBackground, mergedAssets);
           parsed = enforcement.parsed;
